@@ -1,0 +1,21 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+out/
+
+# Gradle
+.gradle/
+build/
+
+# Compiled Java class files
+*.class
+*.jar
+*.war
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
