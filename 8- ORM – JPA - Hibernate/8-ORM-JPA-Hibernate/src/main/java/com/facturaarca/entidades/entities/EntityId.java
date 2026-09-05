@@ -1,4 +1,4 @@
-package com.facturaarca.entidades;
+package com.facturaarca.entidades.entities;
 
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,8 +12,10 @@ public abstract class EntityId {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     protected Long id;
 
+
     public EntityId() {
     }
+
 
     public Long getId() {
         return id;
