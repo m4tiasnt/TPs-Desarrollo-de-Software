@@ -10,6 +10,10 @@ public class Domicilio extends EntityId {
     private String numeroCalle;
 
 
+    public Domicilio() {
+    }
+
+
     public Domicilio(String nombreCalle, String numeroCalle) {
         this.nombreCalle = nombreCalle;
         this.numeroCalle = numeroCalle;
