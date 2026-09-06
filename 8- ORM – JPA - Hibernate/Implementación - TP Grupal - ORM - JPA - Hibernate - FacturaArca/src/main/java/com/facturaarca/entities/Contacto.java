@@ -1,4 +1,4 @@
-package com.facturaarca.entidades.entities;
+package com.facturaarca.entities;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

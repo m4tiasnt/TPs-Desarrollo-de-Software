@@ -1,12 +1,12 @@
-package com.facturaarca.entidades.entities;
+package com.facturaarca.entities;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "condiciones_iva")
-public class CondicionIva extends AuditoriaApp {
+@Table(name = "tipos_moneda")
+public class TipoMoneda extends AuditoriaApp {
 
     @Column(name = "codigo_afip", nullable = false, unique = true)
     private String codigoAfip;
@@ -14,8 +14,11 @@ public class CondicionIva extends AuditoriaApp {
     @Column(nullable = false)
     private String denominacion;
 
+    @Column(nullable = false)
+    private String simbolo;
 
-    public CondicionIva() {
+
+    public TipoMoneda() {
     }
 
 
@@ -33,5 +36,13 @@ public class CondicionIva extends AuditoriaApp {
 
     public void setDenominacion(String denominacion) {
         this.denominacion = denominacion;
+    }
+
+    public String getSimbolo() {
+        return simbolo;
+    }
+
+    public void setSimbolo(String simbolo) {
+        this.simbolo = simbolo;
     }
 }

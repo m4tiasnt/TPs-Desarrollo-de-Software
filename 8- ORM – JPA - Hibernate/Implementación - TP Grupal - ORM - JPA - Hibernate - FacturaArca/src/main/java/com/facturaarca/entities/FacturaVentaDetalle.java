@@ -1,4 +1,4 @@
-package com.facturaarca.entidades.entities;
+package com.facturaarca.entities;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
