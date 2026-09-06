@@ -1,4 +1,38 @@
 package com.facturaarca.entidades.entities;
 
-public class AuditoriaApp {
+import jakarta.persistence.Column;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import java.util.Date;
+
+@MappedSuperclass
+public abstract class AuditoriaApp extends EntityId {
+
+    @Column(name = "fecha_creacion", updatable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date fechaCreacion;
+
+    @Column(name = "fecha_modificacion")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date fechaModificacion;
+
+    public AuditoriaApp() {
+    }
+
+    public Date getFechaCreacion() {
+        return fechaCreacion;
+    }
+
+    public void setFechaCreacion(Date fechaCreacion) {
+        this.fechaCreacion = fechaCreacion;
+    }
+
+    public Date getFechaModificacion() {
+        return fechaModificacion;
+    }
+
+    public void setFechaModificacion(Date fechaModificacion) {
+        this.fechaModificacion = fechaModificacion;
+    }
 }
