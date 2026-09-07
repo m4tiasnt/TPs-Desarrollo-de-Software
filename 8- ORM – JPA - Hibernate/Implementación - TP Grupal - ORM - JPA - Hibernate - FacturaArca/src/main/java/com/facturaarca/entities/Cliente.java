@@ -24,6 +24,13 @@ public class Cliente extends AuditoriaApp {
     public Cliente() {
     }
 
+    public Cliente(String cuitCuil, String denominacion, Contacto contacto, Domicilio domicilio) {
+        super();
+        this.cuitCuil = cuitCuil;
+        this.denominacion = denominacion;
+        this.contacto = contacto;
+        this.domicilio = domicilio;
+    }
 
     public String getCuitCuil() {
         return cuitCuil;

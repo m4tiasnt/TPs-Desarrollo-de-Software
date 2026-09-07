@@ -15,6 +15,7 @@ public class Domicilio extends EntityId {
 
 
     public Domicilio(String nombreCalle, String numeroCalle) {
+        super();
         this.nombreCalle = nombreCalle;
         this.numeroCalle = numeroCalle;
     }

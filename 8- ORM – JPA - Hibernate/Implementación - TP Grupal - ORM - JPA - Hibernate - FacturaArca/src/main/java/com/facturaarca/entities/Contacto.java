@@ -14,6 +14,12 @@ public class Contacto extends EntityId {
     public Contacto() {
     }
 
+    public Contacto(String email, String telefono, String celular) {
+        super();
+        this.email = email;
+        this.telefono = telefono;
+        this.celular = celular;
+    }
 
     public String getEmail() {
         return email;

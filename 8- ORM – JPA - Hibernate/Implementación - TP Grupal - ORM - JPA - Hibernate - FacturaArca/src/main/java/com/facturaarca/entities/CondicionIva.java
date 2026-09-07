@@ -18,6 +18,11 @@ public class CondicionIva extends AuditoriaApp {
     public CondicionIva() {
     }
 
+    public CondicionIva(String codigoAfip, String denominacion) {
+        super();
+        this.codigoAfip = codigoAfip;
+        this.denominacion = denominacion;
+    }
 
     public String getCodigoAfip() {
         return codigoAfip;

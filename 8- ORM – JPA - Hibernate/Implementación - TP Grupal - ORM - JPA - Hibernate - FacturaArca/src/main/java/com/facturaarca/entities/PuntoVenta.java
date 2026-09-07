@@ -23,6 +23,13 @@ public class PuntoVenta extends AuditoriaApp {
     public PuntoVenta() {
     }
 
+    public PuntoVenta(int numero, String descripcion, String tipoEmision, String domicilioComercial) {
+        super();
+        this.numero = numero;
+        this.descripcion = descripcion;
+        this.tipoEmision = tipoEmision;
+        this.domicilioComercial = domicilioComercial;
+    }
 
     public int getNumero() {
         return numero;

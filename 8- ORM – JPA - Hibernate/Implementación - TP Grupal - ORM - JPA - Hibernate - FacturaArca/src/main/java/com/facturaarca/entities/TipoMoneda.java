@@ -21,6 +21,12 @@ public class TipoMoneda extends AuditoriaApp {
     public TipoMoneda() {
     }
 
+    public TipoMoneda(String codigoAfip, String denominacion, String simbolo) {
+        super();
+        this.codigoAfip = codigoAfip;
+        this.denominacion = denominacion;
+        this.simbolo = simbolo;
+    }
 
     public String getCodigoAfip() {
         return codigoAfip;
