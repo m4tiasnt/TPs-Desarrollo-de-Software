@@ -1,5 +1,24 @@
 package com.facturaarca.entities;
 
-public class ListaPrecio {
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
+@Entity
+@Table(name = "listas_precio")
+public class ListaPrecio extends EntityId {
+
+    @Column(nullable = false)
+    private String denominacion;
+
+    public ListaPrecio() {
+    }
+
+    public String getDenominacion() {
+        return denominacion;
+    }
+
+    public void setDenominacion(String denominacion) {
+        this.denominacion = denominacion;
+    }
 }
