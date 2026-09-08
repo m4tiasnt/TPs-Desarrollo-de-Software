@@ -10,17 +10,17 @@ import jakarta.persistence.Table;
 @Table(name = "lista_precio_articulo")
 public class ListaPrecioArticulo extends AuditoriaApp {
 
-    
     @ManyToOne
     @JoinColumn(name = "lista_precio_id", nullable = false)
     private ListaPrecio listaPrecio;
+
+    @Column(nullable = false)
+    private double precioVenta;
 
     @ManyToOne
     @JoinColumn(name = "articulo_id", nullable = false)
     private Articulo articulo;
 
-    @Column(nullable = false)
-    private double precioVenta;
 
     public ListaPrecioArticulo() {
     }
