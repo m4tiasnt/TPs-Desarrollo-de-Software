@@ -49,4 +49,31 @@ public abstract class AuditoriaApp extends EntityId {
     @ManyToOne
     @JoinColumn(name = "usuario_modificacion_id", nullable = false)
     protected Usuario usuarioModificacion;
+
+
+
+    public Usuario getUsuarioCarga() {
+    return usuarioCarga;
 }
+
+public void setUsuarioCarga(Usuario usuarioCarga) {
+    this.usuarioCarga = usuarioCarga;
+}
+
+public Usuario getUsuarioBaja() {
+    return usuarioBaja;
+}
+
+public void setUsuarioBaja(Usuario usuarioBaja) {
+    this.usuarioBaja = usuarioBaja;
+}
+
+public Usuario getUsuarioModificacion() {
+    return usuarioModificacion;
+}
+
+public void setUsuarioModificacion(Usuario usuarioModificacion) {
+    this.usuarioModificacion = usuarioModificacion;
+}
+}
+
