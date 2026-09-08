@@ -13,6 +13,9 @@ public class Articulo extends AuditoriaApp {
     @Column(nullable = false)
     private String denominacion;
 
+    @Column(nullable = false)
+    private String codigo;
+
     @ManyToOne
     @JoinColumn(name = "rubro_id", nullable = false)
     private Rubro rubro;
@@ -46,5 +49,13 @@ public class Articulo extends AuditoriaApp {
 
     public void setMarca(Marca marca) {
         this.marca = marca;
+    }
+
+     public String getCodigo() {
+        return codigo;
+    }
+
+     public void setCodigo(String codigo) {
+        this.codigo = codigo;
     }
 }

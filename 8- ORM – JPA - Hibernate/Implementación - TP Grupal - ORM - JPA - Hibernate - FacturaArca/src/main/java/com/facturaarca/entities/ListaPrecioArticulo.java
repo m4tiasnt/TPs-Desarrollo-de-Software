@@ -8,11 +8,9 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "lista_precio_articulo")
-public class ListaPrecioArticulo extends EntityId {
+public class ListaPrecioArticulo extends AuditoriaApp {
 
-    @Column(name = "nombre")
-    private String nombre;
-
+    
     @ManyToOne
     @JoinColumn(name = "lista_precio_id", nullable = false)
     private ListaPrecio listaPrecio;
@@ -22,17 +20,9 @@ public class ListaPrecioArticulo extends EntityId {
     private Articulo articulo;
 
     @Column(nullable = false)
-    private double precio;
+    private double precioVenta;
 
     public ListaPrecioArticulo() {
-    }
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
     }
 
     public ListaPrecio getListaPrecio() {
@@ -52,10 +42,10 @@ public class ListaPrecioArticulo extends EntityId {
     }
 
     public double getPrecio() {
-        return precio;
+        return precioVenta;
     }
 
-    public void setPrecio(double precio) {
-        this.precio = precio;
+    public void setPrecio(double precioVenta) {
+        this.precioVenta = precioVenta;
     }
 }
