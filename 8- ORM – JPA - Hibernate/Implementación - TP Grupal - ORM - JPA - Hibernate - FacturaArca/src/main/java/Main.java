@@ -34,7 +34,7 @@ public class Main {
 
             // --- Punto de Venta ---
             PuntoVenta puntoVenta = new PuntoVenta(1, "Casa Central", "Electronica", "Av. Siempre Viva 123");
-            puntoVenta.setFechaCreacion(new Date());
+            puntoVenta.setFechaAlta(new Date());
             puntoVenta.setFechaModificacion(new Date());
             puntoVenta.setUsuarioCarga(usuario);
             puntoVenta.setUsuarioModificacion(usuario);
@@ -44,7 +44,7 @@ public class Main {
             Rubro rubro = new Rubro();
             rubro.setDenominacion("Electronica");
             rubro.setCodigo(1);
-            rubro.setFechaCreacion(new Date());
+            rubro.setFechaAlta(new Date());
             rubro.setFechaModificacion(new Date());
             rubro.setUsuarioCarga(usuario);
             rubro.setUsuarioModificacion(usuario);
@@ -54,7 +54,7 @@ public class Main {
             Marca marca = new Marca();
             marca.setDenominacion("Generica");
             marca.setCodigo(1);
-            marca.setFechaCreacion(new Date());
+            marca.setFechaAlta(new Date());
             marca.setFechaModificacion(new Date());
             marca.setUsuarioCarga(usuario);
             marca.setUsuarioModificacion(usuario);
@@ -66,7 +66,7 @@ public class Main {
             articulo.setDenominacion("Mouse Inalambrico");
             articulo.setRubro(rubro);
             articulo.setMarca(marca);
-            articulo.setFechaCreacion(new Date());
+            articulo.setFechaAlta(new Date());
             articulo.setFechaModificacion(new Date());
             articulo.setUsuarioCarga(usuario);
             articulo.setUsuarioModificacion(usuario);
@@ -76,7 +76,7 @@ public class Main {
             ListaPrecio listaPrecio = new ListaPrecio();
             listaPrecio.setCodigo("LP001");
             listaPrecio.setDenominacion("Lista General");
-            listaPrecio.setFechaCreacion(new Date());
+            listaPrecio.setFechaAlta(new Date());
             listaPrecio.setFechaModificacion(new Date());
             listaPrecio.setUsuarioCarga(usuario);
             listaPrecio.setUsuarioModificacion(usuario);
@@ -86,8 +86,7 @@ public class Main {
             ListaPrecioArticulo listaPrecioArticulo = new ListaPrecioArticulo();
             listaPrecioArticulo.setListaPrecio(listaPrecio);
             listaPrecioArticulo.setArticulo(articulo);
-            listaPrecioArticulo.setPrecio(1500.0); // el setter se llama setPrecio, no setPrecioVenta
-            listaPrecioArticulo.setFechaCreacion(new Date());
+            listaPrecioArticulo.setFechaAlta(new Date());
             listaPrecioArticulo.setFechaModificacion(new Date());
             listaPrecioArticulo.setUsuarioCarga(usuario);
             listaPrecioArticulo.setUsuarioModificacion(usuario);
@@ -103,7 +102,7 @@ public class Main {
             facturaVenta.setImporteCobrado(1500.0);
             facturaVenta.setImporteSaldo(0.0);
             facturaVenta.setEstado("EMITIDA");
-            facturaVenta.setFechaCreacion(new Date());
+            facturaVenta.setFechaAlta(new Date());
             facturaVenta.setFechaModificacion(new Date());
             facturaVenta.setUsuarioCarga(usuario);
             facturaVenta.setUsuarioModificacion(usuario);
