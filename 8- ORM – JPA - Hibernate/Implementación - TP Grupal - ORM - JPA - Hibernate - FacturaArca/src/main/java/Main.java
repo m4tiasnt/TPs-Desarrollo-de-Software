@@ -24,7 +24,7 @@ public class Main {
             // Instanciar los objetos necesarios (ej. Usuario, PuntoVenta, Articulo,
             // ListaPrecioArticulo, FacturaVenta, etc.).
 
-            // --- Usuario (necesario para la auditoría de todo lo demás) ---
+            // --- Usuario ---
             Usuario usuario = new Usuario();
             usuario.setNombre("Juan");
             usuario.setApellido("Perez");
