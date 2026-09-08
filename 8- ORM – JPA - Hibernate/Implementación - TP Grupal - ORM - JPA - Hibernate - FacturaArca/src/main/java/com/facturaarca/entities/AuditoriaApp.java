@@ -11,34 +11,19 @@ import java.util.Date;
 @MappedSuperclass
 public abstract class AuditoriaApp extends EntityId {
 
-    @Column(name = "fecha_creacion", updatable = false)
+    @Column(name = "fecha_alta", nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
-    private Date fechaCreacion;
+    protected Date fechaAlta;
 
-    @Column(name = "fecha_modificacion")
+    @Column(name = "fecha_baja")
     @Temporal(TemporalType.TIMESTAMP)
-    private Date fechaModificacion;
+    protected Date fechaBaja;
 
-    public AuditoriaApp() {
-    }
+    @Column(name = "fecha_modificacion", nullable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    protected Date fechaModificacion;
 
-    public Date getFechaCreacion() {
-        return fechaCreacion;
-    }
-
-    public void setFechaCreacion(Date fechaCreacion) {
-        this.fechaCreacion = fechaCreacion;
-    }
-
-    public Date getFechaModificacion() {
-        return fechaModificacion;
-    }
-
-    public void setFechaModificacion(Date fechaModificacion) {
-        this.fechaModificacion = fechaModificacion;
-    }
-
-        @ManyToOne
+    @ManyToOne
     @JoinColumn(name = "usuario_carga_id", nullable = false)
     protected Usuario usuarioCarga;
 
@@ -51,29 +36,56 @@ public abstract class AuditoriaApp extends EntityId {
     protected Usuario usuarioModificacion;
 
 
+    public AuditoriaApp() {
+    }
+
+
+    public Date getFechaAlta() {
+        return fechaAlta;
+    }
+
+    public void setFechaAlta(Date fechaAlta) {
+        this.fechaAlta = fechaAlta;
+    }
+
+    public Date getFechaBaja() {
+        return fechaBaja;
+    }
+
+    public void setFechaBaja(Date fechaBaja) {
+        this.fechaBaja = fechaBaja;
+    }
+
+    public Date getFechaModificacion() {
+        return fechaModificacion;
+    }
+
+    public void setFechaModificacion(Date fechaModificacion) {
+        this.fechaModificacion = fechaModificacion;
+    }
 
     public Usuario getUsuarioCarga() {
-    return usuarioCarga;
-}
+        return usuarioCarga;
+    }
 
-public void setUsuarioCarga(Usuario usuarioCarga) {
-    this.usuarioCarga = usuarioCarga;
-}
+    public void setUsuarioCarga(Usuario usuarioCarga) {
+        this.usuarioCarga = usuarioCarga;
+    }
 
-public Usuario getUsuarioBaja() {
-    return usuarioBaja;
-}
+    public Usuario getUsuarioBaja() {
+        return usuarioBaja;
+    }
 
-public void setUsuarioBaja(Usuario usuarioBaja) {
-    this.usuarioBaja = usuarioBaja;
-}
+    public void setUsuarioBaja(Usuario usuarioBaja) {
+        this.usuarioBaja = usuarioBaja;
+    }
 
-public Usuario getUsuarioModificacion() {
-    return usuarioModificacion;
-}
+    public Usuario getUsuarioModificacion() {
+        return usuarioModificacion;
+    }
 
-public void setUsuarioModificacion(Usuario usuarioModificacion) {
-    this.usuarioModificacion = usuarioModificacion;
-}
+    public void setUsuarioModificacion(Usuario usuarioModificacion) {
+        this.usuarioModificacion = usuarioModificacion;
+    }
 }
 
