@@ -21,6 +21,8 @@
         <class>com.facturaarca.entities.Rubro</class>
         <class>com.facturaarca.entities.TipoMoneda</class>
         <class>com.facturaarca.entities.Usuario</class>
+        <class>com.facturaarca.entities.Cliente</class>
+        <class>com.facturaarca.entities.CondicionIva</class>
 
         <properties>
             <property name="jakarta.persistence.jdbc.driver" value="org.postgresql.Driver"/>
