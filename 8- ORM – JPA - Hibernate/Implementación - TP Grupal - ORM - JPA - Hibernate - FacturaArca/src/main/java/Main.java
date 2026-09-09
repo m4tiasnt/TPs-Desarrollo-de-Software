@@ -42,11 +42,18 @@ public class Main {
             em.persist(condicionIva);
             // --- Cliente
             Contacto contacto = new Contacto();
+            contacto.setCelular("2615863203");
+            contacto.setEmail("empresademo@gmail.com");
+            contacto.setTelefono("49181200");
+
             // Asigna los campos de contacto que correspondan según tu clase Contacto
             em.persist(contacto);
 
             // --- Domicilio (Requerido por Cliente) ---
             Domicilio domicilio = new Domicilio();
+            domicilio.setNombreCalle("famatina");
+            domicilio.setNumeroCalle("900");
+
             // Asigna los campos de domicilio que correspondan según tu clase Domicilio
             em.persist(domicilio);
             Cliente cliente = new Cliente();
