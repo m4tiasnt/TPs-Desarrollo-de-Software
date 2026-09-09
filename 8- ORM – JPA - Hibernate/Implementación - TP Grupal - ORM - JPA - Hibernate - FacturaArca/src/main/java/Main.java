@@ -32,6 +32,34 @@ public class Main {
             usuario.setPassword("1234");
             em.persist(usuario);
 
+            CondicionIva condicionIva = new CondicionIva();
+            condicionIva.setDenominacion("Responsable Inscripto");
+            condicionIva.setCodigoAfip("l");
+            condicionIva.setFechaAlta(new Date());
+            condicionIva.setFechaModificacion(new Date());
+            condicionIva.setUsuarioCarga(usuario);
+            condicionIva.setUsuarioModificacion(usuario);
+            em.persist(condicionIva);
+            // --- Cliente
+            Contacto contacto = new Contacto();
+            // Asigna los campos de contacto que correspondan según tu clase Contacto
+            em.persist(contacto);
+
+            // --- Domicilio (Requerido por Cliente) ---
+            Domicilio domicilio = new Domicilio();
+            // Asigna los campos de domicilio que correspondan según tu clase Domicilio
+            em.persist(domicilio);
+            Cliente cliente = new Cliente();
+            cliente.setDenominacion("Empresa Demo S.A.");
+            cliente.setCuitCuil("30-12345678-9");
+            cliente.setContacto(contacto);
+            cliente.setDomicilio(domicilio);
+            cliente.setFechaAlta(new Date());
+            cliente.setFechaModificacion(new Date());
+            cliente.setUsuarioCarga(usuario);
+            cliente.setUsuarioModificacion(usuario);
+            em.persist(cliente);
+
             // --- Punto de Venta ---
             PuntoVenta puntoVenta = new PuntoVenta(1, "Casa Central", "Electronica", "Av. Siempre Viva 123");
             puntoVenta.setFechaAlta(new Date());
