@@ -21,7 +21,7 @@ public class Main {
             // Iniciar una transacción (em.getTransaction().begin()).
             em.getTransaction().begin();
 
-            // Instanciar los objetos necesarios (ej. Usuario, PuntoVenta, Articulo,
+            // Instanciar los objetos necesarios 
             // ListaPrecioArticulo, FacturaVenta, etc.).
 
             // --- Usuario ---
