@@ -40,8 +40,12 @@ public class Main {
             condicionIva.setUsuarioCarga(usuario);
             condicionIva.setUsuarioModificacion(usuario);
             em.persist(condicionIva);
-            // --- Cliente
+
+            // --- Contacto
             Contacto contacto = new Contacto();
+            contacto.setCelular("2615435314");
+            contacto.setEmail("empresademo@gmail.com");
+            contacto.setTelefono("2610470548");
             // Asigna los campos de contacto que correspondan según tu clase Contacto
             em.persist(contacto);
 
