@@ -5,11 +5,39 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Persistence;
 
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 public class Main {
-    public static void main(String[] args) {
+    private static final boolean CARGAR_DATOS = false; // Cambiar a true para cargar datos de prueba
 
+    public static void main(String[] args) {
+        if (CARGAR_DATOS) {
+            cargarDatosDePrueba();
+        } else {
+            System.out.println("La carga de datos de prueba está deshabilitada. Cambie CARGAR_DATOS a true para habilitarla.");
+        }
+        // Iniciar el contenedor de JPA
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("FacturacionPU");
+        EntityManager em = emf.createEntityManager();
+
+        // -- TP3 - CONSULTAS --
+        try {
+            /* 1. Consulta  de Entidades Completas
+            Consigna: Obtener la lista completa de todas las facturas de venta registradas en el sistema. */
+            List<FacturaVenta> ej1 = em.createQuery("SELECT factura FROM FacturaVenta factura", FacturaVenta.class).getResultList();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            em.close();
+            emf.close();
+        }
+
+    }
+
+    private static void cargarDatosDePrueba() {
         // Iniciar el contenedor de JPA
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("FacturacionPU");
         EntityManager em = emf.createEntityManager();
