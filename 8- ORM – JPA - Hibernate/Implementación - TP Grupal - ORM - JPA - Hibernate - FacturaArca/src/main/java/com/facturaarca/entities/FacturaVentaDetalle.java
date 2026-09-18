@@ -7,7 +7,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "factura_venta_detalle")
+@Table(name = "factura_venta_detalle", schema = "model")
 public class FacturaVentaDetalle extends EntityId {
 
     @ManyToOne

@@ -7,48 +7,62 @@ import jakarta.persistence.Persistence;
 
 import java.util.Date;
 
-// Crear la clase principal Main con la firma public static void main(String[] args).
 public class Main {
-
     public static void main(String[] args) {
 
-        // Iniciar el contenedor de JPA mediante
-        // Persistence.createEntityManagerFactory("FacturacionPU") y obtener el EntityManager.
+        // Iniciar el contenedor de JPA
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("FacturacionPU");
         EntityManager em = emf.createEntityManager();
 
         try {
-            // Iniciar una transacción (em.getTransaction().begin()).
+            // Iniciar una transacción
             em.getTransaction().begin();
 
-            // Instanciar los objetos necesarios 
-            // ListaPrecioArticulo, FacturaVenta, etc.).
+            // Instanciar los objetos necesarios
 
             // --- Usuario ---
             Usuario usuario = new Usuario();
             usuario.setNombre("Juan");
             usuario.setApellido("Perez");
-            usuario.setNombreUsuario("jperez");
-            usuario.setPassword("1234");
+            usuario.setUsuario("jperez");
+            usuario.setClave("1234");
             em.persist(usuario);
 
+            // --- Condición de IVA ---
             CondicionIva condicionIva = new CondicionIva();
             condicionIva.setDenominacion("Responsable Inscripto");
-            condicionIva.setCodigoAfip("l");
+            condicionIva.setCodigoAfip(1);
             condicionIva.setFechaAlta(new Date());
             condicionIva.setFechaModificacion(new Date());
             condicionIva.setUsuarioCarga(usuario);
             condicionIva.setUsuarioModificacion(usuario);
             em.persist(condicionIva);
-            // --- Cliente
+
+            // --- Tipo de Moneda ---
+            TipoMoneda tipoMoneda = new TipoMoneda();
+            tipoMoneda.setCodigoAfip(1);
+            tipoMoneda.setDenominacion("Peso Argentino");
+            tipoMoneda.setSimbolo("$");
+            tipoMoneda.setFechaAlta(new Date());
+            tipoMoneda.setFechaModificacion(new Date());
+            tipoMoneda.setUsuarioCarga(usuario);
+            tipoMoneda.setUsuarioModificacion(usuario);
+            em.persist(tipoMoneda);
+
+            // --- Contacto para Cliente ---
             Contacto contacto = new Contacto();
-            // Asigna los campos de contacto que correspondan según tu clase Contacto
+            contacto.setCelular("2615863203");
+            contacto.setEmail("empresademo@gmail.com");
+            contacto.setTelefono("49181200");
             em.persist(contacto);
 
-            // --- Domicilio (Requerido por Cliente) ---
+            // --- Domicilio para Cliente  ---
             Domicilio domicilio = new Domicilio();
-            // Asigna los campos de domicilio que correspondan según tu clase Domicilio
+            domicilio.setNombreCalle("Famatina");
+            domicilio.setNumeroCalle("900");
             em.persist(domicilio);
+
+            // --- Cliente ---
             Cliente cliente = new Cliente();
             cliente.setDenominacion("Empresa Demo S.A.");
             cliente.setCuitCuil("30-12345678-9");
@@ -61,7 +75,11 @@ public class Main {
             em.persist(cliente);
 
             // --- Punto de Venta ---
-            PuntoVenta puntoVenta = new PuntoVenta(1, "Casa Central", "Electronica", "Av. Siempre Viva 123");
+            PuntoVenta puntoVenta = new PuntoVenta();
+            puntoVenta.setNumero(1);
+            puntoVenta.setDescripcion("Casa Central");
+            puntoVenta.setTipoEmision("Electronica");
+            puntoVenta.setDomicilioComercial("Av. Siempre Viva 123");
             puntoVenta.setFechaAlta(new Date());
             puntoVenta.setFechaModificacion(new Date());
             puntoVenta.setUsuarioCarga(usuario);
@@ -120,12 +138,16 @@ public class Main {
             listaPrecioArticulo.setUsuarioModificacion(usuario);
             em.persist(listaPrecioArticulo);
 
-            // Crear una cabecera de FacturaVenta
-            // y asignar uno o más ítems FacturaVentaDetalle asociándolos bidireccionalmente.
+            // --- Cabecera de FacturaVenta ---
             FacturaVenta facturaVenta = new FacturaVenta();
             facturaVenta.setNumero(1L);
             facturaVenta.setFechaEmision(new Date());
             facturaVenta.setPuntoVenta(puntoVenta);
+            facturaVenta.setUsuarioCarga(usuario);
+            facturaVenta.setUsuarioModificacion(usuario);
+            facturaVenta.setCondicionIva(condicionIva);
+            facturaVenta.setTipoMoneda(tipoMoneda);
+            facturaVenta.setCliente(cliente);
             facturaVenta.setImporteTotal(1500.0);
             facturaVenta.setImporteCobrado(1500.0);
             facturaVenta.setImporteSaldo(0.0);
@@ -135,6 +157,7 @@ public class Main {
             facturaVenta.setUsuarioCarga(usuario);
             facturaVenta.setUsuarioModificacion(usuario);
 
+            // --- Detalle 1 de FacturaVenta ---
             FacturaVentaDetalle detalle1 = new FacturaVentaDetalle();
             detalle1.setListaPrecioArticulo(listaPrecioArticulo);
             detalle1.setDescripcion("Mouse Inalambrico");
@@ -145,19 +168,28 @@ public class Main {
             detalle1.setImporteIva(260.33);
             detalle1.setImporteSubtotal(1500.0);
 
-            // addDetalle() deja la relación bidireccional sincronizada:
-            // agrega el detalle a la lista Y hace detalle.setFactura(this).
-            facturaVenta.addDetalle(detalle1);
+            FacturaVentaDetalle detalle2 = new FacturaVentaDetalle();
+            detalle2.setListaPrecioArticulo(listaPrecioArticulo);
+            detalle2.setDescripcion("Teclado Gamer");
+            detalle2.setCantidad(1);
+            detalle2.setPrecioUnitario(2000.0);
+            detalle2.setPorcentajeBonificacion(0.0);
+            detalle2.setImporteNeto(1639.34);
+            detalle2.setImporteIva(360.66);
+            detalle2.setImporteSubtotal(2000.0);
 
-            // Requisito clave: Persistir únicamente el objeto cabecera FacturaVenta
-            // utilizando un solo llamado a em.persist(facturaVenta).
+            // addDetalle() deja la relación bidireccional sincronizada
+            facturaVenta.addDetalle(detalle1);
+            facturaVenta.addDetalle(detalle2);
+
+            // Persistir el objeto cabecera FacturaVenta
             em.persist(facturaVenta);
 
-            // Finalizar la transacción con em.getTransaction().commit()...
+            // Finalizar la transacción
             em.getTransaction().commit();
 
-            // Verificar que, gracias a la configuración de cascada (CascadeType.ALL / PERSIST),
-            // se hayan insertado automáticamente tanto la factura como todos sus detalles vinculados.
+            // Verificar que, gracias a la configuración de cascada, se hayan insertado
+            // automáticamente tanto la factura como todos sus detalles vinculados
             System.out.println("Factura Nº " + facturaVenta.getNumero()
                     + " persistida correctamente con ID: " + facturaVenta.getId());
             System.out.println("Cantidad de detalles guardados en cascada: " + facturaVenta.getDetalles().size());
@@ -168,7 +200,7 @@ public class Main {
             }
             e.printStackTrace();
         } finally {
-            // ...y cerrar el EntityManager y EntityManagerFactory.
+            // Cerrar el EntityManager y EntityManagerFactory
             em.close();
             emf.close();
         }

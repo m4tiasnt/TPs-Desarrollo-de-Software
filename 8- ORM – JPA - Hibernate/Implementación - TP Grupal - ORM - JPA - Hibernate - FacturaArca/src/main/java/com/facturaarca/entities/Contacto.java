@@ -4,7 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "contactos")
+@Table(name = "contactos", schema = "model")
 public class Contacto extends EntityId {
     private String email;
     private String telefono;

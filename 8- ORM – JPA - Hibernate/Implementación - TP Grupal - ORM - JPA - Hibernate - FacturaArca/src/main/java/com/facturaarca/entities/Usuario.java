@@ -5,8 +5,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "usuarios")
+@Table(name = "usuarios", schema = "model")
 public class Usuario extends EntityId {
+
+    @Column(nullable = false)
+    private String usuario;
+
+    @Column(nullable = false)
+    private String clave;
 
     @Column(nullable = false)
     private String nombre;
@@ -14,11 +20,6 @@ public class Usuario extends EntityId {
     @Column(nullable = false)
     private String apellido;
 
-    @Column(nullable = false, unique = true)
-    private String nombreUsuario;
-
-    @Column(nullable = false)
-    private String password;
 
     public Usuario() {
     }
@@ -40,20 +41,20 @@ public class Usuario extends EntityId {
         this.apellido = apellido;
     }
 
-    public String getNombreUsuario() {
-        return nombreUsuario;
+    public String getUsuario() {
+        return usuario;
     }
 
-    public void setNombreUsuario(String nombreUsuario) {
-        this.nombreUsuario = nombreUsuario;
+    public void setUsuario(String nombreUsuario) {
+        this.usuario = nombreUsuario;
     }
 
-    public String getPassword() {
-        return password;
+    public String getClave() {
+        return clave;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setClave(String password) {
+        this.clave = password;
     }
 
 }

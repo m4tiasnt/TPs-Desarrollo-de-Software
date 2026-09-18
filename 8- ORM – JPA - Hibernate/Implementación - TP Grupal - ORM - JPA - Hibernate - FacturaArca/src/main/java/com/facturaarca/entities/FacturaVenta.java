@@ -7,7 +7,7 @@ import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "factura_venta")
+@Table(name = "factura_venta", schema = "model")
 public class FacturaVenta extends AuditoriaApp {
 
     private Long numero;
@@ -15,6 +15,18 @@ public class FacturaVenta extends AuditoriaApp {
     @Column(nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaEmision;
+
+    @ManyToOne
+    @JoinColumn(name = "cliente_id", nullable = true)
+    private Cliente cliente;
+
+    @ManyToOne
+    @JoinColumn(name = "condicion_iva_id", nullable = false)
+    private CondicionIva condicionIva;
+
+    @ManyToOne
+    @JoinColumn(name = "tipo_moneda_id", nullable = false)
+    private TipoMoneda tipoMoneda;
 
     @ManyToOne
     @JoinColumn(name = "punto_venta_id", nullable = false)
@@ -62,6 +74,7 @@ public class FacturaVenta extends AuditoriaApp {
     }
 
     // Getters y Setters
+
     public Long getNumero() {
         return numero;
     }
@@ -76,6 +89,30 @@ public class FacturaVenta extends AuditoriaApp {
 
     public void setFechaEmision(Date fechaEmision) {
         this.fechaEmision = fechaEmision;
+    }
+
+    public Cliente getCliente() {
+        return cliente;
+    }
+
+    public void setCliente(Cliente cliente) {
+        this.cliente = cliente;
+    }
+
+    public CondicionIva getCondicionIva() {
+        return condicionIva;
+    }
+
+    public void setCondicionIva(CondicionIva condicionIva) {
+        this.condicionIva = condicionIva;
+    }
+
+    public TipoMoneda getTipoMoneda() {
+        return tipoMoneda;
+    }
+
+    public void setTipoMoneda(TipoMoneda tipoMoneda) {
+        this.tipoMoneda = tipoMoneda;
     }
 
     public PuntoVenta getPuntoVenta() {

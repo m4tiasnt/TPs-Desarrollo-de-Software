@@ -4,7 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "domicilios")
+@Table(name = "domicilios", schema = "model")
 public class Domicilio extends EntityId {
     private String nombreCalle;
     private String numeroCalle;

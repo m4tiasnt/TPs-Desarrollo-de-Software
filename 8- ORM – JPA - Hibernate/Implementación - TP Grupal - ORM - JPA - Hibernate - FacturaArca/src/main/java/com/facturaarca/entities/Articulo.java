@@ -7,7 +7,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "articulos")
+@Table(name = "articulos", schema = "model")
 public class Articulo extends AuditoriaApp {
 
     @Column(nullable = false)
@@ -17,7 +17,6 @@ public class Articulo extends AuditoriaApp {
     private String codigo;
 
     @ManyToOne
-    @JoinColumn(name = "rubro_id", nullable = false)
     private Rubro rubro;
 
     @ManyToOne

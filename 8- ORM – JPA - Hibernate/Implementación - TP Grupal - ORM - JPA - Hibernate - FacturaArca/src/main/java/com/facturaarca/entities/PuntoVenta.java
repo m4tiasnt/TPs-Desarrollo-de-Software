@@ -5,7 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "puntos_venta")
+@Table(name = "puntos_venta", schema = "model")
 public class PuntoVenta extends AuditoriaApp {
 
     @Column(nullable = false)

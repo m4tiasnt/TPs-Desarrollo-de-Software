@@ -5,11 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "tipos_moneda")
+@Table(name = "tipos_moneda", schema = "model")
 public class TipoMoneda extends AuditoriaApp {
 
     @Column(name = "codigo_afip", nullable = false, unique = true)
-    private String codigoAfip;
+    private Integer codigoAfip;
 
     @Column(nullable = false)
     private String denominacion;
@@ -21,18 +21,18 @@ public class TipoMoneda extends AuditoriaApp {
     public TipoMoneda() {
     }
 
-    public TipoMoneda(String codigoAfip, String denominacion, String simbolo) {
+    public TipoMoneda(Integer codigoAfip, String denominacion, String simbolo) {
         super();
         this.codigoAfip = codigoAfip;
         this.denominacion = denominacion;
         this.simbolo = simbolo;
     }
 
-    public String getCodigoAfip() {
+    public Integer getCodigoAfip() {
         return codigoAfip;
     }
 
-    public void setCodigoAfip(String codigoAfip) {
+    public void setCodigoAfip(Integer codigoAfip) {
         this.codigoAfip = codigoAfip;
     }
 

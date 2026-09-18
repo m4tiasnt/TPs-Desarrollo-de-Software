@@ -3,7 +3,7 @@ package com.facturaarca.entities;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "clientes")
+@Table(name = "clientes", schema = "model")
 public class Cliente extends AuditoriaApp {
 
     @Column(name = "cuit_cuil", nullable = false, unique = true)

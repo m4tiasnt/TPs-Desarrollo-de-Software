@@ -7,7 +7,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "lista_precio_articulo")
+@Table(name = "lista_precio_articulo", schema = "model")
 public class ListaPrecioArticulo extends AuditoriaApp {
 
     @ManyToOne
