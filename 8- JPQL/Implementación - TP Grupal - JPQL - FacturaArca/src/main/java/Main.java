@@ -24,9 +24,56 @@ public class Main {
 
         // -- TP3 - CONSULTAS --
         try {
-            /* 1. Consulta  de Entidades Completas
+            /* Nivel 1: Consultas Básicas y Proyecciones
             Consigna: Obtener la lista completa de todas las facturas de venta registradas en el sistema. */
-            List<FacturaVenta> ej1 = em.createQuery("SELECT factura FROM FacturaVenta factura", FacturaVenta.class).getResultList();
+            List<FacturaVenta> resultados1 = em.createQuery("SELECT factura FROM FacturaVenta factura", FacturaVenta.class).getResultList();
+
+        // --------------------------------------------------
+        //consigna: Seleccionar únicamente el número de factura, la fecha de emisión y el importe total de todas las facturas de venta. 
+            System.out.println("\n=== RESULTADOS EJERCICIO 2 ===");
+            List<Object[]> resultados2 = em.createQuery("SELECT f.numero, f.fechaEmision, f.importeTotal FROM FacturaVenta f", Object[].class).getResultList();
+            for (Object[] fila : resultados2) {
+                System.out.println("- Factura Nro: " + fila[0] + 
+                                        " | Fecha: " + fila[1] +
+                                        " | Total: $" + fila[2]);
+            }
+
+            // --------------------------------------------------
+            /* Nivel 2: Condicionales Combinados, Operadores de Texto y Agregaciones Básicas 
+            Consigna: Buscar todos los clientes cuya denominación contenga un texto parcial (sin importar mayúsculas/minúsculas) o cuyo CUIT/CUIL comience con "20-". */
+            System.out.println("\n=== RESULTADOS EJERCICIO 6 ===");
+            // Corregidas las mayúsculas/minúsculas de Cliente, denominacion y cuitCuil
+            List<Cliente> resultados6 = em.createQuery("SELECT c FROM Cliente c WHERE LOWER(c.denominacion) LIKE LOWER('%demo%') OR c.cuitCuil LIKE '20-%'", Cliente.class).getResultList();
+            
+            for (Cliente c : resultados6) {
+                System.out.println("- Cliente: " + c.getDenominacion() + " | CUIT/CUIL: " + c.getCuitCuil());
+            }
+
+             /* Nivel 3: Navegación de Entidades, JOINs y Subconsultas Simples 
+            Consigna: Buscar todos los clientes cuya denominación contenga un texto parcial (sin importar mayúsculas/minúsculas) o cuyo CUIT/CUIL comience con "20-". */
+            System.out.println("\n=== RESULTADOS EJERCICIO 11 ===");
+
+            List<FacturaVentaDetalle> resultados11 = em.createQuery("SELECT d FROM FacturaVentaDetalle d JOIN d.factura f WHERE f.puntoVenta = :pv", FacturaVentaDetalle.class)
+                .setParameter("pv", 1) 
+                .getResultList();
+
+            for (FacturaVentaDetalle d : resultados11) {
+            System.out.println("- Detalle ID: " + d.getId() 
+                                        + " | Cantidad: " 
+                                        + d.getCantidad() 
+                                        + " | Factura Nro: " 
+                                        + d.getFactura().getNumero());
+            }
+
+            System.out.println("\n=== RESULTADOS EJERCICIO 19 ===");
+
+            List<Articulo> resultados19 = em.createQuery("SELECT a FROM Articulo a WHERE NOT EXISTS (SELECT d FROM FacturaVentaDetalle d WHERE d.listaPrecioArticulo.articulo = a)", Articulo.class).getResultList();
+
+            for (Articulo a : resultados19) {
+            System.out.println("- Artículo sin ventas: " + a.getDenominacion() + " | Código: " + a.getCodigo());
+            }
+
+
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -36,6 +83,11 @@ public class Main {
         }
 
     }
+
+
+
+
+
 
     private static void cargarDatosDePrueba() {
         // Iniciar el contenedor de JPA
