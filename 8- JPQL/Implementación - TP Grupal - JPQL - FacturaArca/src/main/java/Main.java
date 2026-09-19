@@ -22,16 +22,27 @@ public class Main {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("FacturacionPU");
         EntityManager em = emf.createEntityManager();
 
-        // -- TP3 - CONSULTAS --
         try {
-            /* Nivel 1: Consultas Básicas y Proyecciones
-            Consigna: Obtener la lista completa de todas las facturas de venta registradas en el sistema. */
+            // -- TP3 - CONSULTAS --
+
+            // -- Nivel 1: Consultas Básicas y Proyecciones --
+
+            // 1. Consulta de Entidades Completas
+            // Consigna: Obtener la lista completa de todas las facturas de venta registradas en el sistema. */
+            System.out.println("\n=== RESULTADOS EJERCICIO 1 ===");
             List<FacturaVenta> resultados1 = em.createQuery("SELECT factura FROM FacturaVenta factura", FacturaVenta.class).getResultList();
 
-        // --------------------------------------------------
-        //consigna: Seleccionar únicamente el número de factura, la fecha de emisión y el importe total de todas las facturas de venta. 
+            for (FacturaVenta f : resultados1) {
+                System.out.println("- Factura Nro: " + f.getNumero() + " | Fecha Emisión: " + f.getFechaEmision() + " Cliente: " + f.getCliente().getDenominacion() + " | Total: $" + f.getImporteTotal());
+            }
+
+            // --------------------------------------------------
+
+            // 2. Proyección de Atributos Específicos
+            // Consigna: Seleccionar únicamente el número de factura, la fecha de emisión y el importe total de todas las facturas de venta.
             System.out.println("\n=== RESULTADOS EJERCICIO 2 ===");
             List<Object[]> resultados2 = em.createQuery("SELECT f.numero, f.fechaEmision, f.importeTotal FROM FacturaVenta f", Object[].class).getResultList();
+
             for (Object[] fila : resultados2) {
                 System.out.println("- Factura Nro: " + fila[0] + 
                                         " | Fecha: " + fila[1] +
@@ -39,31 +50,70 @@ public class Main {
             }
 
             // --------------------------------------------------
-            /* Nivel 2: Condicionales Combinados, Operadores de Texto y Agregaciones Básicas 
-            Consigna: Buscar todos los clientes cuya denominación contenga un texto parcial (sin importar mayúsculas/minúsculas) o cuyo CUIT/CUIL comience con "20-". */
+
+            // -- Nivel 2: Condicionales Combinados, Operadores de Texto y Agregaciones Básicas --
+
+            // 5. Condicionales Complejos y Verificación de Nulos (AND, OR, IS NULL)
+            // Consigna: Obtener las facturas cuyo estado sea "EMITIDA", con un importe total superior a $10,000 y que no hayan sido anuladas (fechaAnulacion sea nula).
+            System.out.println("\n=== RESULTADOS EJERCICIO 5 ===");
+            List<FacturaVenta> resultados5 = em.createQuery("SELECT factura FROM FacturaVenta factura WHERE factura.estado='EMITIDA' AND factura.importeTotal>10000 AND factura.fechaAnulacion IS NULL", FacturaVenta.class).getResultList();
+
+            for (FacturaVenta f : resultados5) {
+                System.out.println("- Factura Nro: " + f.getNumero() + " | Fecha: " + f.getFechaEmision() + " | Total: $" + f.getImporteTotal());
+            }
+
+
+            // 6. Búsqueda por Patrón de Texto (LIKE y LOWER)
+            // Consigna: Buscar todos los clientes cuya denominación contenga un texto parcial (sin importar mayúsculas/minúsculas) o cuyo CUIT/CUIL comience con "20-". */
             System.out.println("\n=== RESULTADOS EJERCICIO 6 ===");
-            // Corregidas las mayúsculas/minúsculas de Cliente, denominacion y cuitCuil
             List<Cliente> resultados6 = em.createQuery("SELECT c FROM Cliente c WHERE LOWER(c.denominacion) LIKE LOWER('%demo%') OR c.cuitCuil LIKE '20-%'", Cliente.class).getResultList();
             
             for (Cliente c : resultados6) {
                 System.out.println("- Cliente: " + c.getDenominacion() + " | CUIT/CUIL: " + c.getCuitCuil());
             }
 
-             /* Nivel 3: Navegación de Entidades, JOINs y Subconsultas Simples 
-            Consigna: Buscar todos los clientes cuya denominación contenga un texto parcial (sin importar mayúsculas/minúsculas) o cuyo CUIT/CUIL comience con "20-". */
-            System.out.println("\n=== RESULTADOS EJERCICIO 11 ===");
+             // -- Nivel 3: Navegación de Entidades, JOINs y Subconsultas Simples --
 
+            // 10. Navegación Implícita por Relaciones (Path Expressions)
+            // Consigna: Consultar todas las facturas de venta creadas por un usuario en particular navegando por su nombre de usuario de carga (usuarioCarga.usuario).
+            System.out.println("\n=== RESULTADOS EJERCICIO 10 ===");
+            List<FacturaVenta> resultados10 = em.createQuery("SELECT factura FROM FacturaVenta factura WHERE factura.usuarioCarga.usuario = :nombreUsuario", FacturaVenta.class)
+                .setParameter("nombreUsuario", "jperez")
+                .getResultList();
+
+            for (FacturaVenta f : resultados10) {
+                System.out.println("- Factura Nro: " + f.getNumero() + " | Fecha: " + f.getFechaEmision() + " | Total: $" + f.getImporteTotal() + " | Usuario Carga: " + f.getUsuarioCarga().getUsuario());
+            }
+
+
+            // 11. Cláusula INNER JOIN Explícita
+            // Consigna: Obtener todos los detalles de factura (FacturaVentaDetalle) que correspondan a facturas emitidas por un punto de venta determinado.
+            System.out.println("\n=== RESULTADOS EJERCICIO 11 ===");
             List<FacturaVentaDetalle> resultados11 = em.createQuery("SELECT d FROM FacturaVentaDetalle d JOIN d.factura f WHERE f.puntoVenta = :pv", FacturaVentaDetalle.class)
-                .setParameter("pv", 1) 
+                .setParameter("pv", 1)
                 .getResultList();
 
             for (FacturaVentaDetalle d : resultados11) {
-            System.out.println("- Detalle ID: " + d.getId() 
-                                        + " | Cantidad: " 
-                                        + d.getCantidad() 
-                                        + " | Factura Nro: " 
+            System.out.println("- Detalle ID: " + d.getId()
+                                        + " | Cantidad: "
+                                        + d.getCantidad()
+                                        + " | Factura Nro: "
                                         + d.getFactura().getNumero());
             }
+
+            // -- Nivel 4: Agrupamiento (GROUP BY) y Filtros de Grupo (HAVING) --
+
+            // -- Nivel 5: Subconsultas Correlacionadas, EXISTS, NOT EXISTS y Expresiones Condicionales --
+
+            // 18. Subconsulta Correlacionada con EXISTS
+            // Consigna: Obtener la lista de todas las marcas que tienen al menos un artículo que haya sido facturado en alguna factura de venta.
+            System.out.println("\n=== RESULTADOS EJERCICIO 18 ===");
+            List<Marca> resultados18 = em.createQuery("SELECT marca FROM Marca marca WHERE EXISTS (SELECT facturaVentaDetalle FROM FacturaVentaDetalle facturaVentaDetalle WHERE facturaVentaDetalle.listaPrecioArticulo.articulo.marca = marca)", Marca.class).getResultList();
+
+            for (Marca m : resultados18) {
+                System.out.println("- Marca con ventas: " + m.getDenominacion() + " | Código: " + m.getCodigo());
+            }
+
 
             System.out.println("\n=== RESULTADOS EJERCICIO 19 ===");
 
