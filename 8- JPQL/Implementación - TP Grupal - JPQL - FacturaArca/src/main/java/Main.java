@@ -4,6 +4,7 @@ import com.facturaarca.entities.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Persistence;
+import jakarta.persistence.TypedQuery;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -72,8 +73,19 @@ public class Main {
                 System.out.println("- Cliente: " + c.getDenominacion() + " | CUIT/CUIL: " + c.getCuitCuil());
             }
 
-             // -- Nivel 3: Navegación de Entidades, JOINs y Subconsultas Simples --
+            //9.Operador de inclusión (IN)
+            //Consigna: Obtener todos los puntos de venta cuyo número coincida con una lista de enteros proporcionada por parámetro (ej. 1, 2, 5).
+            System.out.println("\n=== RESULTADOS EJERCICIO 9 ===");
+            {String jpql = "SELECT p FROM PuntoVenta p WHERE p.numero IN :numeros";
+            TypedQuery<PuntoVenta> query = em.createQuery(jpql, PuntoVenta.class);
+            query.setParameter("numeros", Arrays.asList(1, 2, 5));
+            List<PuntoVenta> resultado = query.getResultList();
+                for (PuntoVenta pv : resultado) {
+                System.out.println(pv.getNumero() + " - " + pv.getDescripcion());
+            }}
 
+
+             // -- Nivel 3: Navegación de Entidades, JOINs y Subconsultas Simples --¿
             // 10. Navegación Implícita por Relaciones (Path Expressions)
             // Consigna: Consultar todas las facturas de venta creadas por un usuario en particular navegando por su nombre de usuario de carga (usuarioCarga.usuario).
             System.out.println("\n=== RESULTADOS EJERCICIO 10 ===");
@@ -86,22 +98,68 @@ public class Main {
             }
 
 
-            // 11. Cláusula INNER JOIN Explícita
-            // Consigna: Obtener todos los detalles de factura (FacturaVentaDetalle) que correspondan a facturas emitidas por un punto de venta determinado.
-            System.out.println("\n=== RESULTADOS EJERCICIO 11 ===");
-            List<FacturaVentaDetalle> resultados11 = em.createQuery("SELECT d FROM FacturaVentaDetalle d JOIN d.factura f WHERE f.puntoVenta = :pv", FacturaVentaDetalle.class)
-                .setParameter("pv", 1)
-                .getResultList();
+          // 11. Cláusula INNER JOIN Explícita
+// Consigna: Obtener todos los detalles de factura (FacturaVentaDetalle) que correspondan a facturas emitidas por un punto de venta determinado.
+System.out.println("\n=== RESULTADOS EJERCICIO 11 ===");
 
-            for (FacturaVentaDetalle d : resultados11) {
-            System.out.println("- Detalle ID: " + d.getId()
-                                        + " | Cantidad: "
-                                        + d.getCantidad()
-                                        + " | Factura Nro: "
-                                        + d.getFactura().getNumero());
-            }
+PuntoVenta puntoVenta11 = em.find(PuntoVenta.class, 1L); // 1L = id del punto de venta buscado
+
+List<FacturaVentaDetalle> resultados11 = em.createQuery(
+        "SELECT d FROM FacturaVentaDetalle d JOIN d.factura f WHERE f.puntoVenta = :pv", FacturaVentaDetalle.class)
+    .setParameter("pv", puntoVenta11)
+    .getResultList();
+
+for (FacturaVentaDetalle d : resultados11) {
+    System.out.println("- Detalle ID: " + d.getId()
+                                + " | Cantidad: "
+                                + d.getCantidad()
+                                + " | Factura Nro: "
+                                + d.getFactura().getNumero());
+}
+
+
+            // 13. Cláusula LEFT JOIN (Inclusión de Nulos)
+            //Consigna: Obtener todas las facturas de venta que contengan al menos un detalle de artículo perteneciente a una marca específica. 
+            System.out.println("\n=== RESULTADOS EJERCICIO 13 ===");
+            {String jpql = "SELECT DISTINCT f FROM FacturaVenta f " +
+              "JOIN f.detalles d " +
+              "JOIN d.listaPrecioArticulo lpa " +
+              "JOIN lpa.articulo a " +
+              "JOIN a.marca m " +
+              "WHERE m.denominacion = :marca";
+            TypedQuery<FacturaVenta> query = em.createQuery(jpql, FacturaVenta.class);
+            query.setParameter("marca", "Samsung");
+            List<FacturaVenta> resultado = query.getResultList();}
+
+            //14.Subconsulta en Cláusula WHERE 
+            //Consigna: Listar las facturas de venta cuyo importeTotal sea estrictamente mayor al promedio de importeTotal de todas las facturas registradas.
+            System.out.println("\n=== RESULTADOS EJERCICIO 14 ===");
+            {String jpql = "SELECT f FROM FacturaVenta f " +
+              "WHERE f.importeTotal > (SELECT AVG(f2.importeTotal) FROM FacturaVenta f2)";
+            TypedQuery<FacturaVenta> query = em.createQuery(jpql, FacturaVenta.class);
+            List<FacturaVenta> resultado = query.getResultList(); }
+
 
             // -- Nivel 4: Agrupamiento (GROUP BY) y Filtros de Grupo (HAVING) --
+
+
+            //17. Agrupamiento y Agregación sobre Entidades Relacionadas
+            // Obtener la denominación de cada marca, la cantidad total de unidades vendidas (SUM(cantidad)) y el subtotal acumulado, agrupado por marca.
+            System.out.println("\n=== RESULTADOS EJERCICIO 17 ===");
+            {
+            String jpql = "SELECT m.denominacion, SUM(d.cantidad), SUM(d.importeSubtotal) " +
+              "FROM FacturaVentaDetalle d " +
+              "JOIN d.listaPrecioArticulo lpa " +
+              "JOIN lpa.articulo a " +
+              "JOIN a.marca m " +
+              "GROUP BY m.denominacion";
+            TypedQuery<Object[]> query = em.createQuery(jpql, Object[].class);
+            List<Object[]> resultado = query.getResultList();
+            for (Object[] fila : resultado) {
+            System.out.println("Marca: " + fila[0] + " | Unidades: " + fila[1] + " | Subtotal: " + fila[2]);
+            }}
+        
+
 
             // -- Nivel 5: Subconsultas Correlacionadas, EXISTS, NOT EXISTS y Expresiones Condicionales --
 
