@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.List;
 
 public class Main {
-    private static final boolean CARGAR_DATOS = false; // Cambiar a true para cargar datos de prueba
+    private static final boolean CARGAR_DATOS = true; // Cambiar a true para cargar datos de prueba
 
     public static void main(String[] args) {
         if (CARGAR_DATOS) {
@@ -49,6 +49,19 @@ public class Main {
                                         " | Fecha: " + fila[1] +
                                         " | Total: $" + fila[2]);
             }
+            // 3. Filtrado por Igualdad (WHERE)
+            //Consigna: Obtener todos los artículos que pertenecen a un rubro con una denominación específica (ej. "Electrónica").
+            System.out.println("\n=== RESULTADOS EJERCICIO 3 ===");
+            String rubroBuscado = "Electrónica";
+
+            List<Articulo> resultados3 = em.createQuery(
+                            "SELECT a FROM Articulo a WHERE a.rubro.denominacion = :denominacion", Articulo.class)
+                    .setParameter("denominacion", rubroBuscado)
+                    .getResultList();
+
+            for (Articulo a : resultados3) {
+                System.out.println("- Artículo: " + a.getDenominacion() + " | Código: " + a.getCodigo());
+            }
 
             // --------------------------------------------------
 
@@ -71,6 +84,17 @@ public class Main {
             
             for (Cliente c : resultados6) {
                 System.out.println("- Cliente: " + c.getDenominacion() + " | CUIT/CUIL: " + c.getCuitCuil());
+            }
+            // 7. Valores Distintos y Ordenamiento (DISTINCT y ORDER BY)
+            //Consigna: Obtener sin duplicados todos los estados posibles registrados en las facturas de venta, ordenados alfabéticamente de forma ascendente.
+            System.out.println("\n=== RESULTADOS EJERCICIO 7 ===");
+
+            List<String> resultados7 = em.createQuery(
+                            "SELECT DISTINCT f.estado FROM FacturaVenta f ORDER BY f.estado ASC", String.class)
+                    .getResultList();
+
+            for (String estado : resultados7) {
+                System.out.println("- Estado: " + estado);
             }
 
             //9.Operador de inclusión (IN)
@@ -116,6 +140,21 @@ for (FacturaVentaDetalle d : resultados11) {
                                 + " | Factura Nro: "
                                 + d.getFactura().getNumero());
 }
+
+            // 12. Cláusula LEFT JOIN (Inclusión de Nulos)
+            //Consigna: Listar la denominación de todos los artículos junto con la denominación de su marca asociada, incluyendo también aquellos artículos que no posean una
+            //marca asignada.
+            System.out.println("\n=== RESULTADOS EJERCICIO 12 ===");
+
+            List<Object[]> resultados12 = em.createQuery(
+                            "SELECT a.denominacion, m.denominacion FROM Articulo a LEFT JOIN a.marca m", Object[].class)
+                    .getResultList();
+
+            for (Object[] fila : resultados12) {
+                String articulo = (String) fila[0];
+                String marca = fila[1] != null ? (String) fila[1] : "Sin Marca";
+                System.out.println("- Artículo: " + articulo + " | Marca: " + marca);
+            }
 
 
             // 13. Cláusula LEFT JOIN (Inclusión de Nulos)
@@ -179,6 +218,32 @@ for (FacturaVentaDetalle d : resultados11) {
 
             for (Articulo a : resultados19) {
             System.out.println("- Artículo sin ventas: " + a.getDenominacion() + " | Código: " + a.getCodigo());
+            }
+            // 20. Proyección Condicional (CASE WHEN)
+            //Consigna: Listar el número de factura, su importe total y una columna calculada
+            //llamada "Categoría" que clasifique la factura como:
+            //o "ALTO VALOR" si el importeTotal es mayor a $50,000.
+            //o "MEDIO VALOR" si el importeTotal está entre $10,000 y $50,000.
+            //o "BAJO VALOR" si el importeTotal es menor a $10,000. Ordenar los
+            //resultados de mayor a menor importe.
+            System.out.println("\n=== RESULTADOS EJERCICIO 20 ===");
+
+            List<Object[]> resultados20 = em.createQuery(
+                            "SELECT f.numero, f.importeTotal, " +
+                                    "CASE " +
+                                    "  WHEN f.importeTotal > 50000 THEN 'ALTO VALOR' " +
+                                    "  WHEN f.importeTotal >= 10000 AND f.importeTotal <= 50000 THEN 'MEDIO VALOR' " +
+                                    "  ELSE 'BAJO VALOR' " +
+                                    "END " +
+                                    "FROM FacturaVenta f " +
+                                    "ORDER BY f.importeTotal DESC", Object[].class)
+                    .getResultList();
+
+            for (Object[] fila : resultados20) {
+                Long numero = (Long) fila[0];
+                Double importeTotal = (Double) fila[1];
+                String categoria = (String) fila[2];
+                System.out.println("- Factura Nro: " + numero + " | Total: $" + importeTotal + " | Categoría: " + categoria);
             }
 
 
