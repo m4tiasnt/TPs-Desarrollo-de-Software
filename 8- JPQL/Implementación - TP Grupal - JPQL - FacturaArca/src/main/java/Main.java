@@ -224,8 +224,8 @@ public class Main {
                 "FROM FacturaVenta f GROUP BY f.usuarioCarga.usuario HAVING COUNT(f) > 5";
             List<String> resultados16 = em.createQuery(jpql16, String.class).getResultList();
 
-            for (String usuario : resultados16) {
-            System.out.println("Usuario: " + usuario);
+            for (String Usuario : resultados16) {
+            System.out.println("Usuario: " + Usuario);
             }   
 
 
@@ -258,7 +258,7 @@ public class Main {
                 System.out.println("- Marca con ventas: " + m.getDenominacion() + " | Código: " + m.getCodigo());
             }
 
-
+            //19. Subconsulta Correlacionada con NOT EXISTS
             System.out.println("\n=== RESULTADOS EJERCICIO 19 ===");
 
             List<Articulo> resultados19 = em.createQuery("SELECT a FROM Articulo a WHERE NOT EXISTS (SELECT d FROM FacturaVentaDetalle d WHERE d.listaPrecioArticulo.articulo = a)", Articulo.class).getResultList();
