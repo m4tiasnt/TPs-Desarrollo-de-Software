@@ -180,6 +180,60 @@ for (FacturaVentaDetalle d : resultados11) {
 
 
             // -- Nivel 4: Agrupamiento (GROUP BY) y Filtros de Grupo (HAVING) --
+            // Ejercicio 4 (Nivel 1): Filtrado por Rango de Fechas (BETWEEN)
+// ------------------------------------------
+// 4. Filtrado por Rango de Fechas (BETWEEN)
+System.out.println("\n=== RESULTADOS EJERCICIO 4 ===");
+Date fechaInicio = new java.text.SimpleDateFormat("yyyy-MM-dd").parse("2026-01-01");
+Date fechaFin = new java.text.SimpleDateFormat("yyyy-MM-dd").parse("2026-12-31");
+
+String jpql4 = "SELECT f FROM FacturaVenta f WHERE f.fechaEmision BETWEEN :fechaInicio AND :fechaFin";
+List<FacturaVenta> resultados4 = em.createQuery(jpql4, FacturaVenta.class)
+        .setParameter("fechaInicio", fechaInicio)
+        .setParameter("fechaFin", fechaFin)
+        .getResultList();
+
+for (FacturaVenta f : resultados4) {
+    System.out.println("- Factura Nro: " + f.getNumero() + " | Fecha Emisión: " + f.getFechaEmision() + " | Total: $" + f.getImporteTotal());
+}
+
+
+// ------------------------------------------
+// Ejercicio 8 (Nivel 2): Funciones de Agregación Simples (COUNT, SUM, AVG)
+// ------------------------------------------
+System.out.println("\n=== RESULTADOS EJERCICIO 8 ===");
+String jpql8 = "SELECT COUNT(f), SUM(f.importeTotal), AVG(f.importeTotal) FROM FacturaVenta f";
+Object[] resultado8 = em.createQuery(jpql8, Object[].class).getSingleResult();
+
+System.out.println("Cantidad total de facturas: " + resultado8[0]);
+System.out.println("Suma acumulada de importes: $" + resultado8[1]);
+System.out.println("Importe promedio: $" + resultado8[2]);
+
+
+// ------------------------------------------
+// Ejercicio 15 (Nivel 4): Agrupamiento Básico (GROUP BY)
+// ------------------------------------------
+System.out.println("\n=== RESULTADOS EJERCICIO 15 ===");
+String jpql15 = "SELECT f.puntoVenta.descripcion, COUNT(f), SUM(f.importeTotal) " +
+                "FROM FacturaVenta f GROUP BY f.puntoVenta.descripcion";
+List<Object[]> resultados15 = em.createQuery(jpql15, Object[].class).getResultList();
+
+for (Object[] fila : resultados15) {
+    System.out.println("Punto de Venta: " + fila[0] + " | Cant. Facturas: " + fila[1] + " | Total Facturado: $" + fila[2]);
+}
+
+
+// ------------------------------------------
+// Ejercicio 16 (Nivel 4): Agrupamiento con Condicional de Grupo (HAVING)
+// ------------------------------------------
+System.out.println("\n=== RESULTADOS EJERCICIO 16 ===");
+String jpql16 = "SELECT f.usuarioCarga.usuario " +
+                "FROM FacturaVenta f GROUP BY f.usuarioCarga.usuario HAVING COUNT(f) > 5";
+List<String> resultados16 = em.createQuery(jpql16, String.class).getResultList();
+
+for (String usuario : resultados16) {
+    System.out.println("Usuario: " + usuario);
+}
 
 
             //17. Agrupamiento y Agregación sobre Entidades Relacionadas
