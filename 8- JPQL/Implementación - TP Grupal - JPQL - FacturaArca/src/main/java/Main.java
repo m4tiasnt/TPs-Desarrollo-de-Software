@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.List;
 
 public class Main {
-    private static final boolean CARGAR_DATOS = false; // Cambiar a true para cargar datos de prueba
+    private static final boolean CARGAR_DATOS = true; // Cambiar a true para cargar datos de prueba
 
     public static void main(String[] args) {
         if (CARGAR_DATOS) {
@@ -94,7 +94,7 @@ public class Main {
             // 6. Búsqueda por Patrón de Texto (LIKE y LOWER)
             // Consigna: Buscar todos los clientes cuya denominación contenga un texto parcial (sin importar mayúsculas/minúsculas) o cuyo CUIT/CUIL comience con "20-". */
             System.out.println("\n=== RESULTADOS EJERCICIO 6 ===");
-            List<Cliente> resultados6 = em.createQuery("SELECT c FROM Cliente c WHERE LOWER(c.denominacion) LIKE LOWER('%demo%') OR c.cuitCuil LIKE '20-%'", Cliente.class).getResultList();
+            List<Cliente> resultados6 = em.createQuery("SELECT c FROM Cliente c WHERE LOWER(c.denominacion) LIKE LOWER('%':texto'%') OR c.cuitCuil LIKE '20-%'", Cliente.class).setParameter("texto","demo").getResultList();
             
             for (Cliente c : resultados6) {
                 System.out.println("- Cliente: " + c.getDenominacion() + " | CUIT/CUIL: " + c.getCuitCuil());
