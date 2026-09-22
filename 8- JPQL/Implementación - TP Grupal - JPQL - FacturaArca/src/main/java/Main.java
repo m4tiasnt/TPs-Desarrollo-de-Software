@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.List;
 
 public class Main {
-    private static final boolean CARGAR_DATOS = true; // Cambiar a true para cargar datos de prueba
+    private static final boolean CARGAR_DATOS = false; // Cambiar a true para cargar datos de prueba
 
     public static void main(String[] args) {
         if (CARGAR_DATOS) {
@@ -45,10 +45,9 @@ public class Main {
             List<Object[]> resultados2 = em.createQuery("SELECT f.numero, f.fechaEmision, f.importeTotal FROM FacturaVenta f", Object[].class).getResultList();
 
             for (Object[] fila : resultados2) {
-                System.out.println("- Factura Nro: " + fila[0] + 
-                                        " | Fecha: " + fila[1] +
-                                        " | Total: $" + fila[2]);
+                System.out.println("- Factura Nro: " + fila[0] + " | Fecha: " + fila[1] + " | Total: $" + fila[2]);
             }
+
             // 3. Filtrado por Igualdad (WHERE)
             //Consigna: Obtener todos los artículos que pertenecen a un rubro con una denominación específica (ej. "Electrónica").
             System.out.println("\n=== RESULTADOS EJERCICIO 3 ===");
@@ -76,7 +75,6 @@ public class Main {
                 System.out.println("- Factura Nro: " + f.getNumero() + " | Fecha: " + f.getFechaEmision() + " | Total: $" + f.getImporteTotal());
             }
 
-
             // 6. Búsqueda por Patrón de Texto (LIKE y LOWER)
             // Consigna: Buscar todos los clientes cuya denominación contenga un texto parcial (sin importar mayúsculas/minúsculas) o cuyo CUIT/CUIL comience con "20-". */
             System.out.println("\n=== RESULTADOS EJERCICIO 6 ===");
@@ -85,10 +83,10 @@ public class Main {
             for (Cliente c : resultados6) {
                 System.out.println("- Cliente: " + c.getDenominacion() + " | CUIT/CUIL: " + c.getCuitCuil());
             }
+
             // 7. Valores Distintos y Ordenamiento (DISTINCT y ORDER BY)
             //Consigna: Obtener sin duplicados todos los estados posibles registrados en las facturas de venta, ordenados alfabéticamente de forma ascendente.
             System.out.println("\n=== RESULTADOS EJERCICIO 7 ===");
-
             List<String> resultados7 = em.createQuery(
                             "SELECT DISTINCT f.estado FROM FacturaVenta f ORDER BY f.estado ASC", String.class)
                     .getResultList();
@@ -97,8 +95,8 @@ public class Main {
                 System.out.println("- Estado: " + estado);
             }
 
-            //9.Operador de inclusión (IN)
-            //Consigna: Obtener todos los puntos de venta cuyo número coincida con una lista de enteros proporcionada por parámetro (ej. 1, 2, 5).
+            // 9.Operador de inclusión (IN)
+            // Consigna: Obtener todos los puntos de venta cuyo número coincida con una lista de enteros proporcionada por parámetro (ej. 1, 2, 5).
             System.out.println("\n=== RESULTADOS EJERCICIO 9 ===");
             {String jpql = "SELECT p FROM PuntoVenta p WHERE p.numero IN :numeros";
             TypedQuery<PuntoVenta> query = em.createQuery(jpql, PuntoVenta.class);
@@ -108,13 +106,14 @@ public class Main {
                 System.out.println(pv.getNumero() + " - " + pv.getDescripcion());
             }}
 
+            // -- Nivel 3: Navegación de Entidades, JOINs y Subconsultas Simples --
 
-             // -- Nivel 3: Navegación de Entidades, JOINs y Subconsultas Simples --¿
             // 10. Navegación Implícita por Relaciones (Path Expressions)
             // Consigna: Consultar todas las facturas de venta creadas por un usuario en particular navegando por su nombre de usuario de carga (usuarioCarga.usuario).
             System.out.println("\n=== RESULTADOS EJERCICIO 10 ===");
+            String nombreUsuario = "jperez"; // Nombre de usuario a buscar
             List<FacturaVenta> resultados10 = em.createQuery("SELECT factura FROM FacturaVenta factura WHERE factura.usuarioCarga.usuario = :nombreUsuario", FacturaVenta.class)
-                .setParameter("nombreUsuario", "jperez")
+                .setParameter("nombreUsuario", nombreUsuario)
                 .getResultList();
 
             for (FacturaVenta f : resultados10) {
@@ -122,28 +121,26 @@ public class Main {
             }
 
 
-          // 11. Cláusula INNER JOIN Explícita
-// Consigna: Obtener todos los detalles de factura (FacturaVentaDetalle) que correspondan a facturas emitidas por un punto de venta determinado.
-System.out.println("\n=== RESULTADOS EJERCICIO 11 ===");
+            // 11. Cláusula INNER JOIN Explícita
+            // Consigna: Obtener todos los detalles de factura (FacturaVentaDetalle) que correspondan a facturas emitidas por un punto de venta determinado.
+            System.out.println("\n=== RESULTADOS EJERCICIO 11 ===");
+            PuntoVenta puntoVenta11 = em.find(PuntoVenta.class, 1L); // 1L = id del punto de venta buscado
 
-PuntoVenta puntoVenta11 = em.find(PuntoVenta.class, 1L); // 1L = id del punto de venta buscado
+            List<FacturaVentaDetalle> resultados11 = em.createQuery(
+                    "SELECT d FROM FacturaVentaDetalle d JOIN d.factura f WHERE f.puntoVenta = :pv", FacturaVentaDetalle.class)
+                .setParameter("pv", puntoVenta11)
+                .getResultList();
 
-List<FacturaVentaDetalle> resultados11 = em.createQuery(
-        "SELECT d FROM FacturaVentaDetalle d JOIN d.factura f WHERE f.puntoVenta = :pv", FacturaVentaDetalle.class)
-    .setParameter("pv", puntoVenta11)
-    .getResultList();
-
-for (FacturaVentaDetalle d : resultados11) {
-    System.out.println("- Detalle ID: " + d.getId()
-                                + " | Cantidad: "
-                                + d.getCantidad()
-                                + " | Factura Nro: "
-                                + d.getFactura().getNumero());
-}
+            for (FacturaVentaDetalle d : resultados11) {
+                System.out.println("- Detalle ID: " + d.getId()
+                                            + " | Cantidad: "
+                                            + d.getCantidad()
+                                            + " | Factura Nro: "
+                                            + d.getFactura().getNumero());
+            }
 
             // 12. Cláusula LEFT JOIN (Inclusión de Nulos)
-            //Consigna: Listar la denominación de todos los artículos junto con la denominación de su marca asociada, incluyendo también aquellos artículos que no posean una
-            //marca asignada.
+            //Consigna: Listar la denominación de todos los artículos junto con la denominación de su marca asociada, incluyendo también aquellos artículos que no posean una marca asignada.
             System.out.println("\n=== RESULTADOS EJERCICIO 12 ===");
 
             List<Object[]> resultados12 = em.createQuery(
