@@ -383,10 +383,10 @@ public class Main {
             em.persist(tipoMoneda);
 
             // --- Clientes ---
-            Cliente cliente = nuevoCliente(em, usuario, "30-12345678-9", "Empresa Demo S.A.");
-            Cliente cliGomez = nuevoCliente(em, usuario, "20-12345678-5", "Juan Gomez");
-            Cliente cliDemoCenter = nuevoCliente(em, usuario, "20-87654321-0", "Demo Center SRL");
-            Cliente cliFerreteria = nuevoCliente(em, usuario, "27-11111111-2", "Ferreteria El Tornillo");
+            Cliente cliente = nuevoCliente(em, usuario, "30-12345678-9", "Empresa Demo S.A.", "Av. San Martín", "456");
+            Cliente cliGomez = nuevoCliente(em, usuario, "20-12345678-5", "Juan Gomez", "Belgrano", "789");
+            Cliente cliDemoCenter = nuevoCliente(em, usuario, "20-87654321-0", "Demo Center SRL", "Sarmiento", "1234");
+            Cliente cliFerreteria = nuevoCliente(em, usuario, "27-11111111-2", "Ferreteria El Tornillo", "Las Heras", "880");
 
             // --- Puntos de venta ---
             PuntoVenta puntoVenta = new PuntoVenta();
@@ -672,15 +672,18 @@ public class Main {
         return lpa;
     }
 
-    private static Cliente nuevoCliente(EntityManager em, Usuario u, String cuit, String denominacion) {
+    private static int clienteSeq = 0;
+
+    private static Cliente nuevoCliente(EntityManager em, Usuario u, String cuit, String denominacion, String calle, String numero) {
         Contacto c = new Contacto();
         c.setEmail(denominacion.replaceAll("\\s+", "").toLowerCase() + "@mail.com");
-        c.setTelefono("4000000");
-        c.setCelular("2615000000");
+        c.setTelefono("426" + (1000 + clienteSeq * 137));
+        c.setCelular("2615" + String.format("%06d", 123456 + clienteSeq * 777));
+        clienteSeq++;
         em.persist(c);
         Domicilio d = new Domicilio();
-        d.setNombreCalle("Calle Falsa");
-        d.setNumeroCalle("123");
+        d.setNombreCalle(calle);
+        d.setNumeroCalle(numero);
         em.persist(d);
         Cliente cli = new Cliente();
         cli.setCuitCuil(cuit);
@@ -728,8 +731,10 @@ public class Main {
         d.setCantidad(cantidad);
         d.setPrecioUnitario(precioUnitario);
         d.setPorcentajeBonificacion(0.0);
-        d.setImporteNeto(subtotal / 1.21);
-        d.setImporteIva(subtotal - subtotal / 1.21);
+        double neto = Math.round(subtotal / 1.21 * 100.0) / 100.0;
+        double iva = Math.round((subtotal - neto) * 100.0) / 100.0;
+        d.setImporteNeto(neto);
+        d.setImporteIva(iva);
         d.setImporteSubtotal(subtotal);
         return d;
     }
