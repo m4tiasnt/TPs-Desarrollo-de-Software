@@ -20,7 +20,6 @@ public class Articulo extends AuditoriaApp {
     private Rubro rubro;
 
     @ManyToOne
-    @JoinColumn(name = "marca_id", nullable = false)
     private Marca marca;
 
     public Articulo() {
