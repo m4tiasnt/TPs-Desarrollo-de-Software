@@ -1,35 +1,23 @@
 package com.facturaarca.entities;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "listas_precio", schema = "model")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
+@ToString(callSuper = true)
 public class ListaPrecio extends AuditoriaApp {
 
-     @Column(nullable = false)
+    @Column(nullable = false)
+    @EqualsAndHashCode.Include
     private String codigo;
 
     @Column(nullable = false)
     private String denominacion;
-
-    public ListaPrecio() {
-    }
-
-    public String getDenominacion() {
-        return denominacion;
-    }
-
-    public void setDenominacion(String denominacion) {
-        this.denominacion = denominacion;
-    }
-
-    public String getCodigo() {
-        return codigo;
-    }
-
-    public void setCodigo(String codigo) {
-        this.codigo = codigo;
-    }
 }

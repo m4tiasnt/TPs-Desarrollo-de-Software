@@ -1,19 +1,24 @@
 package com.facturaarca.entities;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "articulos", schema = "model")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
+@ToString(callSuper = true)
 public class Articulo extends AuditoriaApp {
 
     @Column(nullable = false)
     private String denominacion;
 
     @Column(nullable = false)
+    @EqualsAndHashCode.Include
     private String codigo;
 
     @ManyToOne
@@ -21,39 +26,4 @@ public class Articulo extends AuditoriaApp {
 
     @ManyToOne
     private Marca marca;
-
-    public Articulo() {
-    }
-
-    public String getDenominacion() {
-        return denominacion;
-    }
-
-    public void setDenominacion(String denominacion) {
-        this.denominacion = denominacion;
-    }
-
-    public Rubro getRubro() {
-        return rubro;
-    }
-
-    public void setRubro(Rubro rubro) {
-        this.rubro = rubro;
-    }
-
-    public Marca getMarca() {
-        return marca;
-    }
-
-    public void setMarca(Marca marca) {
-        this.marca = marca;
-    }
-
-     public String getCodigo() {
-        return codigo;
-    }
-
-     public void setCodigo(String codigo) {
-        this.codigo = codigo;
-    }
 }
