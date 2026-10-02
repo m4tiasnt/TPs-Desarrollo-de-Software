@@ -6,9 +6,21 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import java.util.Date;
 
 @MappedSuperclass
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
+@ToString(callSuper = true)
 public abstract class AuditoriaApp extends EntityId {
 
     @Column(name = "fecha_alta", nullable = false)
@@ -34,58 +46,4 @@ public abstract class AuditoriaApp extends EntityId {
     @ManyToOne
     @JoinColumn(name = "usuario_modificacion_id", nullable = false)
     protected Usuario usuarioModificacion;
-
-
-    public AuditoriaApp() {
-    }
-
-
-    public Date getFechaAlta() {
-        return fechaAlta;
-    }
-
-    public void setFechaAlta(Date fechaAlta) {
-        this.fechaAlta = fechaAlta;
-    }
-
-    public Date getFechaBaja() {
-        return fechaBaja;
-    }
-
-    public void setFechaBaja(Date fechaBaja) {
-        this.fechaBaja = fechaBaja;
-    }
-
-    public Date getFechaModificacion() {
-        return fechaModificacion;
-    }
-
-    public void setFechaModificacion(Date fechaModificacion) {
-        this.fechaModificacion = fechaModificacion;
-    }
-
-    public Usuario getUsuarioCarga() {
-        return usuarioCarga;
-    }
-
-    public void setUsuarioCarga(Usuario usuarioCarga) {
-        this.usuarioCarga = usuarioCarga;
-    }
-
-    public Usuario getUsuarioBaja() {
-        return usuarioBaja;
-    }
-
-    public void setUsuarioBaja(Usuario usuarioBaja) {
-        this.usuarioBaja = usuarioBaja;
-    }
-
-    public Usuario getUsuarioModificacion() {
-        return usuarioModificacion;
-    }
-
-    public void setUsuarioModificacion(Usuario usuarioModificacion) {
-        this.usuarioModificacion = usuarioModificacion;
-    }
 }
-

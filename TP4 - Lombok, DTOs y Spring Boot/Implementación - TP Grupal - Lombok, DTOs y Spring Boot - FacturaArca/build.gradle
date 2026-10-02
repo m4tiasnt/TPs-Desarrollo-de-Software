@@ -22,6 +22,9 @@ dependencies {
     // Driver DB H2
     implementation 'com.h2database:h2:2.2.224'
 
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
 }
 
 test {
