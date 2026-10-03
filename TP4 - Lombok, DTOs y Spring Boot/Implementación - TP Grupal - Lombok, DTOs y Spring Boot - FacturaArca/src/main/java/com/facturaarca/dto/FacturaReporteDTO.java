@@ -1,16 +1,22 @@
 package com.facturaarca.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
+import java.util.Date;
+
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class FacturaReporteDTO {
-    private Long id;
-    private String letra;
-    private Integer numero;
-    private String razonSocialCliente;
-    private Double total;
+    private Long numeroFactura;
+    private Date fechaEmision;
+    private String clienteDenominacion;
+    private String condicionIva;
+    private String puntoVentaDescripcion;
+    private double importeTotal;
+    private long cantidadItems;
 }
