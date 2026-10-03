@@ -104,10 +104,10 @@ public class Main {
             String busquedaDenominacion = "demo";
             String busquedaCuit = "20-";
             List<Cliente> resultados6 = em.createQuery(
-                            "SELECT c FROM Cliente c WHERE LOWER(c.denominacion) LIKE LOWER(:texto) OR c.cuitCuil LIKE :cuitPrefix",
+                            "SELECT c FROM Cliente c WHERE LOWER(c.denominacion) LIKE LOWER(:texto) OR c.cuitCuil LIKE :cuitPrefijo",
                             Cliente.class)
                     .setParameter("texto", "%" + busquedaDenominacion + "%")
-                    .setParameter("cuitPrefix", busquedaCuit + "%")
+                    .setParameter("cuitPrefijo", busquedaCuit + "%")
                     .getResultList();
 
             for (Cliente c : resultados6) {
