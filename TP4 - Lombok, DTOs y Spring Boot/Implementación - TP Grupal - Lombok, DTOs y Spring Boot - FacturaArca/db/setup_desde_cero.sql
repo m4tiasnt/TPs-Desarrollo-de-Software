@@ -9,7 +9,7 @@
 --        - Hibernate (ddl-auto=update) crea las 14 tablas en el esquema `model`.
 --        - DataSeeder carga los datos de prueba si las tablas estan vacias.
 --
--- Re-ejecutar este script borra TODO el contenido del esquema `model` y lo deja
+-- Re-ejecutar este script borra completamente el contenido del esquema `model` y lo deja
 -- listo para una carga fresca.
 
 DROP SCHEMA IF EXISTS model CASCADE;
