@@ -7,7 +7,8 @@ import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "factura_venta", schema = "model")
+@Table(name = "factura_venta",schema =
+"model")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -24,8 +25,8 @@ public class FacturaVenta extends AuditoriaApp {
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaEmision;
 
-    @ManyToOne
-    @JoinColumn(name = "cliente_id", nullable = true)
+    @ManyToOne(fetch= FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
     @ManyToOne

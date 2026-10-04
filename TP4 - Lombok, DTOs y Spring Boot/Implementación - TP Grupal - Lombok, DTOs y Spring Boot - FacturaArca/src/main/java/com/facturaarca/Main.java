@@ -1,57 +1,84 @@
 package com.facturaarca;
 
+import com.facturaarca.dto.FacturaReporteDTO;
 import com.facturaarca.entities.*;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Date;
+import java.util.List;
 
 @SpringBootApplication
 public class Main {
 
-    private static final boolean CARGAR_DATOS = false;
+    private static final boolean CARGAR_DATOS = true;
 
     public static void main(String[] args) {
-
         SpringApplication.run(Main.class, args);
-
-        if (CARGAR_DATOS) {
-            cargarDatosDePrueba();
-        }
     }
 
+    @Bean
+    CommandLineRunner initData(EntityManager em, TransactionTemplate transactionTemplate) {
+        return args -> {
+            if (CARGAR_DATOS) {
+                // Usamos TransactionTemplate para que Spring maneje la transacción de forma segura
+                transactionTemplate.execute(status -> {
+                    cargarDatosDePrueba(em);
+                    return null;
+                });
+            }
 
-    private static void cargarDatosDePrueba() {
-        // Iniciar el contenedor de JPA
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("FacturacionPU");
-        EntityManager em = emf.createEntityManager();
+            // 1. Definimos la consulta JPQL tal como pide el TP
+            String jpql = "SELECT new com.facturaarca.dto.FacturaReporteDTO(" +
+                    " f.numero, " +
+                    " f.fechaEmision, " +
+                    " COALESCE(c.denominacion, 'Consumidor Final'), " +
+                    " ci.denominacion, " +
+                    " pv.descripcion, " +
+                    " f.importeTotal, " +
+                    " COUNT(d) " +
+                    ") " +
+                    "FROM FacturaVenta f " +
+                    "LEFT JOIN f.cliente c " +
+                    "JOIN f.condicionIva ci " +
+                    "JOIN f.puntoVenta pv " +
+                    "JOIN f.detalles d " +
+                    "GROUP BY f.id, f.numero, f.fechaEmision, c.denominacion, ci.denominacion, pv.descripcion, f.importeTotal";
+
+            // 2. Ejecutamos la consulta con el EntityManager que nos regaló Spring
+            List<FacturaReporteDTO> reporte = em.createQuery(jpql, FacturaReporteDTO.class).getResultList();
+
+            // 3. Mostramos por consola los resultados del reporte
+            System.out.println("=== REPORTE DE FACTURAS ===");
+            for (FacturaReporteDTO r : reporte) {
+                System.out.println("Factura N°: " + r.getNumeroFactura() + " - Total: " + r.getImporteTotal());
+            }
+        };
+    }
+
+    private static void cargarDatosDePrueba(EntityManager em) {
+        // --- Usuarios ---
+        Usuario usuario = new Usuario();
+        usuario.setNombre("Juan");
+        usuario.setApellido("Perez");
+        usuario.setUsuario("jperez");
+        usuario.setClave("1234");
+        em.persist(usuario);
+
+        Usuario usuario2 = new Usuario();
+        usuario2.setNombre("Maria");
+        usuario2.setApellido("Garcia");
+        usuario2.setUsuario("mgarcia");
+        usuario2.setClave("1234");
+        em.persist(usuario2);
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
 
         try {
-            // Iniciar una transacción
-            em.getTransaction().begin();
-
-            // Datos de prueba
-
-            // --- Usuarios ---
-            Usuario usuario = new Usuario();
-            usuario.setNombre("Juan");
-            usuario.setApellido("Perez");
-            usuario.setUsuario("jperez");
-            usuario.setClave("1234");
-            em.persist(usuario);
-
-            Usuario usuario2 = new Usuario();
-            usuario2.setNombre("Maria");
-            usuario2.setApellido("Garcia");
-            usuario2.setUsuario("mgarcia");
-            usuario2.setClave("1234");
-            em.persist(usuario2);
-
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
-
             // --- Condición de IVA ---
             CondicionIva condicionIva = new CondicionIva();
             condicionIva.setDenominacion("Responsable Inscripto");
@@ -243,10 +270,7 @@ public class Main {
             facturaVenta.setEstado("EMITIDA");
             facturaVenta.setFechaAlta(new Date());
             facturaVenta.setFechaModificacion(new Date());
-            facturaVenta.setUsuarioCarga(usuario);
-            facturaVenta.setUsuarioModificacion(usuario);
 
-            // --- Detalles ---
             FacturaVentaDetalle detalle1 = new FacturaVentaDetalle();
             detalle1.setListaPrecioArticulo(listaPrecioArticulo);
             detalle1.setDescripcion("Mouse Inalambrico");
@@ -267,76 +291,55 @@ public class Main {
             detalle2.setImporteIva(360.66);
             detalle2.setImporteSubtotal(2000.0);
 
-            // addDetalle() deja la relación bidireccional sincronizada
             facturaVenta.addDetalle(detalle1);
             facturaVenta.addDetalle(detalle2);
-
-            // Persistir el objeto cabecera FacturaVenta
             em.persist(facturaVenta);
 
-            // Factura 2
+            // Facturas 2 a 10
             FacturaVenta f2 = nuevaFactura(em, usuario, condicionIva, tipoMoneda, puntoVenta, cliente, 2L, "2026-02-10", "EMITIDA", 75000.0, null, sdf);
             f2.addDetalle(nuevoDetalle(lpaTV, "TV Samsung 55", 1, 75000.0, 75000.0));
             em.persist(f2);
 
-            // Factura 3
             FacturaVenta f3 = nuevaFactura(em, usuario, condicionIva, tipoMoneda, puntoVenta, cliente, 3L, "2026-03-15", "EMITIDA", 25000.0, null, sdf);
             f3.addDetalle(nuevoDetalle(lpaHeladera, "Heladera LG", 1, 25000.0, 25000.0));
             em.persist(f3);
 
-            // Factura 4
             FacturaVenta f4 = nuevaFactura(em, usuario, condicionIva, tipoMoneda, pv2, cliGomez, 4L, "2026-04-20", "EMITIDA", 5000.0, null, sdf);
             f4.addDetalle(nuevoDetalle(lpaSilla, "Silla de Madera", 2, 2500.0, 5000.0));
             em.persist(f4);
 
-            // Factura 5
             FacturaVenta f5 = nuevaFactura(em, usuario, condicionIva, tipoMoneda, pv2, cliDemoCenter, 5L, "2026-05-05", "EMITIDA", 60000.0, null, sdf);
             f5.addDetalle(nuevoDetalle(lpaCelu, "Celular Samsung A54", 2, 30000.0, 60000.0));
             em.persist(f5);
 
-            // Factura 6
             FacturaVenta f6 = nuevaFactura(em, usuario, condicionIva, tipoMoneda, pv5, cliente, 6L, "2026-06-12", "ANULADA", 30000.0, "2026-06-20", sdf);
             f6.addDetalle(nuevoDetalle(lpaMonitor, "Monitor LG 27", 1, 30000.0, 30000.0));
             em.persist(f6);
 
-            // Factura 7
             FacturaVenta f7 = nuevaFactura(em, usuario, condicionIva, tipoMoneda, puntoVenta, cliFerreteria, 7L, "2026-07-01", "EMITIDA", 12000.0, null, sdf);
             f7.addDetalle(nuevoDetalle(listaPrecioArticulo, "Mouse Inalambrico", 8, 1500.0, 12000.0));
             em.persist(f7);
 
-            // Factura 8
             FacturaVenta f8 = nuevaFactura(em, usuario, condicionIva, tipoMoneda, pv2, cliGomez, 8L, "2026-08-19", "PENDIENTE", 8000.0, null, sdf);
             f8.addDetalle(nuevoDetalle(lpaSilla, "Silla de Madera", 1, 8000.0, 8000.0));
             em.persist(f8);
 
-            // Factura 9
             FacturaVenta f9 = nuevaFactura(em, usuario2, condicionIva, tipoMoneda, pv3, cliDemoCenter, 9L, "2026-09-10", "EMITIDA", 45000.0, null, sdf);
             f9.addDetalle(nuevoDetalle(lpaTV, "TV Samsung 55", 1, 45000.0, 45000.0));
             em.persist(f9);
 
-            // Factura 10
             FacturaVenta f10 = nuevaFactura(em, usuario2, condicionIva, tipoMoneda, puntoVenta, cliFerreteria, 10L, "2025-12-15", "EMITIDA", 1500.0, null, sdf);
             f10.addDetalle(nuevoDetalle(listaPrecioArticulo, "Mouse Inalambrico", 1, 1500.0, 1500.0));
             em.persist(f10);
 
-            // Finalizar la transacción
-            em.getTransaction().commit();
-
             System.out.println("Carga de datos de prueba finalizada.");
 
         } catch (Exception e) {
-            if (em.getTransaction().isActive()) {
-                em.getTransaction().rollback();
-            }
-            e.printStackTrace();
-        } finally {
-            // Cerrar el EntityManager y EntityManagerFactory
-            em.close();
-            emf.close();
+            throw new RuntimeException("Error al cargar datos de prueba", e);
         }
     }
 
-    // ---------- Helpers de carga de datos ----------
+    // ---------- Helpers ----------
     private static Articulo nuevoArticulo(EntityManager em, Usuario u, String codigo, String denominacion, Rubro rubro, Marca marca) {
         Articulo a = new Articulo();
         a.setCodigo(codigo);
@@ -429,7 +432,4 @@ public class Main {
         d.setImporteSubtotal(subtotal);
         return d;
     }
-
-
-
 }

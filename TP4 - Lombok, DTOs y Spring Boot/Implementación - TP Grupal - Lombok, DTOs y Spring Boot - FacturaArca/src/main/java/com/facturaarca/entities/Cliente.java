@@ -21,11 +21,11 @@ public class Cliente extends AuditoriaApp {
     @Column(nullable = false)
     private String denominacion;
 
-    @OneToOne
+    @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(nullable = false)
     private Contacto contacto;
 
-    @OneToOne
+    @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(nullable = false)
     private Domicilio domicilio;
 }
