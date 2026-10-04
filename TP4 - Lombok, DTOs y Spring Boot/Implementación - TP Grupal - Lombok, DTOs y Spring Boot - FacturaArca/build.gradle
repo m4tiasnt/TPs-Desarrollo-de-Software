@@ -29,6 +29,12 @@ dependencies {
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.38'
     annotationProcessor 'org.projectlombok:lombok:1.18.38'
+
+    // iText para generación de PDFs
+    implementation 'com.itextpdf:itext-core:9.2.0'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 test {
