@@ -27,9 +27,7 @@ public class ReporteTxtAutoGenerador {
 
         String base = "http://localhost:" + puerto + "/api/facturas";
         System.out.println();
-        System.out.println("==============================================================");
         System.out.println(" Descargar reporte TXT : " + base + "/txt");
         System.out.println(" Ver facturas en JSON  : " + base);
-        System.out.println("==============================================================");
     }
 }
