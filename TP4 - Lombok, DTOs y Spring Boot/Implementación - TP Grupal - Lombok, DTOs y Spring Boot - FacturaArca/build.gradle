@@ -30,8 +30,11 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.38'
     annotationProcessor 'org.projectlombok:lombok:1.18.38'
 
-    // iText para generación de PDFs
+    // iText para generación de PDFs (Librería de tu compañero)
     implementation 'com.itextpdf:itext-core:9.2.0'
+
+    // Apache POI para generación de Excel real (Tu librería)
+    implementation 'org.apache.poi:poi-ooxml:5.2.3'
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
