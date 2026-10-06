@@ -12,7 +12,7 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FacturaReporteDTO {
-    public Long numeroFactura;
+    private Long numeroFactura;
     private Date fechaEmision;
     private String clienteDenominacion;
     private String condicionIva;
