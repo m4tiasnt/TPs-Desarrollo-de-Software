@@ -1,6 +1,6 @@
 package com.facturaarca;
 
-import com.facturaarca.services.FacturaService;
+import com.facturaarca.services.ReporteService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -10,10 +10,10 @@ import java.util.List;
 @SpringBootApplication
 public class FacturaArcaApplication implements CommandLineRunner {
 
-    private final FacturaService facturaService;
+    private final ReporteService reporteService;
 
-    public FacturaArcaApplication(FacturaService facturaService) {
-        this.facturaService = facturaService;
+    public FacturaArcaApplication(ReporteService reporteService) {
+        this.reporteService = reporteService;
     }
 
     public static void main(String[] args) {
@@ -22,6 +22,7 @@ public class FacturaArcaApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        facturaService.generarReporteFacturasPdf();
+        reporteService.generarReportePdf();
+        reporteService.generarReporteExcel();
     }
 }
