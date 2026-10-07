@@ -18,6 +18,7 @@ public class FacturaService {
     @PersistenceContext
     private EntityManager em;
 
+    @Transactional(readOnly = true)
     public List<FacturaReporteDTO> obtenerTodasLasFacturas() {
         String jpql = """
                     SELECT new com.facturaarca.dto.FacturaReporteDTO(
@@ -49,6 +50,7 @@ public class FacturaService {
     }
 
 
+    @Transactional(readOnly = true)
     public List<FacturaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta, String estado, Double montoMinimo) {
         StringBuilder jpql = new StringBuilder(
                 "SELECT new com.facturaarca.dto.FacturaReporteDTO(" +
