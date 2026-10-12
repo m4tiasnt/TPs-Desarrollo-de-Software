@@ -344,6 +344,14 @@ public class FacturaService {
             factura.setImporteTotal(totalCalculado);
         }
 
+        Usuario usuario = em.createQuery("SELECT u FROM Usuario u", Usuario.class)
+                .setMaxResults(1)
+                .getResultList()
+                .stream().findFirst().orElse(null);
+        if (usuario != null) {
+            factura.setUsuarioModificacion(usuario);
+        }
+
         factura.setFechaModificacion(new Date());
         em.merge(factura);
 
@@ -368,6 +376,13 @@ public class FacturaService {
         factura.setEstado("ANULADA");
         factura.setFechaAnulacion(new Date());
         factura.setFechaModificacion(new Date());
+        Usuario usuario = em.createQuery("SELECT u FROM Usuario u", Usuario.class)
+                .setMaxResults(1)
+                .getResultList()
+                .stream().findFirst().orElse(null);
+        if (usuario != null) {
+            factura.setUsuarioModificacion(usuario);
+        }
         em.merge(factura);
         return convertirAReporteDTO(factura);
     }
