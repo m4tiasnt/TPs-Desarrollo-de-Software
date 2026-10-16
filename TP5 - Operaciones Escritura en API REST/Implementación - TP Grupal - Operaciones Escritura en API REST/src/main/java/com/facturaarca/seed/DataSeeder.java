@@ -27,11 +27,17 @@ public class DataSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        Long existentes = em.createQuery("SELECT COUNT(u) FROM Usuario u", Long.class).getSingleResult();
-        if (existentes > 0) {
-            System.out.println("Ya existen datos de prueba, se omite la carga inicial.");
-            return;
-        }
+        // MODIFICADO: Se comenta la verificación de usuarios existentes porque al iniciar
+        // con la base de datos vacía, esta query fallaba antes de que Hibernate pudiera
+        // crear la tabla "usuarios". Al no tener schema = "model" en Usuario.java,
+        // Hibernate ahora usa el esquema "public" por defecto y crea las tablas correctamente.
+        // Si se quiere reactivar la verificación, descomentar las líneas de abajo:
+        //
+        // Long existentes = em.createQuery("SELECT COUNT(u) FROM Usuario u", Long.class).getSingleResult();
+        // if (existentes > 0) {
+        //     System.out.println("Ya existen datos de prueba, se omite la carga inicial.");
+        //     return;
+        // }
         cargarDatosDePrueba();
     }
 

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "usuarios", schema = "model")
+@Table(name = "usuarios") // schema = "model" le saque esto para que me funciones el FacturaArca
 @Getter
 @Setter
 @NoArgsConstructor

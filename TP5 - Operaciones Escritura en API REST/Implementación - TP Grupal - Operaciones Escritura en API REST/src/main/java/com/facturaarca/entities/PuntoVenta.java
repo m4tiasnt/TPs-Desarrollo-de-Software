@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "puntos_venta", schema = "model")
+@Table(name = "puntos_venta") // MODIFICADO: se quitó schema = "model", la tabla pasa al esquema "public" por defecto
 @Getter
 @Setter
 @NoArgsConstructor
