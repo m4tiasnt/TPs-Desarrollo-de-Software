@@ -2,6 +2,7 @@
 -- SCRIPT COMPLETO DE POBLACIÓN DE DATOS (SEED)
 -- =======================================================================================
 
+CREATE SCHEMA IF NOT EXISTS model;
 SET search_path TO model;
 
 TRUNCATE TABLE 
