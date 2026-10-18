@@ -27,13 +27,15 @@ public class FacturaService {
     public List<FacturaReporteDTO> obtenerTodasLasFacturas() {
         String jpql = """
                     SELECT new com.facturaarca.dto.FacturaReporteDTO(
+                        f.id,
                         f.numero,
                         f.fechaEmision,
                         COALESCE(c.denominacion, 'Consumidor Final'),
                         ci.denominacion,
                         pv.descripcion,
                         f.importeTotal,
-                        COUNT(d)
+                        COUNT(d),
+                        f.estado
                     )
                     FROM FacturaVenta f
                     LEFT JOIN f.cliente c
@@ -58,13 +60,15 @@ public class FacturaService {
     public List<FacturaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta, String estado, Double montoMinimo) {
         StringBuilder jpql = new StringBuilder(
                 "SELECT new com.facturaarca.dto.FacturaReporteDTO(" +
+                        "f.id, " +
                         "f.numero, " +
                         "f.fechaEmision, " +
                         "COALESCE(c.denominacion, 'Consumidor Final'), " +
                         "ci.denominacion, " +
                         "pv.descripcion, " +
                         "f.importeTotal, " +
-                        "COUNT(d)" +
+                        "COUNT(d), " +
+                        "f.estado" +
                         ") " +
                         "FROM FacturaVenta f " +
                         "LEFT JOIN f.cliente c " +
