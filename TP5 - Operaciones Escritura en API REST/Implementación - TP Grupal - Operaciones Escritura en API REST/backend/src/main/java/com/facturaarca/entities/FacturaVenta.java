@@ -7,7 +7,7 @@ import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "factura_venta") // MODIFICADO: se quitó schema = "model", la tabla pasa al esquema "public" por defecto
+@Table(name = "factura_venta", schema = "model")
 @Getter
 @Setter
 @NoArgsConstructor
