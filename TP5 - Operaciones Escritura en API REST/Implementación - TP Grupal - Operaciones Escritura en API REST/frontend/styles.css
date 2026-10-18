@@ -1,0 +1,288 @@
+/* ==========================================================================
+   FacturaArca – estilos
+   Solo maquetación. Los estados (cargando, vacío, error, diálogos) viven en
+   el HTML con el atributo [hidden]; se muestran quitando ese atributo.
+   Secciones: 1 Tokens · 2 Base · 3 Layout · 4 Formularios · 5 Botones ·
+              6 Tablas y badges · 7 Estados · 8 Diálogos · 9 Nueva factura ·
+              10 Responsive
+   ========================================================================== */
+
+/* 1. Tokens ------------------------------------------------------------- */
+:root {
+  --color-primary: #1e40af;
+  --color-primary-hover: #1e3a8a;
+  --color-primary-light: #dbeafe;
+
+  /* Textos de estado: más oscuros que en la especificación para cumplir contraste AA */
+  --color-success-bg: #d1fae5;
+  --color-success-text: #047857;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-danger-text: #b91c1c;
+
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-text: #1e293b;
+  --color-text-muted: #64748b;
+
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 2. Base --------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* [hidden] siempre gana sobre cualquier display */
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.5;
+}
+h1, h2, p { margin: 0; }
+h1 { font-size: 24px; font-weight: 600; }
+h2 { font-size: 16px; font-weight: 600; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.icon {   /* Ícono del sprite: <svg class="icon"><use href="#i-..."/></svg> */
+  width: 18px; height: 18px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.muted { color: var(--color-text-muted); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 3. Layout ------------------------------------------------------------- */
+.app-header { background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+.app-header .container { display: flex; align-items: center; height: 56px; padding-block: 0; }
+.brand { font-size: 18px; font-weight: 700; color: var(--color-primary); }
+
+.container { max-width: 1400px; margin: 0 auto; padding: var(--space-lg); }
+.stack { display: flex; flex-direction: column; gap: var(--space-lg); }
+.page-title { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
+.back-link { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--color-text-muted); text-decoration: none; }
+
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.card-body { padding: var(--space-lg); }
+.card-body > h2 { margin-bottom: var(--space-md); }
+
+/* Botón que despliega los filtros: solo se ve en celular (ver sección 10) */
+.btn.filters-toggle { display: none; justify-content: space-between; width: 100%; }
+
+/* 4. Formularios -------------------------------------------------------- */
+.form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-md); }
+.form-row + .form-row { margin-top: var(--space-md); }
+.form-group { flex: 1 1 180px; min-width: 0; }
+.form-group--wide { flex-basis: 300px; }
+
+.form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; color: #334155; }
+.form-control {
+  width: 100%; padding: 10px 12px;
+  font: inherit; font-size: 16px; color: var(--color-text);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.form-control:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
+.form-control:disabled { background: #f1f5f9; cursor: not-allowed; }
+.form-control.is-invalid { border-color: var(--color-danger); }   /* se agrega junto con .field-error visible */
+.field-error { margin-top: 6px; font-size: 12px; color: var(--color-danger-text); }
+.field-hint { margin-top: 6px; font-size: 13px; color: var(--color-text-muted); }
+
+/* Desplegables y fechas: flecha propia y mismo alto que los campos de texto */
+input.form-control, select.form-control { height: 44px; }
+select.form-control {
+  appearance: none; padding-right: 40px; cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+select.form-control:hover, input[type='date'].form-control:hover { border-color: var(--color-border-hover); }
+input[type='date'].form-control { cursor: pointer; }
+input[type='date']::-webkit-calendar-picker-indicator { padding: 4px; border-radius: 4px; opacity: 0.55; cursor: pointer; }
+input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 1; background: var(--color-border); }
+
+/* 5. Botones ------------------------------------------------------------ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  min-height: 44px; padding: 10px 20px;
+  font: inherit; font-size: 14px; font-weight: 500; text-decoration: none;
+  border: 0; border-radius: var(--radius-md); cursor: pointer;
+  transition: background 150ms ease;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+.btn-secondary { background: var(--color-border); color: var(--color-text); }
+.btn-secondary:hover:not(:disabled) { background: var(--color-border-hover); }
+.btn-danger { background: var(--color-danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: var(--color-danger-hover); }
+.btn-block { width: 100%; }
+.btn--sm { min-height: 32px; padding: 6px 12px; font-size: 13px; }
+.btn--sm .icon { width: 15px; height: 15px; }
+
+.btn-icon {   /* botón solo con ícono: siempre lleva aria-label */
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; padding: 0;
+  color: var(--color-text-muted); background: transparent; border: 0; border-radius: var(--radius-md); cursor: pointer;
+}
+.btn-icon:hover:not(:disabled) { background: var(--color-border); color: var(--color-text); }
+.btn-icon--danger:hover:not(:disabled) { background: var(--color-danger-bg); color: var(--color-danger-text); }
+.btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Aviso tipo toast: los scripts cambian className a "exito"/"error" y manejan display */
+#mensaje-feedback {
+  display: none; position: fixed; right: var(--space-lg); bottom: var(--space-lg); z-index: 30;
+  max-width: min(420px, calc(100vw - 2 * var(--space-lg)));
+  padding: 12px 20px; border-radius: var(--radius-md);
+  font-size: 14px; font-weight: 500; color: #fff;
+  box-shadow: var(--shadow-lg); animation: toast-in 160ms ease;
+}
+#mensaje-feedback.exito { background: var(--color-success-text); }
+#mensaje-feedback.error { background: var(--color-danger); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* 6. Tablas y badges ---------------------------------------------------- */
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; }
+.table th {
+  padding: 12px 16px; text-align: left; white-space: nowrap;
+  font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--color-text-muted); background: var(--color-bg); border-bottom: 1px solid var(--color-border);
+}
+.table td { padding: 8px 16px; font-size: 14px; white-space: nowrap; border-bottom: 1px solid var(--color-border); }
+.table tbody tr:hover { background: var(--color-bg); }
+.table th.num { text-align: right; }
+.table .actions { text-align: right; }
+
+/* El listado de facturas debe entrar sin scroll lateral: el texto hace wrap */
+#tabla-facturas table { width: 100%; }
+#tabla-facturas th, #tabla-facturas td { white-space: normal; padding: 10px 12px; }
+#tabla-facturas th:first-child, #tabla-facturas td:first-child { padding-left: 16px; }
+#tabla-facturas th:last-child, #tabla-facturas td:last-child { padding-right: 16px; }
+#tabla-facturas td.actions { white-space: nowrap; }
+#tabla-facturas td.actions .btn + .btn { margin-left: var(--space-sm); }
+/* Anchos: las columnas cortas no deben robar espacio */
+#tabla-facturas th:nth-child(1) { width: 92px; }    /* N° Factura */
+#tabla-facturas th:nth-child(2) { width: 130px; }   /* Fecha emisión */
+#tabla-facturas th:nth-child(6) { width: 120px; }   /* Total ($) */
+#tabla-facturas th:nth-child(7) { width: 84px; }    /* Cant. ítems */
+#tabla-facturas th:nth-child(8) { width: 120px; }   /* Estado */
+#tabla-facturas th:nth-child(9) { width: 200px; }   /* Acciones */
+.sort { all: unset; cursor: pointer; }   /* botón de ordenar dentro de <th> */
+.sort:focus-visible { outline: 2px solid var(--color-primary); }
+
+.badge { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 999px; }
+.badge-emitida { background: var(--color-success-bg); color: var(--color-success-text); }
+.badge-anulada { background: var(--color-danger-bg); color: var(--color-danger-text); }
+.badge-pendiente { background: var(--color-warning-bg); color: var(--color-warning-text); }
+
+.pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm); padding: 12px var(--space-lg); font-size: 14px; }
+.pagination > div { display: flex; gap: var(--space-sm); }
+
+/* 7. Estados: cargando, vacío, error, aviso ------------------------------ */
+.skeleton-row { display: flex; gap: var(--space-lg); padding: 18px var(--space-lg); border-bottom: 1px solid var(--color-border); }
+.skeleton { flex: 1; height: 12px; border-radius: 6px; background: var(--color-border); }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-sm); padding: 48px var(--space-lg); text-align: center; }
+.empty-state .icon { width: 40px; height: 40px; color: var(--color-text-muted); }
+.empty-state strong { font-size: 16px; }
+.empty-state .btn { margin-top: var(--space-sm); }
+
+.alert { display: flex; align-items: center; gap: 12px; padding: 12px var(--space-md); font-size: 14px; font-weight: 500; border-radius: var(--radius-md); }
+.alert > span { flex: 1; }
+.alert-danger { background: var(--color-danger-bg); border: 1px solid #fecaca; color: var(--color-danger-text); }
+.alert .btn { min-height: 36px; padding: 6px 14px; font-size: 13px; }
+
+.toast {   /* aviso breve: "Factura creada", "Factura anulada"… */
+  position: fixed; right: var(--space-lg); bottom: var(--space-lg); z-index: 20;
+  padding: 12px 20px; font-size: 14px; font-weight: 500;
+  color: #fff; background: var(--color-text); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+
+/* 8. Diálogos (<dialog> nativo) ------------------------------------------ */
+dialog { width: min(420px, calc(100% - 32px)); padding: var(--space-lg); color: var(--color-text); border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+dialog::backdrop { background: rgb(15 23 42 / 0.5); }
+dialog h2 { margin-bottom: var(--space-sm); font-size: 18px; }
+dialog p { font-size: 14px; color: var(--color-text-muted); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); margin-top: var(--space-lg); }
+.dialog-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-bottom: var(--space-md); color: #475569; background: #f1f5f9; border-radius: 50%; }
+.dialog-icon--warning { color: var(--color-warning-text); background: var(--color-warning-bg); }
+.dialog-icon--danger { color: var(--color-danger-text); background: var(--color-danger-bg); }
+
+/* 9. Nueva factura ------------------------------------------------------- */
+.invoice-layout { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-lg); }
+.invoice-main { flex: 1 1 640px; min-width: 0; }
+.invoice-summary { flex: 0 1 340px; min-width: 280px; position: sticky; top: var(--space-lg); }
+
+/* Anchos de campo para que el alta no quede apretada */
+.form-group--num { flex: 1 1 150px; }
+.form-group--grow { flex: 2 1 240px; }
+.form-group--sm { flex: 0 1 130px; }
+.form-group--full { flex: 1 1 100%; }
+.form-group--action { flex: 0 0 auto; }
+
+/* Editor de renglón: caja propia, separada de la tabla de renglones */
+.line-editor { padding: var(--space-md); margin-bottom: var(--space-lg); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.line-editor-actions { display: flex; justify-content: flex-end; margin-top: var(--space-md); }
+
+/* Barra de acciones final del alta */
+.action-bar { display: flex; justify-content: flex-end; gap: var(--space-sm); }
+
+.combobox { position: relative; }
+.combobox > .icon { position: absolute; left: 12px; top: 13px; color: var(--color-text-muted); }
+.combobox .form-control { padding-left: 38px; }
+.combobox-list {
+  position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0;
+  margin: 0; padding: 0; list-style: none; overflow: hidden;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.combobox-list [role='option'] { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: 10px var(--space-md); cursor: pointer; }
+.combobox-list [role='option'] + [role='option'] { border-top: 1px solid var(--color-border); }
+.combobox-list [role='option']:hover, .combobox-list [aria-selected='true'] { background: var(--color-primary-light); }
+.option-name { font-weight: 500; }
+.option-meta { display: block; font-size: 13px; color: var(--color-text-muted); }
+
+.lines { margin-top: var(--space-md); min-width: 720px; }
+.lines td { vertical-align: top; padding: 12px 8px; }
+.lines th:first-child, .lines td:first-child { padding-left: 0; }
+.lines th:last-child, .lines td:last-child { padding-right: 0; }
+.lines .line-subtotal { padding-top: 22px; font-weight: 500; }
+.lines .btn-icon { margin-top: 1px; }
+.lines th:nth-child(2) { width: 84px; }    /* Cant. */
+.lines th:nth-child(3) { width: 130px; }   /* Precio unit. */
+.lines th:nth-child(4) { width: 96px; }    /* % Bonif. */
+.lines th:nth-child(5) { width: 140px; }   /* Subtotal */
+.lines th:nth-child(6) { width: 48px; }    /* Acciones */
+
+.summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.summary-total { display: flex; justify-content: space-between; align-items: baseline; margin: var(--space-md) 0 var(--space-lg); padding-top: var(--space-md); border-top: 1px solid var(--color-border); }
+.summary-total strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.summary-actions { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+/* 10. Responsive --------------------------------------------------------- */
+@media (max-width: 767px) {
+  .container { padding: var(--space-md); }
+  .btn.filters-toggle { display: flex; }
+  .filters.is-collapsed { display: none; }   /* el botón #btn-filtros alterna esta clase */
+  .invoice-summary { position: static; flex-basis: 100%; }
+
+  /* El listado pasa de tabla a tarjetas; cada <td data-label="…"> muestra su etiqueta */
+  .table--cards thead { position: absolute; left: -9999px; }
+  .table--cards tr { display: block; padding: var(--space-md); border-bottom: 1px solid var(--color-border); }
+  .table--cards td { display: flex; justify-content: space-between; gap: var(--space-md); padding: 4px 0; border: 0; white-space: normal; }
+  .table--cards td::before { content: attr(data-label); color: var(--color-text-muted); }
+  .table--cards td.actions { justify-content: flex-end; }
+  .table--cards td.actions::before { content: none; }
+}

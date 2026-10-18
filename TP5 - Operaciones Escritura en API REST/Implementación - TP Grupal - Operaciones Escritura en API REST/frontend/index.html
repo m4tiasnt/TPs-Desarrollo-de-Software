@@ -2,409 +2,141 @@
 <html lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Facturación</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            padding: 24px;
-        }
-
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-
-        header {
-            margin-bottom: 24px;
-            padding-bottom: 16px;
-            border-bottom: 2px solid #e1e4e8;
-        }
-
-        header h1 {
-            font-size: 1.8rem;
-            color: #1a202c;
-        }
-
-        header p {
-            color: #64748b;
-            font-size: 0.95rem;
-            margin-top: 4px;
-        }
-
-        /* Notificaciones / Feedback */
-        #mensaje-feedback {
-            display: none;
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
-
-        #mensaje-feedback.exito {
-            display: block;
-            background-color: #d1e7dd;
-            color: #0f5132;
-            border: 1px solid #badbcc;
-        }
-
-        #mensaje-feedback.error {
-            display: block;
-            background-color: #f8d7da;
-            color: #842029;
-            border: 1px solid #f5c2c7;
-        }
-
-        section {
-            background: #ffffff;
-            border-radius: 8px;
-            padding: 24px;
-            margin-bottom: 28px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-            border: 1px solid #e2e8f0;
-        }
-
-        section h2 {
-            font-size: 1.3rem;
-            color: #2d3748;
-            margin-bottom: 18px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 16px;
-            margin-bottom: 18px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group.col-span-2 {
-            grid-column: span 2;
-        }
-
-        .form-group label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: #4a5568;
-        }
-
-        .form-group input,
-        .form-group select {
-            padding: 8px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            background: #f8fafc;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            border-color: #3b82f6;
-            background: #fff;
-        }
-
-        fieldset {
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 18px;
-            margin-bottom: 20px;
-            background-color: #fafbfc;
-        }
-
-        legend {
-            font-weight: 700;
-            font-size: 0.95rem;
-            padding: 0 8px;
-        }
-
-        button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            padding: 9px 18px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.15s ease-in-out;
-        }
-
-        .btn-primary {
-            background-color: #2563eb;
-            color: #fff;
-        }
-
-        .btn-primary:hover {
-            background-color: #1d4ed8;
-        }
-
-        .btn-success {
-            background-color: #16a34a;
-            color: #fff;
-        }
-
-        .btn-success:hover {
-            background-color: #15803d;
-        }
-
-        .btn-secondary {
-            background-color: #64748b;
-            color: #fff;
-        }
-
-        .btn-secondary:hover {
-            background-color: #475569;
-        }
-
-        .btn-danger {
-            background-color: #dc2626;
-            color: #fff;
-            padding: 4px 10px;
-            font-size: 0.85rem;
-        }
-
-        .btn-danger:hover {
-            background-color: #b91c1c;
-        }
-
-        /* Tabla dinámica */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            background: #fff;
-        }
-
-        table th,
-        table td {
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.9rem;
-        }
-
-        table th {
-            background-color: #f1f5f9;
-            color: #475569;
-            font-weight: 600;
-        }
-
-        table tbody tr:hover {
-            background-color: #f8fafc;
-        }
-    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Facturas · FacturaArca</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
+    <!--
+      LISTADO / BÚSQUEDA DE FACTURAS.
 
-    <div class="container">
-        <header>
-            <h1>Sistema de Facturación de Venta</h1>
-            <p>Operaciones de Escritura en API REST (Spring Boot + TypeScript)</p>
-        </header>
+      Este HTML conserva los ids que ya espera `listado.ts` (la lógica del
+      compañero), solo que con el diseño nuevo. En celular los filtros arrancan
+      plegados: #btn-filtros alterna la clase is-collapsed del formulario.
+    -->
+
+    <!-- Sprite de íconos: se usan con <svg class="icon"><use href="#i-nombre"/></svg> -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+        <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7"/><path d="M10 11v6M14 11v6"/></symbol>
+    </svg>
+
+    <header class="app-header">
+        <div class="container"><span class="brand">FacturaArca</span></div>
+    </header>
+
+    <main class="container stack">
+
+        <div class="page-title">
+            <h1>Facturas</h1>
+            <a class="btn btn-primary" href="nueva-factura.html">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+                Nueva factura
+            </a>
+        </div>
 
         <!-- Contenedor para mostrar mensajes de éxito o error en la UI -->
         <div id="mensaje-feedback"></div>
 
-        <!-- Todo lo del 7.a ( Formulario de Búsqueda) -->
-        <section id="seccion-busqueda">
-            <h2> Búsqueda de Facturas</h2>
-            <form id="form-filtros">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="filtro-fecha-desde">Fecha Desde:</label>
-                        <input type="date" id="filtro-fecha-desde" name="fechaDesde">
-                    </div>
+        <!-- Botón que despliega los filtros (solo visible en celular) -->
+        <button type="button" class="btn btn-secondary filters-toggle" id="btn-filtros" aria-expanded="false"
+            aria-controls="form-filtros">
+            Filtros
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+        </button>
 
-                    <div class="form-group">
-                        <label for="filtro-fecha-hasta">Fecha Hasta:</label>
-                        <input type="date" id="filtro-fecha-hasta" name="fechaHasta">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="filtro-estado">Estado:</label>
-                        <select id="filtro-estado" name="estado">
-                            <option value="">Emitida y Anulada</option>
-                            <option value="EMITIDA">Emitida</option>
-                            <option value="ANULADA">Anulada</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="filtro-monto-minimo">Monto Mínimo ($):</label>
-                        <input type="number" id="filtro-monto-minimo" name="montoMinimo" min="0" step="0.01"
-                            placeholder="Ej: 5000">
-                    </div>
+        <!-- 7.a Formulario de Búsqueda -->
+        <form class="card filters is-collapsed" id="form-filtros" aria-label="Filtros de búsqueda">
+            <div class="card-body form-row">
+                <div class="form-group">
+                    <label for="filtro-fecha-desde">Fecha desde</label>
+                    <input class="form-control" type="date" id="filtro-fecha-desde" name="fechaDesde">
                 </div>
 
-                <div>
-                    <button type="submit" id="btn-buscar" class="btn-primary">Buscar Comprobantes</button>
-                    <button type="button" id="btn-limpiar-filtros" class="btn-secondary">Limpiar Filtros</button>
+                <div class="form-group">
+                    <label for="filtro-fecha-hasta">Fecha hasta</label>
+                    <input class="form-control" type="date" id="filtro-fecha-hasta" name="fechaHasta">
                 </div>
-            </form>
-        </section>
 
-        <!-- 7.a Formulario de alta de factura con tabla dinámica para cargar múltiples 
-renglones/detalles -->
-
-        <section id="seccion-alta">
-            <h2>Alta de Nueva Factura de Venta</h2>
-
-            <form id="form-alta-factura">
-                <!-- Datos de Cabecera -->
-                <fieldset>
-                    <legend style="color: #2563eb;">Datos del Comprobante (Cabecera)</legend>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="alta-cliente-id">Cliente ID (*):</label>
-                            <input type="number" id="alta-cliente-id" placeholder="Ej: 1" required min="1">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="alta-punto-venta-id">Punto de Venta ID (*):</label>
-                            <input type="number" id="alta-punto-venta-id" placeholder="Ej: 1" required min="1">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="alta-condicion-iva-id">Condición IVA ID (*):</label>
-                            <input type="number" id="alta-condicion-iva-id" placeholder="Ej: 1" required min="1">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="alta-tipo-moneda-id">Tipo Moneda ID (*):</label>
-                            <input type="number" id="alta-tipo-moneda-id" placeholder="Ej: 1" required min="1">
-                        </div>
-
-                        <div class="form-group col-span-2">
-                            <label for="alta-observaciones">Observaciones:</label>
-                            <input type="text" id="alta-observaciones" placeholder="Ej: Venta contado mostrador">
-                        </div>
-                    </div>
-                </fieldset>
-
-                <!--Carga de Renglones / Articulo -->
-                <fieldset>
-                    <legend style="color: #16a34a;">Carga de Renglón / Detalle</legend>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="item-articulo-id">Artículo ID (*):</label>
-                            <input type="number" id="item-articulo-id" placeholder="Ej: 1" min="1">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="item-descripcion">Descripción:</label>
-                            <input type="text" id="item-descripcion" placeholder="Ej: Monitor LED 24">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="item-cantidad">Cantidad (*):</label>
-                            <input type="number" id="item-cantidad" placeholder="1" min="1" step="1">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="item-precio">Precio Unitario ($):</label>
-                            <input type="number" id="item-precio" placeholder="Opcional (toma lista)" min="0"
-                                step="0.01">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="item-descuento">% Descuento:</label>
-                            <input type="number" id="item-descuento" placeholder="0" min="0" max="100" step="0.5">
-                        </div>
-                    </div>
-
-                    <div>
-                        <button type="button" id="btn-agregar-item" class="btn-success">+ Agregar Renglón a la
-                            Factura</button>
-                    </div>
-
-                    <!-- Tabla dinámica de renglones cargados en esta factura -->
-                    <div style="margin-top: 20px;">
-                        <h4 style="margin-bottom: 8px; color: #334155;">Renglones agregados a esta factura:</h4>
-                        <table id="tabla-items">
-                            <thead>
-                                <tr>
-                                    <th>Art. ID</th>
-                                    <th>Descripción</th>
-                                    <th>Cantidad</th>
-                                    <th>Precio Unit.</th>
-                                    <th>% Desc.</th>
-                                    <th>Subtotal Estimado</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabla-detalles-body">
-                                <tr id="fila-sin-items">
-                                    <td colspan="7" style="text-align: center; color: #94a3b8; padding: 14px;">
-                                        No hay renglones cargados. Ingrese los datos arriba y haga clic en "+ Agregar
-                                        Renglón".
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </fieldset>
-
-                <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
-                    <button type="submit" id="btn-guardar-factura" class="btn-primary"
-                        style="padding: 12px 24px; font-size: 1rem;">
-                        Guardar Factura
-                    </button>
+                <div class="form-group">
+                    <label for="filtro-estado">Estado</label>
+                    <select class="form-control" id="filtro-estado" name="estado">
+                        <option value="">Emitida y Anulada</option>
+                        <option value="EMITIDA">Emitida</option>
+                        <option value="ANULADA">Anulada</option>
+                    </select>
                 </div>
-            </form>
-        </section>
-        <!-- (Tabla con listado e interacciones por fila: anular/eliminar)-->
-        <section id="seccion-listado">
-            <h2>Listado de Comprobantes Registrados</h2>
 
-            <div style="overflow-x: auto;">
-                <table id="tabla-facturas">
+                <div class="form-group">
+                    <label for="filtro-monto-minimo">Monto mínimo ($)</label>
+                    <input class="form-control" type="number" id="filtro-monto-minimo" name="montoMinimo" min="0"
+                        step="0.01" placeholder="Ej: 5000">
+                </div>
+
+                <div class="form-row">
+                    <button type="submit" id="btn-buscar" class="btn btn-primary">Buscar</button>
+                    <button type="button" id="btn-limpiar-filtros" class="btn btn-secondary">Limpiar filtros</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Listado de comprobantes (las filas las dibuja listado.ts) -->
+        <section class="card" aria-label="Listado de comprobantes">
+            <div class="table-wrap">
+                <table class="table table--cards" id="tabla-facturas">
                     <thead>
                         <tr>
                             <th>N° Factura</th>
-                            <th>Fecha Emisión</th>
+                            <th>Fecha emisión</th>
                             <th>Cliente</th>
-                            <th>Condición IVA</th>
-                            <th>Pto. Venta</th>
-                            <th>Total ($)</th>
-                            <th>Cant. Ítems</th>
+                            <th>Cond. IVA</th>
+                            <th>Pto. venta</th>
+                            <th class="num">Total ($)</th>
+                            <th class="num">Cant. ítems</th>
                             <th>Estado</th>
-                            <th style="text-align: center;">Acciones</th>
+                            <th class="actions">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="tabla-facturas-body">
-                        <tr id="fila-cargando">
-                            <td colspan="9" style="text-align: center; color: #64748b; padding: 16px;">
-                                Cargando facturas...
-                            </td>
-                        </tr>
-                    </tbody>
+                    <tbody id="tabla-facturas-body"></tbody>
                 </table>
             </div>
         </section>
-    </div>
-    <script type="module" src="./app.js"></script>
+
+    </main>
+
+    <!-- Diálogos de confirmación (reemplazan al confirm() nativo) -->
+    <dialog id="dlg-anular" aria-labelledby="dlg-anular-titulo">
+        <form method="dialog">
+            <div class="dialog-icon dialog-icon--warning"><svg class="icon" aria-hidden="true"><use href="#i-ban" /></svg></div>
+            <h2 id="dlg-anular-titulo">¿Anular la factura N° <span data-campo="numeroFactura"></span>?</h2>
+            <p>La factura pasará a estado <strong>ANULADA</strong> y seguirá figurando en el listado.</p>
+            <div class="dialog-actions">
+                <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button type="submit" class="btn btn-primary" value="confirmar">Anular factura</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dlg-eliminar" aria-labelledby="dlg-eliminar-titulo">
+        <form method="dialog">
+            <div class="dialog-icon dialog-icon--danger"><svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg></div>
+            <h2 id="dlg-eliminar-titulo">¿Eliminar la factura N° <span data-campo="numeroFactura"></span>?</h2>
+            <p>Esta acción es <strong>permanente</strong> y no se puede deshacer.</p>
+            <div class="dialog-actions">
+                <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button type="submit" class="btn btn-danger" value="confirmar">Eliminar definitivamente</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script type="module" src="./listado.js"></script>
 </body>
 
 </html>

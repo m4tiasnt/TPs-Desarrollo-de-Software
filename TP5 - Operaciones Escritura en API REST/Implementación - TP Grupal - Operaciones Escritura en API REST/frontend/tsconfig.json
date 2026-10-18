@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["app.ts", "models/**/*.ts", "services/**/*.ts"]
+  "include": ["listado.ts", "nueva-factura.ts", "models/**/*.ts", "services/**/*.ts"]
 }

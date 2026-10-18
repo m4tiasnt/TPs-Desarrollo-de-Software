@@ -14,8 +14,11 @@ Sistema de facturación de venta compuesto por un **backend** Spring Boot que ex
 │   ├── db/poblar_db.sql
 │   └── build.gradle
 └── frontend/   # Cliente (TypeScript + HTML5)
-    ├── index.html
-    ├── app.ts
+    ├── index.html          # Búsqueda y listado de facturas
+    ├── listado.ts
+    ├── nueva-factura.html  # Alta de factura
+    ├── nueva-factura.ts
+    ├── styles.css
     ├── models/factura.dto.ts
     ├── services/FacturaService.ts
     ├── package.json
@@ -80,6 +83,8 @@ npm install       # instala dependencias (TypeScript)
 npm run build     # compila los .ts a .js
 npm run serve     # sirve la app en http://localhost:5173
 ```
+
+La app tiene dos páginas: `index.html` (búsqueda y listado de facturas) y `nueva-factura.html` (alta de factura), que se enlazan entre sí.
 
 Luego abrir `http://localhost:5173` en el navegador. El backend debe estar corriendo.
 

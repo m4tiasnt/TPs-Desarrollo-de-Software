@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nueva factura · FacturaArca</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!--
+      ALTA DE NUEVA FACTURA.
+
+      Este HTML conserva los ids que ya espera `nueva-factura.ts` (la lógica del
+      compañero), solo que con el diseño nuevo. La carga de renglones es la
+      original: se completan los campos y se hace clic en "+ Agregar renglón".
+    -->
+
+    <!-- Sprite de íconos: se usan con <svg class="icon"><use href="#i-nombre"/></svg> -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7"/><path d="M10 11v6M14 11v6"/></symbol>
+    </svg>
+
+    <header class="app-header">
+        <div class="container"><span class="brand">FacturaArca</span></div>
+    </header>
+
+    <main class="container stack">
+
+        <div>
+            <a class="back-link" href="index.html">
+                <svg class="icon" aria-hidden="true"><use href="#i-back" /></svg>
+                Volver a facturas
+            </a>
+            <h1>Nueva factura</h1>
+        </div>
+
+        <!-- Contenedor para mostrar mensajes de éxito o error en la UI -->
+        <div id="mensaje-feedback"></div>
+
+        <form id="form-alta-factura" class="stack">
+
+                    <!-- Datos del Comprobante (Cabecera) -->
+                    <section class="card" aria-labelledby="titulo-datos">
+                        <div class="card-body">
+                            <h2 id="titulo-datos">Datos del comprobante</h2>
+                            <div class="form-row">
+                                <div class="form-group form-group--num">
+                                    <label for="alta-cliente-id">Cliente ID (*)</label>
+                                    <input class="form-control" type="number" id="alta-cliente-id" placeholder="Ej: 1" required min="1">
+                                </div>
+                                <div class="form-group form-group--num">
+                                    <label for="alta-punto-venta-id">Punto de venta ID (*)</label>
+                                    <input class="form-control" type="number" id="alta-punto-venta-id" placeholder="Ej: 1" required min="1">
+                                </div>
+                                <div class="form-group form-group--num">
+                                    <label for="alta-condicion-iva-id">Condición IVA ID (*)</label>
+                                    <input class="form-control" type="number" id="alta-condicion-iva-id" placeholder="Ej: 1" required min="1">
+                                </div>
+                                <div class="form-group form-group--num">
+                                    <label for="alta-tipo-moneda-id">Tipo moneda ID (*)</label>
+                                    <input class="form-control" type="number" id="alta-tipo-moneda-id" placeholder="Ej: 1" required min="1">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group form-group--full">
+                                    <label for="alta-observaciones">Observaciones <span class="muted">(opcional)</span></label>
+                                    <textarea class="form-control" id="alta-observaciones" rows="2" placeholder="Ej: Venta contado mostrador"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Carga de Renglones / Detalle -->
+                    <section class="card" aria-labelledby="titulo-renglones">
+                        <div class="card-body">
+                            <h2 id="titulo-renglones">Renglones</h2>
+                            <p class="muted" style="margin-bottom: var(--space-md); font-size: 14px;">
+                                Completá los datos del artículo y usá "Agregar renglón" para sumarlo a la factura.
+                            </p>
+
+                            <div class="line-editor">
+                                <div class="form-row">
+                                    <div class="form-group form-group--num">
+                                        <label for="item-articulo-id">Artículo ID (*)</label>
+                                        <input class="form-control" type="number" id="item-articulo-id" placeholder="Ej: 1" min="1">
+                                    </div>
+                                    <div class="form-group form-group--grow">
+                                        <label for="item-descripcion">Descripción</label>
+                                        <input class="form-control" type="text" id="item-descripcion" placeholder="Ej: Monitor LED 24">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group form-group--sm">
+                                        <label for="item-cantidad">Cantidad (*)</label>
+                                        <input class="form-control" type="number" id="item-cantidad" placeholder="1" min="1" step="1">
+                                    </div>
+                                    <div class="form-group form-group--sm">
+                                        <label for="item-precio">Precio unitario ($)</label>
+                                        <input class="form-control" type="number" id="item-precio" placeholder="Opcional" min="0" step="0.01">
+                                    </div>
+                                    <div class="form-group form-group--sm">
+                                        <label for="item-descuento">% Descuento</label>
+                                        <input class="form-control" type="number" id="item-descuento" placeholder="0" min="0" max="100" step="0.5">
+                                    </div>
+                                </div>
+
+                                <div class="line-editor-actions">
+                                    <button type="button" id="btn-agregar-item" class="btn btn-primary">
+                                        <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+                                        Agregar renglón
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Tabla dinámica de renglones cargados en esta factura -->
+                            <div class="table-wrap">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Art. ID</th>
+                                            <th>Descripción</th>
+                                            <th class="num">Cantidad</th>
+                                            <th class="num">Precio unit.</th>
+                                            <th class="num">% Desc.</th>
+                                            <th class="num">Subtotal est.</th>
+                                            <th class="actions">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabla-detalles-body">
+                                        <tr id="fila-sin-items">
+                                            <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 14px;">
+                                                No hay renglones cargados. Ingrese los datos arriba y haga clic en "+ Agregar renglón".
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+            <!-- Acciones -->
+            <div class="card">
+                <div class="card-body action-bar">
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-guardar-factura">Guardar factura</button>
+                </div>
+            </div>
+        </form>
+
+    </main>
+
+    <script type="module" src="./nueva-factura.js"></script>
+</body>
+
+</html>
