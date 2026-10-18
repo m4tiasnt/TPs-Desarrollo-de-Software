@@ -229,4 +229,23 @@ INSERT INTO factura_venta_detalle (id, cantidad, descripcion, importe_iva, impor
 (23, 1, 'Zapatillas Running', 4859.50, 23140.50, 28000.0, 0.0, 28000.0, 19, 21),
 (24, 1, 'Caja de Alfajores', 780.99, 3719.01, 4500.0, 0.0, 4500.0, 19, 22);
 
+-- Sincronizar las secuencias de identidad con los datos cargados arriba.
+-- Al insertar con ids explícitos, la secuencia de cada tabla queda en 1 y el
+-- primer INSERT nuevo falla con "duplicate key ... _pkey". Avanzamos cada
+-- contador a MAX(id)+1 (false => el próximo nextval devuelve MAX(id)+1).
+SELECT setval(pg_get_serial_sequence('model.usuarios', 'id'),             (SELECT COALESCE(MAX(id), 0) FROM model.usuarios) + 1,             false);
+SELECT setval(pg_get_serial_sequence('model.contactos', 'id'),            (SELECT COALESCE(MAX(id), 0) FROM model.contactos) + 1,            false);
+SELECT setval(pg_get_serial_sequence('model.domicilios', 'id'),           (SELECT COALESCE(MAX(id), 0) FROM model.domicilios) + 1,           false);
+SELECT setval(pg_get_serial_sequence('model.clientes', 'id'),             (SELECT COALESCE(MAX(id), 0) FROM model.clientes) + 1,             false);
+SELECT setval(pg_get_serial_sequence('model.condiciones_iva', 'id'),      (SELECT COALESCE(MAX(id), 0) FROM model.condiciones_iva) + 1,      false);
+SELECT setval(pg_get_serial_sequence('model.tipos_moneda', 'id'),         (SELECT COALESCE(MAX(id), 0) FROM model.tipos_moneda) + 1,         false);
+SELECT setval(pg_get_serial_sequence('model.puntos_venta', 'id'),         (SELECT COALESCE(MAX(id), 0) FROM model.puntos_venta) + 1,         false);
+SELECT setval(pg_get_serial_sequence('model.rubros', 'id'),               (SELECT COALESCE(MAX(id), 0) FROM model.rubros) + 1,               false);
+SELECT setval(pg_get_serial_sequence('model.marcas', 'id'),               (SELECT COALESCE(MAX(id), 0) FROM model.marcas) + 1,               false);
+SELECT setval(pg_get_serial_sequence('model.articulos', 'id'),            (SELECT COALESCE(MAX(id), 0) FROM model.articulos) + 1,            false);
+SELECT setval(pg_get_serial_sequence('model.listas_precio', 'id'),        (SELECT COALESCE(MAX(id), 0) FROM model.listas_precio) + 1,        false);
+SELECT setval(pg_get_serial_sequence('model.lista_precio_articulo', 'id'), (SELECT COALESCE(MAX(id), 0) FROM model.lista_precio_articulo) + 1, false);
+SELECT setval(pg_get_serial_sequence('model.factura_venta', 'id'),        (SELECT COALESCE(MAX(id), 0) FROM model.factura_venta) + 1,        false);
+SELECT setval(pg_get_serial_sequence('model.factura_venta_detalle', 'id'), (SELECT COALESCE(MAX(id), 0) FROM model.factura_venta_detalle) + 1, false);
+
 -- FIN DEL SCRIPT
