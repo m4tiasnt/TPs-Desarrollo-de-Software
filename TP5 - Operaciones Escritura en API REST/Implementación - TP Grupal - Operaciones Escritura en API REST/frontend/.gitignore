@@ -1,0 +1,9 @@
+node_modules/
+
+# Salida compilada de TypeScript (se genera con `npm run build`)
+app.js
+app.js.map
+models/*.js
+models/*.js.map
+services/*.js
+services/*.js.map
