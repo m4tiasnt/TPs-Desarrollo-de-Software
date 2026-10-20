@@ -20,6 +20,7 @@ public interface FacturaVentaRepository extends JpaRepository<FacturaVenta, Long
            "JOIN FETCH f.condicionIva " +
            "JOIN FETCH f.puntoVenta " +
            "LEFT JOIN FETCH f.detalles " +
+           "WHERE f.fechaBaja IS NULL " +
            "ORDER BY f.numero")
     List<FacturaVenta> findAllConRelaciones();
 
@@ -28,7 +29,8 @@ public interface FacturaVentaRepository extends JpaRepository<FacturaVenta, Long
            "JOIN FETCH f.condicionIva " +
            "JOIN FETCH f.puntoVenta " +
            "LEFT JOIN FETCH f.detalles " +
-           "WHERE (:fechaDesde IS NULL OR f.fechaEmision >= :fechaDesde) " +
+           "WHERE f.fechaBaja IS NULL " +
+           "AND (:fechaDesde IS NULL OR f.fechaEmision >= :fechaDesde) " +
            "AND (:fechaHasta IS NULL OR f.fechaEmision <= :fechaHasta) " +
            "AND (:estado IS NULL OR f.estado = :estado) " +
            "AND (:montoMinimo IS NULL OR f.importeTotal >= :montoMinimo) " +

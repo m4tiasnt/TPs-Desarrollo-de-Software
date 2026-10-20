@@ -23,7 +23,4 @@ public class FacturaReporteDTO {
     private double importeTotal;
     private Long cantidadItems;
     private String estado;
-
 }
-// las creaciones de excel y pdf usaban el constructor que usamos aca, asi que
-// hay que cambiar esas class

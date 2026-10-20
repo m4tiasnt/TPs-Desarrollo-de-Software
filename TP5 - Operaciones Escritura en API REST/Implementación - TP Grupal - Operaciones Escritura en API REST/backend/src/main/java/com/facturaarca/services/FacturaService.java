@@ -109,14 +109,7 @@ public class FacturaService {
         // 3. Crear detalles y delegar el cálculo de importes al dominio
         if (dto.getDetalles() != null && !dto.getDetalles().isEmpty()) {
             for (FacturaDetalleRequestDTO detDto : dto.getDetalles()) {
-                if (detDto.getListaPrecioArticuloId() == null) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "El listaPrecioArticuloId es obligatorio para cada renglon");
-                }
-
-                ListaPrecioArticulo lpa = listaPrecioArticuloRepository.findById(detDto.getListaPrecioArticuloId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                "ListaPrecioArticulo no encontrado con id: " + detDto.getListaPrecioArticuloId()));
+                ListaPrecioArticulo lpa = resolverListaPrecioArticulo(detDto);
 
                 FacturaVentaDetalle detalle = FacturaVentaDetalle.crear(
                         lpa,
@@ -188,14 +181,7 @@ public class FacturaService {
             factura.clearDetalles();
 
             for (FacturaDetalleRequestDTO detDto : dto.getDetalles()) {
-                if (detDto.getListaPrecioArticuloId() == null) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "El listaPrecioArticuloId es obligatorio para cada renglon");
-                }
-
-                ListaPrecioArticulo lpa = listaPrecioArticuloRepository.findById(detDto.getListaPrecioArticuloId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                "ListaPrecioArticulo no encontrado con id: " + detDto.getListaPrecioArticuloId()));
+                ListaPrecioArticulo lpa = resolverListaPrecioArticulo(detDto);
 
                 FacturaVentaDetalle detalle = FacturaVentaDetalle.crear(
                         lpa,
@@ -249,6 +235,21 @@ public class FacturaService {
                 .cantidadItems((long) (f.getDetalles() != null ? f.getDetalles().size() : 0))
                 .estado(f.getEstado())
                 .build();
+    }
+
+    private ListaPrecioArticulo resolverListaPrecioArticulo(FacturaDetalleRequestDTO detDto) {
+        if (detDto.getListaPrecioArticuloId() != null) {
+            return listaPrecioArticuloRepository.findById(detDto.getListaPrecioArticuloId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "ListaPrecioArticulo no encontrado con id: " + detDto.getListaPrecioArticuloId()));
+        } else if (detDto.getArticuloId() != null) {
+            return listaPrecioArticuloRepository.findFirstByArticuloIdOrderByIdAsc(detDto.getArticuloId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "ListaPrecioArticulo no encontrado para el artículo id: " + detDto.getArticuloId()));
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Debe especificar listaPrecioArticuloId o articuloId para cada renglon");
+        }
     }
 
     private Usuario obtenerUsuarioParaAuditoria() {

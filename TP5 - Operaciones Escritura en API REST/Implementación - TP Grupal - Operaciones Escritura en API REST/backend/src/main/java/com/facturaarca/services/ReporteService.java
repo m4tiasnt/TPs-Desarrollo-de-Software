@@ -73,7 +73,7 @@ public class ReporteService {
 
             // Crear fila de cabecera
             Row headerRow = sheet.createRow(0);
-            String[] columnas = {"Número", "Fecha", "Cliente", "Cond. IVA", "Pto. Venta", "Total", "Ítems"};
+            String[] columnas = {"Número", "Fecha", "Cliente", "Cond. IVA", "Pto. Venta", "Total", "Ítems", "Estado"};
             for (int i = 0; i < columnas.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(columnas[i]);
@@ -102,6 +102,7 @@ public class ReporteService {
                   totalCell.setCellStyle(currencyStyle);
 
                 row.createCell(6).setCellValue(f.getCantidadItems() != null ? f.getCantidadItems() : 0);
+                row.createCell(7).setCellValue(limpiar(f.getEstado() != null ? f.getEstado() : "EMITIDA"));
             }
 
             // Autoajustar el ancho de las columnas
@@ -149,8 +150,8 @@ public class ReporteService {
                 document.add(new Paragraph("No hay facturas para mostrar.")
                         .setTextAlignment(TextAlignment.CENTER));
             } else {
-                // 4. Creamos una tabla con 7 columnas (una por cada atributo del DTO)
-                float[] columnWidths = {50F, 85F, 100F, 115F, 100F, 80F, 50F};
+                // 4. Creamos una tabla con 8 columnas (incluyendo Estado)
+                float[] columnWidths = {45F, 75F, 95F, 105F, 90F, 75F, 45F, 70F};
                 Table table = new Table(columnWidths);
                 table.setWidth(UnitValue.createPercentValue(100));
 
@@ -162,6 +163,7 @@ public class ReporteService {
                 table.addHeaderCell(headerCell("Pto. Venta", negrita));
                 table.addHeaderCell(headerCell("Total", negrita).setTextAlignment(TextAlignment.RIGHT));
                 table.addHeaderCell(headerCell("Ítems", negrita).setTextAlignment(TextAlignment.RIGHT));
+                table.addHeaderCell(headerCell("Estado", negrita));
 
                 // 6. Recorremos la lista de DTOs y llenamos la tabla con los datos reales
                 SimpleDateFormat formatoFecha = new SimpleDateFormat("dd/MM/yyyy");
@@ -178,6 +180,9 @@ public class ReporteService {
                             .setTextAlignment(TextAlignment.RIGHT)));
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(factura.getCantidadItems().toString())
                             .setTextAlignment(TextAlignment.RIGHT)));
+                    table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
+                            factura.getEstado() != null ? factura.getEstado() : "EMITIDA"))
+                            .setTextAlignment(TextAlignment.CENTER));
                 }
 
                 // 7. Agregamos la tabla al documento

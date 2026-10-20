@@ -8,8 +8,13 @@ import { FacturaService } from './services/FacturaService.js';
 // 1. Instancia del servicio que se comunica con la API de Spring Boot
 const facturaService = new FacturaService('http://localhost:8080/api/facturas');
 
+// Estructura extendida para la UI que conserva datos visuales antes de enviar
+interface ItemFacturaUI extends FacturaDetalleRequestDTO {
+    precioUnitario?: number;
+}
+
 // Guardamos temporalmente los renglones de la factura
-let itemsFactura: FacturaDetalleRequestDTO[] = [];
+let itemsFactura: ItemFacturaUI[] = [];
 
 // Función para mostrar avisos en el sistema
 function mostrarMensaje(texto: string, tipo: 'exito' | 'error'): void {
@@ -55,14 +60,17 @@ function renderizarTablaDetalles(): void {
         const fila = document.createElement('tr');
 
         const bonif = item.porcentajeBonificacion ?? 0;
-
+        const precioTexto = item.precioUnitario ? `$${item.precioUnitario.toFixed(2)}` : 'Seg. lista';
+        const subtotalTexto = item.importeSubtotal ? `$${item.importeSubtotal.toFixed(2)}` : 'Automático';
+        const artId = item.articuloId ?? item.listaPrecioArticuloId ?? '-';
 
         fila.innerHTML = `
+            <td>${artId}</td>
             <td>${item.descripcion || 'Sin descripción'}</td>
             <td class="num">${item.cantidad}</td>
-
+            <td class="num">${precioTexto}</td>
             <td class="num">${bonif}%</td>
-            
+            <td class="num">${subtotalTexto}</td>
             <td class="actions">
                 <button type="button" class="btn-icon btn-icon--danger btn-quitar-item" data-index="${index}" aria-label="Quitar renglón" title="Quitar renglón">
                     <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
@@ -107,15 +115,19 @@ btnAgregarItem?.addEventListener('click', () => {
         return;
     }
 
-    // Subtotal estimado
+    // Subtotal estimado para preview en UI
     const precioUnitarioEstimado = precio ?? 0;
-    const subtotalEstimado = cantidad * precioUnitarioEstimado * (1 - (descuento / 100));
+    const subtotalEstimado = precioUnitarioEstimado > 0
+        ? cantidad * precioUnitarioEstimado * (1 - (descuento / 100))
+        : 0;
 
-    // Objeto DTO del renglón
-    const nuevoDetalle: FacturaDetalleRequestDTO = {
+    // Objeto DTO del renglón con datos UI
+    const nuevoDetalle: ItemFacturaUI = {
+        articuloId: articuloId,
         listaPrecioArticuloId: articuloId,
         descripcion: descripcion || undefined,
         cantidad: cantidad,
+        precioUnitario: precio,
         porcentajeBonificacion: descuento,
         importeSubtotal: subtotalEstimado
     };
@@ -152,7 +164,13 @@ formAltaFactura?.addEventListener('submit', async (e: Event) => {
         condicionIvaId: parseInt(inputCondicionIvaId.value),
         tipoMonedaId: parseInt(inputTipoMonedaId.value),
         observaciones: inputObservaciones.value.trim() || undefined,
-        detalles: [...itemsFactura]
+        detalles: itemsFactura.map(item => ({
+            articuloId: item.articuloId,
+            listaPrecioArticuloId: item.listaPrecioArticuloId,
+            descripcion: item.descripcion,
+            cantidad: item.cantidad,
+            porcentajeBonificacion: item.porcentajeBonificacion
+        }))
     };
 
     try {
