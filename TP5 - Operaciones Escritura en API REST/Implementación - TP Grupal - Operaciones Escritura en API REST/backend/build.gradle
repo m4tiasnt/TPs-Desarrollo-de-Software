@@ -7,6 +7,16 @@ plugins {
 group = 'com.facturaarca'
 version = '1.0-SNAPSHOT'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+springBoot {
+    mainClass = 'com.facturaarca.FacturaArcaApplication'
+}
+
 repositories {
     mavenCentral()
 }

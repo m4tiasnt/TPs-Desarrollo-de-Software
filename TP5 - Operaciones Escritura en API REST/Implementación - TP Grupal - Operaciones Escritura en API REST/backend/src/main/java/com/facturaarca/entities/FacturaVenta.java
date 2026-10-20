@@ -24,8 +24,8 @@ public class FacturaVenta extends AuditoriaApp {
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaEmision;
 
-    @ManyToOne(fetch= FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", nullable = true)
     private Cliente cliente;
 
     @ManyToOne
@@ -77,5 +77,78 @@ public class FacturaVenta extends AuditoriaApp {
     public void removeDetalle(FacturaVentaDetalle detalle) {
         detalles.remove(detalle);
         detalle.setFactura(null);
+    }
+
+    public void clearDetalles() {
+        for (FacturaVentaDetalle detalle : new ArrayList<>(this.detalles)) {
+            removeDetalle(detalle);
+        }
+    }
+
+    public void recalcularTotales() {
+        double total = 0.0;
+        if (detalles != null) {
+            for (FacturaVentaDetalle detalle : detalles) {
+                detalle.calcularImportes();
+                total += detalle.getImporteSubtotal();
+            }
+        }
+        this.importeTotal = Math.round(total * 100.0) / 100.0;
+        this.importeCobrado = this.importeTotal;
+        this.importeSaldo = 0.0;
+    }
+
+    public void anular(Usuario usuarioModificacion) {
+        this.estado = "ANULADA";
+        Date ahora = new Date();
+        this.fechaAnulacion = ahora;
+        this.fechaModificacion = ahora;
+        if (usuarioModificacion != null) {
+            this.usuarioModificacion = usuarioModificacion;
+        }
+    }
+
+    public void darDeBaja(Usuario usuarioBaja) {
+        Date ahora = new Date();
+        this.fechaBaja = ahora;
+        this.fechaModificacion = ahora;
+        if (usuarioBaja != null) {
+            this.usuarioBaja = usuarioBaja;
+            this.usuarioModificacion = usuarioBaja;
+        }
+    }
+
+    public void actualizarDatos(String nuevoEstado, String nuevasObservaciones, Date nuevaFechaEmision,
+                                Cliente nuevoCliente, CondicionIva nuevaCondicionIva,
+                                PuntoVenta nuevoPuntoVenta, TipoMoneda nuevoTipoMoneda,
+                                Usuario usuarioModificacion) {
+        if (nuevoEstado != null && !nuevoEstado.trim().isEmpty()) {
+            this.estado = nuevoEstado;
+            if ("ANULADA".equalsIgnoreCase(nuevoEstado) && this.fechaAnulacion == null) {
+                this.fechaAnulacion = new Date();
+            }
+        }
+        if (nuevasObservaciones != null) {
+            this.observaciones = nuevasObservaciones;
+        }
+        if (nuevaFechaEmision != null) {
+            this.fechaEmision = nuevaFechaEmision;
+        }
+        if (nuevoCliente != null) {
+            this.cliente = nuevoCliente;
+        }
+        if (nuevaCondicionIva != null) {
+            this.condicionIva = nuevaCondicionIva;
+        }
+        if (nuevoPuntoVenta != null) {
+            this.puntoVenta = nuevoPuntoVenta;
+        }
+        if (nuevoTipoMoneda != null) {
+            this.tipoMoneda = nuevoTipoMoneda;
+        }
+        this.fechaModificacion = new Date();
+        if (usuarioModificacion != null) {
+            this.usuarioModificacion = usuarioModificacion;
+        }
     }
 }

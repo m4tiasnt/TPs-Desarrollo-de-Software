@@ -27,13 +27,8 @@ public class FacturaRequestDTO {
     private Long condicionIvaId;
     private Long puntoVentaId;
     private Long tipoMonedaId;
-
     private String estado;
     private String observaciones;
-
-    private Double importeTotal;
-    private Double importeCobrado;
-    private Double importeSaldo;
 
     @Builder.Default
     private List<FacturaDetalleRequestDTO> detalles = new ArrayList<>();

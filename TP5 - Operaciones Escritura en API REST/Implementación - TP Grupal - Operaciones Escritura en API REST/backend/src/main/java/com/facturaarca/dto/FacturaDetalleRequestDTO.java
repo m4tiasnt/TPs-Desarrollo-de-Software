@@ -13,11 +13,9 @@ import lombok.Setter;
 @Builder
 public class FacturaDetalleRequestDTO {
 
-    private Long articuloId;
     private Long listaPrecioArticuloId;
     private String descripcion;
     private double cantidad;
-    private Double precioUnitario;
     private Double porcentajeBonificacion;
-    private Double importeSubtotal;
+
 }

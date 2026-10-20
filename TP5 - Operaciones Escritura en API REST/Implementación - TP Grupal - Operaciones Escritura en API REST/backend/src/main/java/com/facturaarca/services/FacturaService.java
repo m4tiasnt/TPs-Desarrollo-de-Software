@@ -4,106 +4,44 @@ import com.facturaarca.dto.FacturaDetalleRequestDTO;
 import com.facturaarca.dto.FacturaReporteDTO;
 import com.facturaarca.dto.FacturaRequestDTO;
 import com.facturaarca.entities.*;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.TypedQuery;
+import com.facturaarca.repository.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class FacturaService {
 
-    @PersistenceContext
-    private EntityManager em;
+    private final FacturaVentaRepository facturaVentaRepository;
+    private final PuntoVentaRepository puntoVentaRepository;
+    private final CondicionIvaRepository condicionIvaRepository;
+    private final TipoMonedaRepository tipoMonedaRepository;
+    private final ClienteRepository clienteRepository;
+    private final ListaPrecioArticuloRepository listaPrecioArticuloRepository;
+    private final UsuarioRepository usuarioRepository;
 
     @Transactional(readOnly = true)
     public List<FacturaReporteDTO> obtenerTodasLasFacturas() {
-        String jpql = """
-                    SELECT new com.facturaarca.dto.FacturaReporteDTO(
-                        f.id,
-                        f.numero,
-                        f.fechaEmision,
-                        COALESCE(c.denominacion, 'Consumidor Final'),
-                        ci.denominacion,
-                        pv.descripcion,
-                        f.importeTotal,
-                        COUNT(d),
-                        f.estado
-                    )
-                    FROM FacturaVenta f
-                    LEFT JOIN f.cliente c
-                    JOIN f.condicionIva ci
-                    JOIN f.puntoVenta pv
-                    JOIN f.detalles d
-            GROUP BY f.id,
-                     f.numero,
-                     f.fechaEmision,
-                     c.denominacion,
-                     ci.denominacion,
-                     pv.descripcion,
-                     f.importeTotal
-            ORDER BY f.numero
-        """;
-
-        TypedQuery<FacturaReporteDTO> query = em.createQuery(jpql, FacturaReporteDTO.class);
-        return query.getResultList();
+        return facturaVentaRepository.findAllConRelaciones()
+                .stream()
+                .map(this::convertirAReporteDTO)
+                .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<FacturaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta, String estado, Double montoMinimo) {
-        StringBuilder jpql = new StringBuilder(
-                "SELECT new com.facturaarca.dto.FacturaReporteDTO(" +
-                        "f.id, " +
-                        "f.numero, " +
-                        "f.fechaEmision, " +
-                        "COALESCE(c.denominacion, 'Consumidor Final'), " +
-                        "ci.denominacion, " +
-                        "pv.descripcion, " +
-                        "f.importeTotal, " +
-                        "COUNT(d), " +
-                        "f.estado" +
-                        ") " +
-                        "FROM FacturaVenta f " +
-                        "LEFT JOIN f.cliente c " +
-                        "JOIN f.condicionIva ci " +
-                        "JOIN f.puntoVenta pv " +
-                        "JOIN f.detalles d " +
-                        "WHERE 1=1 "
-        );
-
-        Map<String, Object> params = new HashMap<>();
-
-        if (fechaDesde != null) {
-            jpql.append("AND f.fechaEmision >= :fechaDesde ");
-            params.put("fechaDesde", fechaDesde);
-        }
-        if (fechaHasta != null) {
-            jpql.append("AND f.fechaEmision <= :fechaHasta ");
-            params.put("fechaHasta", fechaHasta);
-        }
-        if (estado != null && !estado.trim().isEmpty()) {
-            jpql.append("AND f.estado = :estado ");
-            params.put("estado", estado);
-        }
-        if (montoMinimo != null) {
-            jpql.append("AND f.importeTotal >= :montoMinimo ");
-            params.put("montoMinimo", montoMinimo);
-        }
-
-        jpql.append("GROUP BY f.id, f.numero, f.fechaEmision, c.denominacion, ci.denominacion, pv.descripcion, f.importeTotal");
-        jpql.append(" ORDER BY f.numero");
-
-        TypedQuery<FacturaReporteDTO> query = em.createQuery(jpql.toString(), FacturaReporteDTO.class);
-        params.forEach(query::setParameter);
-
-        return query.getResultList();
+    public List<FacturaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta, String estado,
+            Double montoMinimo) {
+        String estadoLimpio = (estado != null && !estado.trim().isEmpty()) ? estado.trim() : null;
+        return facturaVentaRepository.buscarFiltradas(fechaDesde, fechaHasta, estadoLimpio, montoMinimo)
+                .stream()
+                .map(this::convertirAReporteDTO)
+                .toList();
     }
 
     @Transactional
@@ -112,53 +50,44 @@ public class FacturaService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos de la factura no pueden ser nulos");
         }
 
-        // 1. Buscar entidades asociadas por ID y validar existencia
+        // 1. Buscar y validar entidades asociadas mediante sus repositorios
         if (dto.getPuntoVentaId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El puntoVentaId es obligatorio");
         }
-        PuntoVenta puntoVenta = em.find(PuntoVenta.class, dto.getPuntoVentaId());
-        if (puntoVenta == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Punto de Venta no encontrado con id: " + dto.getPuntoVentaId());
-        }
+        PuntoVenta puntoVenta = puntoVentaRepository.findById(dto.getPuntoVentaId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Punto de Venta no encontrado con id: " + dto.getPuntoVentaId()));
 
         if (dto.getCondicionIvaId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El condicionIvaId es obligatorio");
         }
-        CondicionIva condicionIva = em.find(CondicionIva.class, dto.getCondicionIvaId());
-        if (condicionIva == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Condicion IVA no encontrada con id: " + dto.getCondicionIvaId());
-        }
+        CondicionIva condicionIva = condicionIvaRepository.findById(dto.getCondicionIvaId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Condicion IVA no encontrada con id: " + dto.getCondicionIvaId()));
 
         if (dto.getTipoMonedaId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El tipoMonedaId es obligatorio");
         }
-        TipoMoneda tipoMoneda = em.find(TipoMoneda.class, dto.getTipoMonedaId());
-        if (tipoMoneda == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tipo de Moneda no encontrado con id: " + dto.getTipoMonedaId());
+        TipoMoneda tipoMoneda = tipoMonedaRepository.findById(dto.getTipoMonedaId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Tipo de Moneda no encontrado con id: " + dto.getTipoMonedaId()));
+
+        Cliente cliente = null;
+        if (dto.getClienteId() != null) {
+            cliente = clienteRepository.findById(dto.getClienteId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Cliente no encontrado con id: " + dto.getClienteId()));
         }
 
-        if (dto.getClienteId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El clienteId es obligatorio");
-        }
-        Cliente cliente = em.find(Cliente.class, dto.getClienteId());
-        if (cliente == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente no encontrado con id: " + dto.getClienteId());
-        }
+        Usuario usuario = obtenerUsuarioParaAuditoria();
 
-        // Obtener un usuario para los campos de auditoría
-        Usuario usuario = em.createQuery("SELECT u FROM Usuario u", Usuario.class)
-                .setMaxResults(1)
-                .getResultList()
-                .stream().findFirst().orElse(null);
-
-        // 2. Mapear FacturaRequestDTO a FacturaVenta
+        // 2. Instanciar y configurar FacturaVenta
         FacturaVenta factura = new FacturaVenta();
 
         if (dto.getNumero() != null) {
             factura.setNumero(dto.getNumero());
         } else {
-            Long maxNumero = em.createQuery("SELECT COALESCE(MAX(f.numero), 0) FROM FacturaVenta f", Long.class)
-                    .getSingleResult();
+            Long maxNumero = facturaVentaRepository.obtenerMaxNumero();
             factura.setNumero(maxNumero + 1L);
         }
 
@@ -177,222 +106,138 @@ public class FacturaService {
             factura.setUsuarioModificacion(usuario);
         }
 
-        // 3. Mapear y calcular importes automáticamente para los detalles
-        double totalCalculado = 0.0;
+        // 3. Crear detalles y delegar el cálculo de importes al dominio
         if (dto.getDetalles() != null && !dto.getDetalles().isEmpty()) {
             for (FacturaDetalleRequestDTO detDto : dto.getDetalles()) {
-                ListaPrecioArticulo lpa = null;
-                if (detDto.getListaPrecioArticuloId() != null) {
-                    lpa = em.find(ListaPrecioArticulo.class, detDto.getListaPrecioArticuloId());
-                } else if (detDto.getArticuloId() != null) {
-                    List<ListaPrecioArticulo> precios = em.createQuery(
-                                    "SELECT lpa FROM ListaPrecioArticulo lpa WHERE lpa.articulo.id = :artId", ListaPrecioArticulo.class)
-                            .setParameter("artId", detDto.getArticuloId())
-                            .getResultList();
-                    if (!precios.isEmpty()) {
-                        lpa = precios.get(0);
-                    }
+                if (detDto.getListaPrecioArticuloId() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "El listaPrecioArticuloId es obligatorio para cada renglon");
                 }
 
-                if (lpa == null) {
-                    throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "ListaPrecioArticulo no encontrado para el artículo (articuloId: " + detDto.getArticuloId()
-                                    + ", listaPrecioArticuloId: " + detDto.getListaPrecioArticuloId() + ")");
-                }
+                ListaPrecioArticulo lpa = listaPrecioArticuloRepository.findById(detDto.getListaPrecioArticuloId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                "ListaPrecioArticulo no encontrado con id: " + detDto.getListaPrecioArticuloId()));
 
-                FacturaVentaDetalle detalle = new FacturaVentaDetalle();
-                detalle.setListaPrecioArticulo(lpa);
-                detalle.setDescripcion(detDto.getDescripcion() != null && !detDto.getDescripcion().trim().isEmpty()
-                        ? detDto.getDescripcion()
-                        : (lpa.getArticulo() != null ? lpa.getArticulo().getDenominacion() : "Detalle"));
-
-                double cantidad = detDto.getCantidad() > 0 ? detDto.getCantidad() : 1.0;
-                detalle.setCantidad(cantidad);
-
-                double precioUnitario = (detDto.getPrecioUnitario() != null && detDto.getPrecioUnitario() > 0)
-                        ? detDto.getPrecioUnitario()
-                        : lpa.getPrecioVenta();
-                detalle.setPrecioUnitario(precioUnitario);
-
-                double bonificacion = detDto.getPorcentajeBonificacion() != null ? detDto.getPorcentajeBonificacion() : 0.0;
-                detalle.setPorcentajeBonificacion(bonificacion);
-
-                double subtotal = cantidad * precioUnitario * (1.0 - (bonificacion / 100.0));
-                double neto = Math.round((subtotal / 1.21) * 100.0) / 100.0;
-                double iva = Math.round((subtotal - neto) * 100.0) / 100.0;
-
-                detalle.setImporteNeto(neto);
-                detalle.setImporteIva(iva);
-                detalle.setImporteSubtotal(subtotal);
-
+                FacturaVentaDetalle detalle = FacturaVentaDetalle.crear(
+                        lpa,
+                        detDto.getDescripcion(),
+                        detDto.getCantidad(),
+                        detDto.getPorcentajeBonificacion());
                 factura.addDetalle(detalle);
-                totalCalculado += subtotal;
             }
         }
 
-        factura.setImporteTotal(dto.getImporteTotal() != null && dto.getImporteTotal() > 0 ? dto.getImporteTotal() : totalCalculado);
-        factura.setImporteCobrado(dto.getImporteCobrado() != null ? dto.getImporteCobrado() : factura.getImporteTotal());
-        factura.setImporteSaldo(dto.getImporteSaldo() != null ? dto.getImporteSaldo() : (factura.getImporteTotal() - factura.getImporteCobrado()));
+        // El dominio recalcula importes netos, IVA, subtotal y total automáticamente
+        factura.recalcularTotales();
 
-        // 4. Guardar la factura (los detalles se persisten en cascada mediante CascadeType.ALL)
-        em.persist(factura);
+        // 4. Guardar mediante el repositorio (detalles persisten en cascada)
+        FacturaVenta guardada = facturaVentaRepository.save(factura);
 
-        return convertirAReporteDTO(factura);
+        return convertirAReporteDTO(guardada);
     }
 
     @Transactional
     public FacturaReporteDTO actualizarFactura(Long id, FacturaRequestDTO dto) {
-        FacturaVenta factura = em.find(FacturaVenta.class, id);
-        if (factura == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id);
-        }
+        FacturaVenta factura = facturaVentaRepository.findById(id)
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id));
 
-        if (dto.getEstado() != null && !dto.getEstado().trim().isEmpty()) {
-            factura.setEstado(dto.getEstado());
-            if ("ANULADA".equalsIgnoreCase(dto.getEstado()) && factura.getFechaAnulacion() == null) {
-                factura.setFechaAnulacion(new Date());
-            }
-        }
-
-        if (dto.getObservaciones() != null) {
-            factura.setObservaciones(dto.getObservaciones());
-        }
-
-        if (dto.getFechaEmision() != null) {
-            factura.setFechaEmision(dto.getFechaEmision());
-        }
-
+        Cliente cliente = null;
         if (dto.getClienteId() != null) {
-            Cliente cliente = em.find(Cliente.class, dto.getClienteId());
-            if (cliente == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente no encontrado con id: " + dto.getClienteId());
-            }
-            factura.setCliente(cliente);
+            cliente = clienteRepository.findById(dto.getClienteId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Cliente no encontrado con id: " + dto.getClienteId()));
         }
 
+        CondicionIva condicionIva = null;
         if (dto.getCondicionIvaId() != null) {
-            CondicionIva condicionIva = em.find(CondicionIva.class, dto.getCondicionIvaId());
-            if (condicionIva == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Condicion IVA no encontrada con id: " + dto.getCondicionIvaId());
-            }
-            factura.setCondicionIva(condicionIva);
+            condicionIva = condicionIvaRepository.findById(dto.getCondicionIvaId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Condicion IVA no encontrada con id: " + dto.getCondicionIvaId()));
         }
 
+        PuntoVenta puntoVenta = null;
         if (dto.getPuntoVentaId() != null) {
-            PuntoVenta puntoVenta = em.find(PuntoVenta.class, dto.getPuntoVentaId());
-            if (puntoVenta == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Punto de Venta no encontrado con id: " + dto.getPuntoVentaId());
-            }
-            factura.setPuntoVenta(puntoVenta);
+            puntoVenta = puntoVentaRepository.findById(dto.getPuntoVentaId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Punto de Venta no encontrado con id: " + dto.getPuntoVentaId()));
         }
 
+        TipoMoneda tipoMoneda = null;
         if (dto.getTipoMonedaId() != null) {
-            TipoMoneda tipoMoneda = em.find(TipoMoneda.class, dto.getTipoMonedaId());
-            if (tipoMoneda == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tipo de Moneda no encontrado con id: " + dto.getTipoMonedaId());
-            }
-            factura.setTipoMoneda(tipoMoneda);
+            tipoMoneda = tipoMonedaRepository.findById(dto.getTipoMonedaId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Tipo de Moneda no encontrado con id: " + dto.getTipoMonedaId()));
         }
 
-        // Si se proveen nuevos ítems/detalles, actualizar
+        Usuario usuario = obtenerUsuarioParaAuditoria();
+
+        // Actualizar cabecera delegando al método de dominio
+        factura.actualizarDatos(
+                dto.getEstado(),
+                dto.getObservaciones(),
+                dto.getFechaEmision(),
+                cliente,
+                condicionIva,
+                puntoVenta,
+                tipoMoneda,
+                usuario);
+
+        // Si se proveen nuevos renglones/detalles, actualizar
         if (dto.getDetalles() != null && !dto.getDetalles().isEmpty()) {
-            factura.getDetalles().clear();
-            double totalCalculado = 0.0;
+            factura.clearDetalles();
+
             for (FacturaDetalleRequestDTO detDto : dto.getDetalles()) {
-                ListaPrecioArticulo lpa = null;
-                if (detDto.getListaPrecioArticuloId() != null) {
-                    lpa = em.find(ListaPrecioArticulo.class, detDto.getListaPrecioArticuloId());
-                } else if (detDto.getArticuloId() != null) {
-                    List<ListaPrecioArticulo> precios = em.createQuery(
-                                    "SELECT lpa FROM ListaPrecioArticulo lpa WHERE lpa.articulo.id = :artId", ListaPrecioArticulo.class)
-                            .setParameter("artId", detDto.getArticuloId())
-                            .getResultList();
-                    if (!precios.isEmpty()) {
-                        lpa = precios.get(0);
-                    }
+                if (detDto.getListaPrecioArticuloId() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "El listaPrecioArticuloId es obligatorio para cada renglon");
                 }
 
-                if (lpa == null) {
-                    throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "ListaPrecioArticulo no encontrado para el artículo (articuloId: " + detDto.getArticuloId() + ")");
-                }
+                ListaPrecioArticulo lpa = listaPrecioArticuloRepository.findById(detDto.getListaPrecioArticuloId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                "ListaPrecioArticulo no encontrado con id: " + detDto.getListaPrecioArticuloId()));
 
-                FacturaVentaDetalle detalle = new FacturaVentaDetalle();
-                detalle.setListaPrecioArticulo(lpa);
-                detalle.setDescripcion(detDto.getDescripcion() != null && !detDto.getDescripcion().trim().isEmpty()
-                        ? detDto.getDescripcion()
-                        : (lpa.getArticulo() != null ? lpa.getArticulo().getDenominacion() : "Detalle"));
-
-                double cantidad = detDto.getCantidad() > 0 ? detDto.getCantidad() : 1.0;
-                detalle.setCantidad(cantidad);
-
-                double precioUnitario = (detDto.getPrecioUnitario() != null && detDto.getPrecioUnitario() > 0)
-                        ? detDto.getPrecioUnitario()
-                        : lpa.getPrecioVenta();
-                detalle.setPrecioUnitario(precioUnitario);
-
-                double bonificacion = detDto.getPorcentajeBonificacion() != null ? detDto.getPorcentajeBonificacion() : 0.0;
-                detalle.setPorcentajeBonificacion(bonificacion);
-
-                double subtotal = cantidad * precioUnitario * (1.0 - (bonificacion / 100.0));
-                double neto = Math.round((subtotal / 1.21) * 100.0) / 100.0;
-                double iva = Math.round((subtotal - neto) * 100.0) / 100.0;
-
-                detalle.setImporteNeto(neto);
-                detalle.setImporteIva(iva);
-                detalle.setImporteSubtotal(subtotal);
-
+                FacturaVentaDetalle detalle = FacturaVentaDetalle.crear(
+                        lpa,
+                        detDto.getDescripcion(),
+                        detDto.getCantidad(),
+                        detDto.getPorcentajeBonificacion());
                 factura.addDetalle(detalle);
-                totalCalculado += subtotal;
             }
-            factura.setImporteTotal(totalCalculado);
+            factura.recalcularTotales();
         }
 
-        Usuario usuario = em.createQuery("SELECT u FROM Usuario u", Usuario.class)
-                .setMaxResults(1)
-                .getResultList()
-                .stream().findFirst().orElse(null);
-        if (usuario != null) {
-            factura.setUsuarioModificacion(usuario);
-        }
-
-        factura.setFechaModificacion(new Date());
-        em.merge(factura);
-
-        return convertirAReporteDTO(factura);
+        FacturaVenta guardada = facturaVentaRepository.save(factura);
+        return convertirAReporteDTO(guardada);
     }
 
     @Transactional
     public void eliminarFactura(Long id) {
-        FacturaVenta factura = em.find(FacturaVenta.class, id);
-        if (factura == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id);
-        }
-        em.remove(factura);
+        FacturaVenta factura = facturaVentaRepository.findById(id)
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id));
+
+        Usuario usuario = obtenerUsuarioParaAuditoria();
+        factura.darDeBaja(usuario);
+        facturaVentaRepository.save(factura);
     }
 
     @Transactional
     public FacturaReporteDTO anularFactura(Long id) {
-        FacturaVenta factura = em.find(FacturaVenta.class, id);
-        if (factura == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id);
-        }
-        factura.setEstado("ANULADA");
-        factura.setFechaAnulacion(new Date());
-        factura.setFechaModificacion(new Date());
-        Usuario usuario = em.createQuery("SELECT u FROM Usuario u", Usuario.class)
-                .setMaxResults(1)
-                .getResultList()
-                .stream().findFirst().orElse(null);
-        if (usuario != null) {
-            factura.setUsuarioModificacion(usuario);
-        }
-        em.merge(factura);
-        return convertirAReporteDTO(factura);
+        FacturaVenta factura = facturaVentaRepository.findById(id)
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id));
+
+        Usuario usuario = obtenerUsuarioParaAuditoria();
+        factura.anular(usuario);
+        FacturaVenta guardada = facturaVentaRepository.save(factura);
+        return convertirAReporteDTO(guardada);
     }
 
     public FacturaReporteDTO convertirAReporteDTO(FacturaVenta f) {
-        if (f == null) return null;
+        if (f == null) {
+            return null;
+        }
         return FacturaReporteDTO.builder()
                 .id(f.getId())
                 .numeroFactura(f.getNumero())
@@ -404,5 +249,9 @@ public class FacturaService {
                 .cantidadItems((long) (f.getDetalles() != null ? f.getDetalles().size() : 0))
                 .estado(f.getEstado())
                 .build();
+    }
+
+    private Usuario obtenerUsuarioParaAuditoria() {
+        return usuarioRepository.findAll().stream().findFirst().orElse(null);
     }
 }

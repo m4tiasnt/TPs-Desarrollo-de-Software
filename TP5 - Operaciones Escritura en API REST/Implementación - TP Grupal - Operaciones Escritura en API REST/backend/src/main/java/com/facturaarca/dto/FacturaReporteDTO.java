@@ -24,13 +24,6 @@ public class FacturaReporteDTO {
     private Long cantidadItems;
     private String estado;
 
-    public FacturaReporteDTO(Long numeroFactura, Date fechaEmision, String clienteDenominacion, String condicionIva, String puntoVentaDescripcion, double importeTotal, Long cantidadItems) {
-        this.numeroFactura = numeroFactura;
-        this.fechaEmision = fechaEmision;
-        this.clienteDenominacion = clienteDenominacion;
-        this.condicionIva = condicionIva;
-        this.puntoVentaDescripcion = puntoVentaDescripcion;
-        this.importeTotal = importeTotal;
-        this.cantidadItems = cantidadItems;
-    }
 }
+// las creaciones de excel y pdf usaban el constructor que usamos aca, asi que
+// hay que cambiar esas class

@@ -53,17 +53,16 @@ function renderizarTablaDetalles(): void {
 
     itemsFactura.forEach((item, index) => {
         const fila = document.createElement('tr');
-        const precio = item.precioUnitario ?? 0;
+
         const bonif = item.porcentajeBonificacion ?? 0;
-        const subtotal = item.importeSubtotal ?? (item.cantidad * precio * (1 - (bonif / 100)));
+
 
         fila.innerHTML = `
-            <td>${item.articuloId}</td>
             <td>${item.descripcion || 'Sin descripción'}</td>
             <td class="num">${item.cantidad}</td>
-            <td class="num">$${precio.toFixed(2)}</td>
+
             <td class="num">${bonif}%</td>
-            <td class="num">$${subtotal.toFixed(2)}</td>
+            
             <td class="actions">
                 <button type="button" class="btn-icon btn-icon--danger btn-quitar-item" data-index="${index}" aria-label="Quitar renglón" title="Quitar renglón">
                     <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
@@ -114,10 +113,9 @@ btnAgregarItem?.addEventListener('click', () => {
 
     // Objeto DTO del renglón
     const nuevoDetalle: FacturaDetalleRequestDTO = {
-        articuloId: articuloId,
+        listaPrecioArticuloId: articuloId,
         descripcion: descripcion || undefined,
         cantidad: cantidad,
-        precioUnitario: precio,
         porcentajeBonificacion: descuento,
         importeSubtotal: subtotalEstimado
     };

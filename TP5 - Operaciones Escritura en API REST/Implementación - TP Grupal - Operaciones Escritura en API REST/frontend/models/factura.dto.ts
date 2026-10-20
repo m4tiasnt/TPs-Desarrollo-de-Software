@@ -18,11 +18,9 @@ export interface FacturaReporteDTO {
 
 // 2. DTO de renglón/detalle de entrada (Espejo de FacturaDetalleRequestDTO.java)
 export interface FacturaDetalleRequestDTO {
-    articuloId: number;
     listaPrecioArticuloId?: number;
     descripcion?: string;
     cantidad: number;
-    precioUnitario?: number;
     porcentajeBonificacion?: number;
     importeSubtotal?: number;
 }
@@ -37,9 +35,6 @@ export interface FacturaRequestDTO {
     tipoMonedaId: number;
     estado?: string;
     observaciones?: string;
-    importeTotal?: number;
-    importeCobrado?: number;
-    importeSaldo?: number;
     detalles: FacturaDetalleRequestDTO[];
 }
 
