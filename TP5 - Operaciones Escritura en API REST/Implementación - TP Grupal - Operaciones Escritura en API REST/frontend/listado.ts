@@ -147,9 +147,7 @@ function renderizarTablaFacturas(facturas: FacturaReporteDTO[]): void {
 
         const fechaStr = factura.fechaEmision ? String(factura.fechaEmision).substring(0, 10) : '-';
         const estado = factura.estado || 'EMITIDA';
-        const claseBadge = estado === 'ANULADA'
-            ? 'badge-anulada'
-            : (estado === 'PENDIENTE' ? 'badge-pendiente' : 'badge-emitida');
+        const claseBadge = estado === 'ANULADA' ? 'badge-anulada' : 'badge-emitida';
 
         fila.innerHTML = `
             <td data-label="N° Factura"><strong>#${factura.numeroFactura}</strong></td>

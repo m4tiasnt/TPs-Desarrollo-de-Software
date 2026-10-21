@@ -191,6 +191,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 1; backgr
 .badge { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12px; font-weight: 500; border-radius: 999px; }
 .badge-emitida { background: var(--color-success-bg); color: var(--color-success-text); }
 .badge-anulada { background: var(--color-danger-bg); color: var(--color-danger-text); }
+/* Se usa en el combobox de artículos cuando no hay precio en la lista elegida */
 .badge-pendiente { background: var(--color-warning-bg); color: var(--color-warning-text); }
 
 .pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm); padding: 12px var(--space-lg); font-size: 14px; }
