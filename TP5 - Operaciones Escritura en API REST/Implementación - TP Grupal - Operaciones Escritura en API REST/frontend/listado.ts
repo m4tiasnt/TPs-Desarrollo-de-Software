@@ -176,13 +176,14 @@ function renderizarTablaFacturas(facturas: FacturaReporteDTO[]): void {
         const btnAnular = fila.querySelector('.btn-anular') as HTMLButtonElement;
         if (btnAnular && estado !== 'ANULADA') {
             btnAnular.addEventListener('click', async () => {
-                const idFactura = factura.id ?? factura.numeroFactura;
+                const idFactura = factura.id;
                 const confirmar = await confirmarDialogo('dlg-anular', factura.numeroFactura);
                 if (!confirmar) return;
 
                 try {
                     mostrarMensaje(`Anulando factura N° ${factura.numeroFactura}...`, 'exito');
-                    await facturaService.actualizarEstado(idFactura, 'ANULADA', 'Anulada desde la UI web');
+                    // Solo se envía el estado: las observaciones originales no se pisan.
+                    await facturaService.actualizarEstado(idFactura, 'ANULADA');
                     mostrarMensaje(`Factura N° ${factura.numeroFactura} anulada con éxito.`, 'exito');
                     await cargarFacturas(); // Refrescamos la tabla
                 } catch (error: any) {
@@ -192,21 +193,21 @@ function renderizarTablaFacturas(facturas: FacturaReporteDTO[]): void {
             });
         }
 
-        // Evento para ELIMINAR la factura (DELETE /api/facturas/{id})
+        // Evento para DAR DE BAJA la factura (DELETE /api/facturas/{id})
         const btnEliminar = fila.querySelector('.btn-eliminar') as HTMLButtonElement;
         btnEliminar?.addEventListener('click', async () => {
-            const idFactura = factura.id ?? factura.numeroFactura;
+            const idFactura = factura.id;
             const confirmar = await confirmarDialogo('dlg-eliminar', factura.numeroFactura);
             if (!confirmar) return;
 
             try {
-                mostrarMensaje(`Eliminando factura N° ${factura.numeroFactura}...`, 'exito');
+                mostrarMensaje(`Dando de baja la factura N° ${factura.numeroFactura}...`, 'exito');
                 await facturaService.eliminarFactura(idFactura);
-                mostrarMensaje(`Factura N° ${factura.numeroFactura} eliminada correctamente.`, 'exito');
+                mostrarMensaje(`Factura N° ${factura.numeroFactura} dada de baja correctamente.`, 'exito');
                 await cargarFacturas(); // Refrescamos la tabla
             } catch (error: any) {
-                console.error('Error al eliminar:', error);
-                mostrarMensaje(`Error al eliminar factura: ${error.message}`, 'error');
+                console.error('Error al dar de baja:', error);
+                mostrarMensaje(`Error al dar de baja la factura: ${error.message}`, 'error');
             }
         });
 
