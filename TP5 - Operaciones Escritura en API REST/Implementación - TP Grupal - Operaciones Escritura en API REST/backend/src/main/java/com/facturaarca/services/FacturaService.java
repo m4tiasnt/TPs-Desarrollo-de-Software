@@ -19,6 +19,7 @@ import java.util.List;
 public class FacturaService {
 
     private final FacturaVentaRepository facturaVentaRepository;
+    private final FacturaRepository facturaRepository;
     private final PuntoVentaRepository puntoVentaRepository;
     private final CondicionIvaRepository condicionIvaRepository;
     private final TipoMonedaRepository tipoMonedaRepository;
@@ -28,20 +29,12 @@ public class FacturaService {
 
     @Transactional(readOnly = true)
     public List<FacturaReporteDTO> obtenerTodasLasFacturas() {
-        return facturaVentaRepository.findAllConRelaciones()
-                .stream()
-                .map(this::convertirAReporteDTO)
-                .toList();
+        return buscarFacturasFiltradas(null, null, null, null);
     }
 
     @Transactional(readOnly = true)
-    public List<FacturaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta, String estado,
-            Double montoMinimo) {
-        String estadoLimpio = (estado != null && !estado.trim().isEmpty()) ? estado.trim() : null;
-        return facturaVentaRepository.buscarFiltradas(fechaDesde, fechaHasta, estadoLimpio, montoMinimo)
-                .stream()
-                .map(this::convertirAReporteDTO)
-                .toList();
+    public List<FacturaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta, String estado, Double montoMinimo) {
+        return facturaRepository.buscarFacturasFiltradas(fechaDesde, fechaHasta, estado, montoMinimo);
     }
 
     @Transactional
@@ -87,7 +80,8 @@ public class FacturaService {
         if (dto.getNumero() != null) {
             factura.setNumero(dto.getNumero());
         } else {
-            Long maxNumero = facturaVentaRepository.obtenerMaxNumero();
+            // La numeración es correlativa por punto de venta
+            Long maxNumero = facturaVentaRepository.obtenerMaxNumeroPorPuntoVenta(puntoVenta.getId());
             factura.setNumero(maxNumero + 1L);
         }
 
@@ -120,10 +114,10 @@ public class FacturaService {
             }
         }
 
-        // El dominio recalcula importes netos, IVA, subtotal y total automáticamente
+        // Se recalculan importes netos, IVA, subtotal y total automáticamente
         factura.recalcularTotales();
 
-        // 4. Guardar mediante el repositorio (detalles persisten en cascada)
+        // 4. Guardar factura
         FacturaVenta guardada = facturaVentaRepository.save(factura);
 
         return convertirAReporteDTO(guardada);
@@ -131,9 +125,11 @@ public class FacturaService {
 
     @Transactional
     public FacturaReporteDTO actualizarFactura(Long id, FacturaRequestDTO dto) {
-        FacturaVenta factura = facturaVentaRepository.findById(id)
-                .orElseThrow(
-                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id));
+        if (dto == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos de la factura no pueden ser nulos");
+        }
+
+        FacturaVenta factura = buscarFactura(id);
 
         Cliente cliente = null;
         if (dto.getClienteId() != null) {
@@ -165,7 +161,7 @@ public class FacturaService {
 
         Usuario usuario = obtenerUsuarioParaAuditoria();
 
-        // Actualizar cabecera delegando al método de dominio
+        // Actualizar cabecera
         factura.actualizarDatos(
                 dto.getEstado(),
                 dto.getObservaciones(),
@@ -199,25 +195,11 @@ public class FacturaService {
 
     @Transactional
     public void eliminarFactura(Long id) {
-        FacturaVenta factura = facturaVentaRepository.findById(id)
-                .orElseThrow(
-                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id));
-
-        Usuario usuario = obtenerUsuarioParaAuditoria();
-        factura.darDeBaja(usuario);
+        // Hacemos baja lógica, le  seteamos la fecha_baja a la factura para que deje de figurar
+        // en el listado pero toda su información se conserva igual
+        FacturaVenta factura = buscarFactura(id);
+        factura.darDeBaja(obtenerUsuarioParaAuditoria());
         facturaVentaRepository.save(factura);
-    }
-
-    @Transactional
-    public FacturaReporteDTO anularFactura(Long id) {
-        FacturaVenta factura = facturaVentaRepository.findById(id)
-                .orElseThrow(
-                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Factura no encontrada con id: " + id));
-
-        Usuario usuario = obtenerUsuarioParaAuditoria();
-        factura.anular(usuario);
-        FacturaVenta guardada = facturaVentaRepository.save(factura);
-        return convertirAReporteDTO(guardada);
     }
 
     public FacturaReporteDTO convertirAReporteDTO(FacturaVenta f) {
@@ -237,11 +219,25 @@ public class FacturaService {
                 .build();
     }
 
+    private FacturaVenta buscarFactura(Long id) {
+        return facturaVentaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Factura no encontrada con id: " + id));
+    }
+
     private ListaPrecioArticulo resolverListaPrecioArticulo(FacturaDetalleRequestDTO detDto) {
         if (detDto.getListaPrecioArticuloId() != null) {
-            return listaPrecioArticuloRepository.findById(detDto.getListaPrecioArticuloId())
+            ListaPrecioArticulo lista = listaPrecioArticuloRepository.findById(detDto.getListaPrecioArticuloId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                             "ListaPrecioArticulo no encontrado con id: " + detDto.getListaPrecioArticuloId()));
+
+            // La lista de precios elegida tiene que pertenecer al artículo del renglón.
+            if (detDto.getArticuloId() != null && lista.getArticulo() != null
+                    && !lista.getArticulo().getId().equals(detDto.getArticuloId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "La lista de precios " + lista.getId() + " no pertenece al artículo " + detDto.getArticuloId());
+            }
+            return lista;
         } else if (detDto.getArticuloId() != null) {
             return listaPrecioArticuloRepository.findFirstByArticuloIdOrderByIdAsc(detDto.getArticuloId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
