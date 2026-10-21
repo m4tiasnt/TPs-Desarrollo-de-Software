@@ -1,6 +1,7 @@
 package com.facturaarca.entities;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MappedSuperclass;
@@ -35,15 +36,15 @@ public abstract class AuditoriaApp extends EntityId {
     @Temporal(TemporalType.TIMESTAMP)
     protected Date fechaModificacion;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_carga_id", nullable = false)
     protected Usuario usuarioCarga;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_baja_id")
     protected Usuario usuarioBaja;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_modificacion_id", nullable = false)
     protected Usuario usuarioModificacion;
 }

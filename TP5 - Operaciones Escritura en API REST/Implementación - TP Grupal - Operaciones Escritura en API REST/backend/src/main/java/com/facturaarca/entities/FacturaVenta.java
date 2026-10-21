@@ -28,15 +28,15 @@ public class FacturaVenta extends AuditoriaApp {
     @JoinColumn(name = "cliente_id", nullable = true)
     private Cliente cliente;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "condicion_iva_id", nullable = false)
     private CondicionIva condicionIva;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tipo_moneda_id", nullable = false)
     private TipoMoneda tipoMoneda;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "punto_venta_id", nullable = false)
     private PuntoVenta puntoVenta;
 
@@ -96,16 +96,6 @@ public class FacturaVenta extends AuditoriaApp {
         this.importeTotal = Math.round(total * 100.0) / 100.0;
         this.importeCobrado = this.importeTotal;
         this.importeSaldo = 0.0;
-    }
-
-    public void anular(Usuario usuarioModificacion) {
-        this.estado = "ANULADA";
-        Date ahora = new Date();
-        this.fechaAnulacion = ahora;
-        this.fechaModificacion = ahora;
-        if (usuarioModificacion != null) {
-            this.usuarioModificacion = usuarioModificacion;
-        }
     }
 
     public void darDeBaja(Usuario usuarioBaja) {

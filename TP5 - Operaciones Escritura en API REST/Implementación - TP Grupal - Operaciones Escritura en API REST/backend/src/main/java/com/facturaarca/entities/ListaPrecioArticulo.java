@@ -14,14 +14,14 @@ import lombok.*;
 @ToString(callSuper = true)
 public class ListaPrecioArticulo extends AuditoriaApp {
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lista_precio_id", nullable = false)
     private ListaPrecio listaPrecio;
 
     @Column(nullable = false)
     private double precioVenta;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "articulo_id", nullable = false)
     private Articulo articulo;
 }

@@ -14,12 +14,12 @@ import lombok.*;
 @ToString(callSuper = true)
 public class FacturaVentaDetalle extends EntityId {
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "factura_venta_id", nullable = false)
     @ToString.Exclude
     private FacturaVenta factura;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lista_precio_articulo_id", nullable = false)
     private ListaPrecioArticulo listaPrecioArticulo;
 

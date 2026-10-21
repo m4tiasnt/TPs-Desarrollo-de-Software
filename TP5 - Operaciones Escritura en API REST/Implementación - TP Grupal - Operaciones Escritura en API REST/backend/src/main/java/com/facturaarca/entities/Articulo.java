@@ -21,9 +21,9 @@ public class Articulo extends AuditoriaApp {
     @EqualsAndHashCode.Include
     private String codigo;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     private Rubro rubro;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     private Marca marca;
 }
