@@ -9,7 +9,7 @@ import {
     CondicionIvaDTO,
     TipoMonedaDTO,
     ArticuloSearchDTO
-} from '../models/factura.dto';
+} from '../models/api.dto';
 
 /**
  * Servicio API para centralizar llamadas HTTP al backend Spring Boot.

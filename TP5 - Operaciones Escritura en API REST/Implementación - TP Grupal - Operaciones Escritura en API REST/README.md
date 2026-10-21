@@ -20,7 +20,7 @@ Sistema de facturación de venta compuesto por un **backend** Spring Boot que ex
     ├── nueva-factura.html  # Alta de factura
     ├── nueva-factura.ts
     ├── styles.css
-    ├── models/factura.dto.ts
+    ├── models/api.dto.ts    # Tipos que espejan los DTOs del backend
     ├── services/FacturaService.ts
     ├── package.json
     └── tsconfig.json

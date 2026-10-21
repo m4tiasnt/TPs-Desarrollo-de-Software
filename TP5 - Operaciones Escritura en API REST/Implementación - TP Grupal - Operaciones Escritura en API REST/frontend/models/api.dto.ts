@@ -1,5 +1,6 @@
 /**
- * DTOs de Facturación (espejo de los DTOs del backend)
+ * DTOs que consume el frontend (espejo de los DTOs del backend).
+ * Incluye facturas, renglones, filtros, catálogos y listas de precio.
  */
 
 // 1. DTO de reporte/salida (FacturaReporteDTO.java)

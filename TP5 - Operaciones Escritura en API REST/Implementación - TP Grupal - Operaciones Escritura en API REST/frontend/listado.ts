@@ -1,7 +1,7 @@
 import {
     FacturaReporteDTO,
     FacturaFiltrosDTO
-} from './models/factura.dto.js';
+} from './models/api.dto.js';
 
 import { FacturaService } from './services/FacturaService.js';
 
