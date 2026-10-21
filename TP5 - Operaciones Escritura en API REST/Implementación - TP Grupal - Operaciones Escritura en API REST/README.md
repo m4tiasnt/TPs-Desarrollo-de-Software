@@ -11,6 +11,7 @@ Sistema de facturación de venta compuesto por un **backend** Spring Boot que ex
 ├── backend/    # API REST (Spring Boot + JPA + PostgreSQL)
 │   ├── src/main/java/com/facturaarca/
 │   ├── src/main/resources/application.properties
+│   ├── src/main/resources/application-demo.properties
 │   ├── db/poblar_db.sql
 │   └── build.gradle
 └── frontend/   # Cliente (TypeScript + HTML5)
@@ -61,16 +62,37 @@ Sistema de facturación de venta compuesto por un **backend** Spring Boot que ex
    El esquema `model` y sus tablas se crean/actualizan automáticamente
    (`spring.jpa.hibernate.ddl-auto=update`).
 
-4. **Con la API detenida**, cargar datos de ejemplo (opcional). El script hace
-   `TRUNCATE`/`INSERT` sobre tablas que ya deben existir, por eso se ejecuta
-   recién después del primer arranque:
+4. Cargar datos de ejemplo (opcional). Hay dos caminos:
+
+   **Opción A — correr el script a mano, una sola vez.** Con la API detenida,
+   porque el script hace `TRUNCATE`/`INSERT` sobre tablas que ya deben existir:
 
    ```bash
    # Desde la raíz del repositorio (pgAdmin o la consola psql)
    psql -U postgres -d factura_arca -f backend/db/poblar_db.sql
    ```
 
-5. Volver a iniciar la API:
+   **Opción B — perfil `demo`.** Ejecuta el mismo script en cada arranque, así
+   la base siempre queda con los datos de ejemplo (cómodo para una demo o para
+   la corrección del TP):
+
+   ```bash
+   # Windows (desde backend/)
+   gradlew.bat bootRun --args=--spring.profiles.active=demo
+
+   # Linux / macOS (desde backend/)
+   ./gradlew bootRun --args=--spring.profiles.active=demo
+   ```
+
+   > ⚠️ El perfil `demo` **borra todo lo cargado en cada arranque**: el script
+   > empieza con `TRUNCATE` de todas las tablas. Para el uso normal, arrancá
+   > **sin** el perfil; ahí el script no se ejecuta nunca.
+
+   En IntelliJ: *Run > Edit Configurations... > Active profiles: `demo`* (o
+   agregar `-Dspring.profiles.active=demo` en *VM options*).
+
+5. Volver a iniciar la API (si usaste la Opción A, para dejarla corriendo; con
+   la Opción B ya está levantada):
 
    ```bash
    ./gradlew bootRun        # o gradlew.bat bootRun
@@ -136,5 +158,13 @@ Luego abrir `http://localhost:5173` en el navegador. El backend debe estar corri
 - El backend permite CORS desde cualquier origen (`@CrossOrigin(origins = "*")`), por lo que el frontend puede servirse en cualquier puerto.
 - Al iniciar, la aplicación genera un reporte PDF y uno Excel de todas las
   facturas en `backend/reportes/` (ver `ReporteService`).
+- El perfil `demo` (`application-demo.properties`) activa `spring.sql.init.mode=always`,
+  apunta a `classpath:poblar_db.sql` y usa
+  `spring.jpa.defer-datasource-initialization=true` para que el script corra
+  **después** de que Hibernate cree las tablas con `ddl-auto=update`.
+  Ojo: hay **dos copias** del script (`backend/db/poblar_db.sql`, que se corre a
+  mano con `psql`, y `backend/src/main/resources/poblar_db.sql`, que usa el perfil
+  `demo` porque tiene que estar en el classpath). Si cambian los datos de ejemplo,
+  hay que actualizar las dos.
 - La auditoría (`usuarioCarga` / `usuarioModificacion`) toma el primer usuario de
   la tabla `usuarios`, ya que el TP no incluye autenticación.
