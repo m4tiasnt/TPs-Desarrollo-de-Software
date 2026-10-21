@@ -11,19 +11,45 @@
 
 <body>
     <!--
-      ALTA DE NUEVA FACTURA.
+      NUEVA FACTURA – UI mejorada con selects, combobox, resumen lateral y lista base global.
 
-      Este HTML conserva los ids que ya espera `nueva-factura.ts` (la lógica del
-      compañero), solo que con el diseño nuevo. La carga de renglones es la
-      original: se completan los campos y se hace clic en "+ Agregar renglón".
+      Puntos de enganche para el código (nueva-factura.ts):
+        #form-factura            formulario; name coincide con FacturaRequestDTO
+        #listaPrecioId           select global "Lista base" (carga todas las listas de precio)
+        #condicionIvaId          select condición IVA (al cambiar a 3 = Consumidor Final, cliente opcional)
+        #clienteId               select clientes (opcional si IVA = 3)
+        #puntoVentaId            select puntos de venta
+        #tipoMonedaId            select tipos de moneda
+        #buscador-articulo       combobox búsqueda artículos
+        #lista-articulos         lista resultados combobox
+        #renglones-tbody         tbody tabla renglones (clona #tpl-renglon)
+        #renglones-vacio         estado vacío inicial
+        #renglones-wrap          wrapper tabla (hidden si vacío)
+        #observaciones           textarea observaciones
+        #resumen-subtotal        subtotal calculado cliente-side
+        #resumen-bonificaciones  bonificaciones calculado cliente-side
+        #resumen-total           total calculado cliente-side
+        #alerta-error            error servidor al guardar
+        #dlg-descartar           dialog confirmar salir con datos
+        #dlg-cambiar-lista       dialog confirmar cambio lista base
+        #tpl-opcion-articulo     template option combobox
+        #tpl-renglon             template fila renglón
+        #menu-renglon            menú de acciones del renglón (posicionado por JS)
+        #dlg-editar-lista        modal cambio de lista de un renglón
+        #dlg-editar-descripcion  modal edición de descripción de un renglón
     -->
 
-    <!-- Sprite de íconos: se usan con <svg class="icon"><use href="#i-nombre"/></svg> -->
+    <!-- Sprite de íconos -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-        <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol>
-        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
-        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></symbol>
-        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7"/><path d="M10 11v6M14 11v6"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+        <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+        <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
     </svg>
 
     <header class="app-header">
@@ -33,128 +59,247 @@
     <main class="container stack">
 
         <div>
-            <a class="back-link" href="index.html">
-                <svg class="icon" aria-hidden="true"><use href="#i-back" /></svg>
+            <a class="back-link" href="index.html" id="link-volver">
+                <svg class="icon" aria-hidden="true"><use href="#i-back"/></svg>
                 Volver a facturas
             </a>
             <h1>Nueva factura</h1>
         </div>
 
-        <!-- Contenedor para mostrar mensajes de éxito o error en la UI -->
-        <div id="mensaje-feedback"></div>
+        <!-- Error del servidor al guardar -->
+        <div class="alert alert-danger" id="alerta-error" role="alert" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+            <span id="alerta-error-texto">No se pudo guardar la factura. Intentá de nuevo.</span>
+            <button type="button" class="btn-icon" id="btn-cerrar-alerta" aria-label="Cerrar aviso">
+                <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+            </button>
+        </div>
 
-        <form id="form-alta-factura" class="stack">
+        <form id="form-factura" novalidate>
+            <div class="invoice-layout">
 
-                    <!-- Datos del Comprobante (Cabecera) -->
+                <div class="invoice-main stack">
+
+                    <!-- Datos de la factura -->
                     <section class="card" aria-labelledby="titulo-datos">
                         <div class="card-body">
-                            <h2 id="titulo-datos">Datos del comprobante</h2>
+                            <h2 id="titulo-datos">Datos de la factura</h2>
+
                             <div class="form-row">
-                                <div class="form-group form-group--num">
-                                    <label for="alta-cliente-id">Cliente ID (*)</label>
-                                    <input class="form-control" type="number" id="alta-cliente-id" placeholder="Ej: 1" required min="1">
+                                <div class="form-group form-group--wide">
+                                    <label for="condicionIvaId">Condición IVA</label>
+                                    <select class="form-control" id="condicionIvaId" name="condicionIvaId" required>
+                                        <option value="">Seleccionar…</option>
+                                    </select>
                                 </div>
-                                <div class="form-group form-group--num">
-                                    <label for="alta-punto-venta-id">Punto de venta ID (*)</label>
-                                    <input class="form-control" type="number" id="alta-punto-venta-id" placeholder="Ej: 1" required min="1">
-                                </div>
-                                <div class="form-group form-group--num">
-                                    <label for="alta-condicion-iva-id">Condición IVA ID (*)</label>
-                                    <input class="form-control" type="number" id="alta-condicion-iva-id" placeholder="Ej: 1" required min="1">
-                                </div>
-                                <div class="form-group form-group--num">
-                                    <label for="alta-tipo-moneda-id">Tipo moneda ID (*)</label>
-                                    <input class="form-control" type="number" id="alta-tipo-moneda-id" placeholder="Ej: 1" required min="1">
+                                <div class="form-group form-group--wide">
+                                    <label for="clienteId">Cliente <span class="muted" id="cliente-opcional" hidden>(opcional)</span></label>
+                                    <select class="form-control" id="clienteId" name="clienteId" required aria-describedby="error-clienteId">
+                                        <option value="">Seleccionar cliente…</option>
+                                    </select>
+                                    <p class="field-error" id="error-clienteId" hidden>Elegí un cliente.</p>
+                                    <p class="field-hint" id="hint-cliente" hidden>Podés dejarlo sin cliente (se emite a Consumidor Final) o elegir uno.</p>
                                 </div>
                             </div>
+
                             <div class="form-row">
-                                <div class="form-group form-group--full">
-                                    <label for="alta-observaciones">Observaciones <span class="muted">(opcional)</span></label>
-                                    <textarea class="form-control" id="alta-observaciones" rows="2" placeholder="Ej: Venta contado mostrador"></textarea>
+                                <div class="form-group">
+                                    <label for="fechaEmision">Fecha de emisión</label>
+                                    <input class="form-control" type="date" id="fechaEmision" name="fechaEmision" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="puntoVentaId">Punto de venta</label>
+                                    <select class="form-control" id="puntoVentaId" name="puntoVentaId" required>
+                                        <option value="">Seleccionar…</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tipoMonedaId">Moneda</label>
+                                    <select class="form-control" id="tipoMonedaId" name="tipoMonedaId" required>
+                                        <option value="">Seleccionar…</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="listaPrecioId">Lista base</label>
+                                    <select class="form-control" id="listaPrecioId" name="listaPrecioId" required>
+                                        <option value="">Seleccionar…</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
                     </section>
 
-                    <!-- Carga de Renglones / Detalle -->
+                    <!-- Renglones -->
                     <section class="card" aria-labelledby="titulo-renglones">
                         <div class="card-body">
                             <h2 id="titulo-renglones">Renglones</h2>
-                            <p class="muted" style="margin-bottom: var(--space-md); font-size: 14px;">
-                                Completá los datos del artículo y usá "Agregar renglón" para sumarlo a la factura.
-                            </p>
 
-                            <div class="line-editor">
-                                <div class="form-row">
-                                    <div class="form-group form-group--num">
-                                        <label for="item-articulo-id">Artículo ID (*)</label>
-                                        <input class="form-control" type="number" id="item-articulo-id" placeholder="Ej: 1" min="1">
-                                    </div>
-                                    <div class="form-group form-group--grow">
-                                        <label for="item-descripcion">Descripción</label>
-                                        <input class="form-control" type="text" id="item-descripcion" placeholder="Ej: Monitor LED 24">
-                                    </div>
-                                </div>
+                            <div class="combobox">
+                                <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                                <input class="form-control" type="text" id="buscador-articulo"
+                                    role="combobox" aria-expanded="false" aria-controls="lista-articulos" aria-autocomplete="list"
+                                    autocomplete="off" aria-label="Agregar artículo"
+                                    placeholder="Agregar artículo: buscar por código, nombre o marca">
+                                <ul class="combobox-list" id="lista-articulos" role="listbox" aria-label="Resultados" hidden></ul>
+                            </div>
+                            <p class="field-error" id="error-renglones" hidden>Agregá al menos un artículo.</p>
 
-                                <div class="form-row">
-                                    <div class="form-group form-group--sm">
-                                        <label for="item-cantidad">Cantidad (*)</label>
-                                        <input class="form-control" type="number" id="item-cantidad" placeholder="1" min="1" step="1">
-                                    </div>
-                                    <div class="form-group form-group--sm">
-                                        <label for="item-precio">Precio unitario ($)</label>
-                                        <input class="form-control" type="number" id="item-precio" placeholder="Opcional" min="0" step="0.01">
-                                    </div>
-                                    <div class="form-group form-group--sm">
-                                        <label for="item-descuento">% Descuento</label>
-                                        <input class="form-control" type="number" id="item-descuento" placeholder="0" min="0" max="100" step="0.5">
-                                    </div>
-                                </div>
-
-                                <div class="line-editor-actions">
-                                    <button type="button" id="btn-agregar-item" class="btn btn-primary">
-                                        <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
-                                        Agregar renglón
-                                    </button>
-                                </div>
+                            <!-- Estado: sin renglones -->
+                            <div class="empty-state" id="renglones-vacio">
+                                <strong>Todavía no agregaste artículos</strong>
+                                <span class="muted">Usá el buscador de arriba para agregar el primero.</span>
                             </div>
 
-                            <!-- Tabla dinámica de renglones cargados en esta factura -->
-                            <div class="table-wrap">
-                                <table class="table">
+                            <!-- Estado: con renglones -->
+                            <div class="table-wrap" id="renglones-wrap" hidden>
+                                <table class="table lines">
                                     <thead>
                                         <tr>
-                                            <th>Art. ID</th>
-                                            <th>Descripción</th>
-                                            <th class="num">Cantidad</th>
+                                            <th>Artículo</th>
+                                            <th class="num">Cant.</th>
                                             <th class="num">Precio unit.</th>
-                                            <th class="num">% Desc.</th>
-                                            <th class="num">Subtotal est.</th>
-                                            <th class="actions">Acción</th>
+                                            <th class="num">% Bonif.</th>
+                                            <th class="num">Subtotal</th>
+                                            <th aria-label="Acciones"></th>
                                         </tr>
                                     </thead>
-                                    <tbody id="tabla-detalles-body">
-                                        <tr id="fila-sin-items">
-                                            <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 14px;">
-                                                No hay renglones cargados. Ingrese los datos arriba y haga clic en "+ Agregar renglón".
-                                            </td>
-                                        </tr>
-                                    </tbody>
+                                    <tbody id="renglones-tbody"></tbody>
                                 </table>
                             </div>
                         </div>
                     </section>
 
-            <!-- Acciones -->
-            <div class="card">
-                <div class="card-body action-bar">
-                    <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="btn-guardar-factura">Guardar factura</button>
+                    <!-- Observaciones -->
+                    <section class="card" aria-labelledby="titulo-observaciones">
+                        <div class="card-body">
+                            <h2 id="titulo-observaciones">Observaciones</h2>
+                            <textarea class="form-control" id="observaciones" name="observaciones" rows="3" placeholder="Opcional" aria-labelledby="titulo-observaciones"></textarea>
+                        </div>
+                    </section>
+
                 </div>
+
+                <!-- Resumen lateral -->
+                <aside class="card invoice-summary" aria-labelledby="titulo-resumen">
+                    <div class="card-body">
+                        <h2 id="titulo-resumen">Resumen</h2>
+                        <div class="summary-row"><span class="muted">Subtotal</span><span id="resumen-subtotal">$ 0,00</span></div>
+                        <div class="summary-row"><span class="muted">Bonificaciones</span><span id="resumen-bonificaciones">$ 0,00</span></div>
+                        <div class="summary-total"><span>Total</span><strong id="resumen-total">$ 0,00</strong></div>
+                        <div class="summary-actions">
+                            <button type="submit" class="btn btn-primary" id="btn-guardar">Guardar factura</button>
+                            <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+                        </div>
+                    </div>
+                </aside>
+
             </div>
         </form>
 
     </main>
+
+    <!-- Plantilla opción combobox artículos -->
+    <template id="tpl-opcion-articulo">
+        <li role="option">
+            <span>
+                <span class="option-name" data-campo="denominacion"></span>
+                <span class="option-meta" data-campo="detalle"></span>
+            </span>
+            <span data-campo="precio"></span>
+        </li>
+    </template>
+
+    <!-- Plantilla renglón: artículo, cant, precio (ro), %bonif, subtotal (ro), acciones -->
+    <template id="tpl-renglon">
+        <tr>
+            <td>
+                <strong data-campo="articuloDenominacion"></strong>
+                <span class="line-meta" data-campo="articuloMeta"></span>
+                <span class="line-meta line-meta--desc" data-campo="articuloDescripcion" hidden></span>
+                <input type="hidden" name="articuloId" data-campo="articuloId">
+                <input type="hidden" name="listaPrecioArticuloId" data-campo="listaPrecioArticuloId">
+            </td>
+            <td><input class="form-control form-control--sm num" type="number" name="cantidad" min="1" step="1" value="1" aria-label="Cantidad"></td>
+            <td><input class="form-control form-control--sm num readonly-field" type="text" name="precioUnitario" readonly aria-label="Precio unitario" tabindex="-1"></td>
+            <td><input class="form-control form-control--sm num" type="number" name="porcentajeBonificacion" min="0" max="100" step="0.01" value="0" aria-label="Porcentaje de bonificación"></td>
+            <td class="num line-subtotal" data-campo="importeSubtotal">$ 0,00</td>
+            <td class="actions-cell">
+                <button type="button" class="btn-icon" data-accion="menu" aria-label="Opciones del renglón" aria-haspopup="menu" aria-expanded="false">
+                    <svg class="icon" aria-hidden="true"><use href="#i-more" /></svg>
+                </button>
+                <button type="button" class="btn-icon btn-icon--danger" data-accion="quitar" aria-label="Quitar renglón">
+                    <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <!-- Menú de acciones del renglón (único, posicionado por JS fuera del scroll de la tabla) -->
+    <ul class="dropdown-menu" id="menu-renglon" role="menu" aria-label="Acciones del renglón" hidden>
+        <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="editar-lista"><svg class="icon" aria-hidden="true"><use href="#i-edit" /></svg> Editar lista</button></li>
+        <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="editar-descripcion"><svg class="icon" aria-hidden="true"><use href="#i-file" /></svg> Editar descripción</button></li>
+    </ul>
+
+    <!-- Modal editar lista del renglón -->
+    <dialog id="dlg-editar-lista" aria-labelledby="dlg-editar-lista-titulo">
+        <form method="dialog">
+            <div class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg></div>
+            <h2 id="dlg-editar-lista-titulo">Editar lista de precios</h2>
+            <div class="form-group" style="margin-top: var(--space-md);">
+                <label for="edit-listaPrecioId">Lista de precios</label>
+                <select class="form-control" id="edit-listaPrecioId" name="listaPrecioId" required>
+                    <option value="">Seleccionar…</option>
+                </select>
+                <p class="field-hint" id="hint-lista-precio">El precio se actualizará automáticamente según la lista elegida.</p>
+            </div>
+            <div class="dialog-actions">
+                <button class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button class="btn btn-primary" value="confirmar">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Modal editar descripción del renglón -->
+    <dialog id="dlg-editar-descripcion" aria-labelledby="dlg-editar-descripcion-titulo">
+        <form method="dialog">
+            <div class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></div>
+            <h2 id="dlg-editar-descripcion-titulo">Editar descripción</h2>
+            <div class="form-group" style="margin-top: var(--space-md);">
+                <label for="edit-descripcion">Descripción</label>
+                <input class="form-control" type="text" id="edit-descripcion" name="descripcion" placeholder="Opcional">
+            </div>
+            <div class="dialog-actions">
+                <button class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button class="btn btn-primary" value="confirmar">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Confirmación: salir con datos cargados -->
+    <dialog id="dlg-descartar" aria-labelledby="dlg-descartar-titulo">
+        <form method="dialog">
+            <div class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></div>
+            <h2 id="dlg-descartar-titulo">¿Descartar la factura?</h2>
+            <p>Si salís ahora, se pierden los datos que cargaste.</p>
+            <div class="dialog-actions">
+                <button class="btn btn-secondary" value="cancelar">Seguir editando</button>
+                <button class="btn btn-primary" value="confirmar">Descartar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Confirmación: cambiar lista base con renglones cargados -->
+    <dialog id="dlg-cambiar-lista" aria-labelledby="dlg-cambiar-lista-titulo">
+        <form method="dialog">
+            <div class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></div>
+            <h2 id="dlg-cambiar-lista-titulo">¿Cambiar la lista base?</h2>
+            <p>Se actualizarán los precios de los <span data-campo="cantidadRenglones"></span> renglones a la nueva lista base. Los precios que hayas editado a mano se van a reemplazar.</p>
+            <div class="dialog-actions">
+                <button class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button class="btn btn-primary" value="confirmar">Cambiar lista</button>
+            </div>
+        </form>
+    </dialog>
 
     <script type="module" src="./nueva-factura.js"></script>
 </body>
