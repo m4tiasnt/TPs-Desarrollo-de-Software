@@ -40,8 +40,6 @@ Sistema de facturación de venta compuesto por un **backend** Spring Boot que ex
    CREATE DATABASE factura_arca;
    ```
 
-   Opcionalmente, cargar datos de ejemplo con `backend/db/poblar_db.sql`.
-
 2. Configurar las credenciales de conexión en `backend/src/main/resources/application.properties`:
 
    ```properties
@@ -50,7 +48,7 @@ Sistema de facturación de venta compuesto por un **backend** Spring Boot que ex
    spring.datasource.password=CAMBIAR
    ```
 
-3. Iniciar la API (desde la carpeta `backend/`):
+3. Iniciar la API una primera vez para que Hibernate cree el esquema (desde la carpeta `backend/`):
 
    ```bash
    # Linux / macOS
@@ -60,19 +58,51 @@ Sistema de facturación de venta compuesto por un **backend** Spring Boot que ex
    gradlew.bat bootRun
    ```
 
+   El esquema `model` y sus tablas se crean/actualizan automáticamente
+   (`spring.jpa.hibernate.ddl-auto=update`).
+
+4. **Con la API detenida**, cargar datos de ejemplo (opcional). El script hace
+   `TRUNCATE`/`INSERT` sobre tablas que ya deben existir, por eso se ejecuta
+   recién después del primer arranque:
+
+   ```bash
+   # Desde la raíz del repositorio (pgAdmin o la consola psql)
+   psql -U postgres -d factura_arca -f backend/db/poblar_db.sql
+   ```
+
+5. Volver a iniciar la API:
+
+   ```bash
+   ./gradlew bootRun        # o gradlew.bat bootRun
+   ```
+
    La API queda disponible en `http://localhost:8080/api/facturas`.
-   El esquema de tablas se crea/actualiza automáticamente (`spring.jpa.hibernate.ddl-auto=update`).
 
 ### Endpoints
 
-| Método | Ruta                 | Descripción                          | Respuesta      |
-|--------|----------------------|--------------------------------------|----------------|
-| GET    | `/api/facturas`      | Lista facturas (con filtros)         | 200 OK         |
-| POST   | `/api/facturas`      | Crea una factura en cascada          | 201 Created    |
-| PUT    | `/api/facturas/{id}` | Actualiza estado / observaciones     | 200 OK         |
-| DELETE | `/api/facturas/{id}` | Elimina una factura                  | 204 No Content |
+| Método | Ruta                 | Descripción                                       | Respuesta      |
+|--------|----------------------|---------------------------------------------------|----------------|
+| GET    | `/api/facturas`      | Lista facturas (con filtros)                      | 200 OK         |
+| POST   | `/api/facturas`      | Crea una factura en cascada                       | 201 Created    |
+| PUT    | `/api/facturas/{id}` | Actualiza cabecera/detalles; con `"estado": "ANULADA"` anula la factura | 200 OK |
+| DELETE | `/api/facturas/{id}` | Da de baja **lógicamente** la factura (setea `fecha_baja`; deja de listarse pero queda registrada) | 204 No Content |
 
-Filtros de `GET`: `fechaDesde`, `fechaHasta`, `estado`, `montoMinimo`.
+Filtros de `GET`: `fechaDesde`, `fechaHasta`, `estado`, `montoMinimo`
+(`fechaHasta` incluye todo el día indicado). El listado y el reporte excluyen
+las facturas dadas de baja.
+
+Los renglones se envían con `articuloId` y `listaPrecioArticuloId`: el backend
+valida que esa lista de precios pertenezca al artículo y toma de ahí el precio
+de venta. El cliente nunca envía precios ni importes. Las listas disponibles por
+artículo se consultan en `GET /api/articulos/{id}/listas-precio` (lo usa el
+selector del formulario de alta).
+
+Los errores de la API se devuelven siempre con el mismo formato:
+
+```json
+{ "mensaje": "Factura no encontrada con id: 99" }
+```
+
 
 ## Frontend
 
@@ -98,7 +128,13 @@ Luego abrir `http://localhost:5173` en el navegador. El backend debe estar corri
 
 ## Notas
 
+- La interfaz está dividida en dos páginas (`listado` y `alta`) en lugar de un
+  único `index.html`: misma funcionalidad, pero con menos estado global y
+  responsabilidades más claras por archivo.
 - Los archivos `.js` son el resultado de compilar los `.ts` y **no se versionan**: hay que ejecutar `npm run build` (o `npm run watch`) antes de servir la app.
 - `node_modules/` tampoco se versiona; se restaura con `npm install`.
 - El backend permite CORS desde cualquier origen (`@CrossOrigin(origins = "*")`), por lo que el frontend puede servirse en cualquier puerto.
-- Los reportes PDF se generan en `backend/reportes/`.
+- Al iniciar, la aplicación genera un reporte PDF y uno Excel de todas las
+  facturas en `backend/reportes/` (ver `ReporteService`).
+- La auditoría (`usuarioCarga` / `usuarioModificacion`) toma el primer usuario de
+  la tabla `usuarios`, ya que el TP no incluye autenticación.
