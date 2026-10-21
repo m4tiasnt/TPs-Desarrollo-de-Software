@@ -153,7 +153,9 @@ function setupEventListeners(): void {
         const esConsumidorFinal = selectCondicionIva.value === '3';
         selectCliente.required = !esConsumidorFinal;
         clienteOpcional.hidden = !esConsumidorFinal;
-        hintCliente.hidden = !esConsumidorFinal;
+        hintCliente.textContent = esConsumidorFinal
+            ? 'Podés dejarlo sin cliente (se emite a Consumidor Final) o elegir uno.'
+            : '';
         if (esConsumidorFinal) {
             selectCliente.value = '';
             errorCliente.hidden = true;

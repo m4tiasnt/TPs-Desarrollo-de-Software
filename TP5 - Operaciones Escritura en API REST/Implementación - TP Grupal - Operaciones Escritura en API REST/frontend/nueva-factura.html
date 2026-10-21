@@ -85,7 +85,7 @@
                         <div class="card-body">
                             <h2 id="titulo-datos">Datos de la factura</h2>
 
-                            <div class="form-row">
+                            <div class="form-row form-row--top">
                                 <div class="form-group form-group--wide">
                                     <label for="condicionIvaId">Condición IVA</label>
                                     <select class="form-control" id="condicionIvaId" name="condicionIvaId" required>
@@ -97,8 +97,10 @@
                                     <select class="form-control" id="clienteId" name="clienteId" required aria-describedby="error-clienteId">
                                         <option value="">Seleccionar cliente…</option>
                                     </select>
-                                    <p class="field-error" id="error-clienteId" hidden>Elegí un cliente.</p>
-                                    <p class="field-hint" id="hint-cliente" hidden>Podés dejarlo sin cliente (se emite a Consumidor Final) o elegir uno.</p>
+                                    <div class="field-messages">
+                                        <p class="field-error" id="error-clienteId" hidden>Elegí un cliente.</p>
+                                        <p class="field-hint" id="hint-cliente"></p>
+                                    </div>
                                 </div>
                             </div>
 

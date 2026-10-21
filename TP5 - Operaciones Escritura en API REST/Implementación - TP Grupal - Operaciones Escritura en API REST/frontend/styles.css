@@ -81,6 +81,7 @@ h2 { font-size: 16px; font-weight: 600; }
 
 /* 4. Formularios -------------------------------------------------------- */
 .form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-md); }
+.form-row--top { align-items: flex-start; }
 .form-row + .form-row { margin-top: var(--space-md); }
 .form-group { flex: 1 1 180px; min-width: 0; }
 .form-group--wide { flex-basis: 300px; }
@@ -96,6 +97,10 @@ h2 { font-size: 16px; font-weight: 600; }
 .form-control.is-invalid { border-color: var(--color-danger); }   /* se agrega junto con .field-error visible */
 .field-error { margin-top: 6px; font-size: 12px; color: var(--color-danger-text); }
 .field-hint { margin-top: 6px; font-size: 13px; color: var(--color-text-muted); }
+
+/* Espacio reservado para el mensaje del campo: aparece y desaparece sin mover el resto */
+.field-messages { min-height: 20px; margin-top: 6px; }
+.field-messages > p { margin: 0; line-height: 18px; }
 
 /* Desplegables y fechas: flecha propia y mismo alto que los campos de texto */
 input.form-control, select.form-control { height: 44px; }
