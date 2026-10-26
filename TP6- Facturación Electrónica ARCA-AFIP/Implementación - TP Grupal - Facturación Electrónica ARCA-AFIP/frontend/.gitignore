@@ -1,0 +1,11 @@
+node_modules/
+
+# Salida compilada de TypeScript (se genera con `npm run build`)
+listado.js
+listado.js.map
+nueva-factura.js
+nueva-factura.js.map
+models/*.js
+models/*.js.map
+services/*.js
+services/*.js.map

@@ -1,0 +1,13 @@
+# Node / frontend
+node_modules/
+
+# Reportes generados por la aplicación
+reportes/
+
+# Gradle (backend)
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml

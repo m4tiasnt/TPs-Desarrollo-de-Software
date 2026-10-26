@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Facturas · FacturaArca</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!--
+      LISTADO / BÚSQUEDA DE FACTURAS.
+
+      Este HTML conserva los ids que ya espera `listado.ts` (la lógica del
+      compañero), solo que con el diseño nuevo. En celular los filtros arrancan
+      plegados: #btn-filtros alterna la clase is-collapsed del formulario.
+    -->
+
+    <!-- Sprite de íconos: se usan con <svg class="icon"><use href="#i-nombre"/></svg> -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+        <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7"/><path d="M10 11v6M14 11v6"/></symbol>
+    </svg>
+
+    <header class="app-header">
+        <div class="container"><span class="brand">FacturaArca</span></div>
+    </header>
+
+    <main class="container stack">
+
+        <div class="page-title">
+            <h1>Facturas</h1>
+            <a class="btn btn-primary" href="nueva-factura.html">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+                Nueva factura
+            </a>
+        </div>
+
+        <!-- Contenedor para mostrar mensajes de éxito o error en la UI -->
+        <div id="mensaje-feedback"></div>
+
+        <!-- Botón que despliega los filtros (solo visible en celular) -->
+        <button type="button" class="btn btn-secondary filters-toggle" id="btn-filtros" aria-expanded="false"
+            aria-controls="form-filtros">
+            Filtros
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+        </button>
+
+        <!-- 7.a Formulario de Búsqueda -->
+        <form class="card filters is-collapsed" id="form-filtros" aria-label="Filtros de búsqueda">
+            <div class="card-body form-row">
+                <div class="form-group">
+                    <label for="filtro-fecha-desde">Fecha desde</label>
+                    <input class="form-control" type="date" id="filtro-fecha-desde" name="fechaDesde">
+                </div>
+
+                <div class="form-group">
+                    <label for="filtro-fecha-hasta">Fecha hasta</label>
+                    <input class="form-control" type="date" id="filtro-fecha-hasta" name="fechaHasta">
+                </div>
+
+                <div class="form-group">
+                    <label for="filtro-estado">Estado</label>
+                    <select class="form-control" id="filtro-estado" name="estado">
+                        <option value="">Todos los estados</option>
+                        <option value="EMITIDA">Emitida</option>
+                        <option value="ANULADA">Anulada</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="filtro-monto-minimo">Monto mínimo ($)</label>
+                    <input class="form-control" type="number" id="filtro-monto-minimo" name="montoMinimo" min="0"
+                        step="0.01" placeholder="Ej: 5000">
+                </div>
+
+                <div class="form-row">
+                    <button type="submit" id="btn-buscar" class="btn btn-primary">Buscar</button>
+                    <button type="button" id="btn-limpiar-filtros" class="btn btn-secondary">Limpiar filtros</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Listado de comprobantes (las filas las dibuja listado.ts) -->
+        <section class="card" aria-label="Listado de comprobantes">
+            <div class="table-wrap">
+                <table class="table table--cards" id="tabla-facturas">
+                    <thead>
+                        <tr>
+                            <th>N° Factura</th>
+                            <th>Fecha emisión</th>
+                            <th>Cliente</th>
+                            <th>Cond. IVA</th>
+                            <th>Pto. venta</th>
+                            <th class="num">Total ($)</th>
+                            <th class="num">Cant. ítems</th>
+                            <th>Estado</th>
+                            <th class="actions">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-facturas-body"></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Diálogos de confirmación (reemplazan al confirm() nativo) -->
+    <dialog id="dlg-anular" aria-labelledby="dlg-anular-titulo">
+        <form method="dialog">
+            <div class="dialog-icon dialog-icon--warning"><svg class="icon" aria-hidden="true"><use href="#i-ban" /></svg></div>
+            <h2 id="dlg-anular-titulo">¿Anular la factura N° <span data-campo="numeroFactura"></span>?</h2>
+            <p>La factura pasará a estado <strong>ANULADA</strong> y seguirá figurando en el listado.</p>
+            <div class="dialog-actions">
+                <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button type="submit" class="btn btn-primary" value="confirmar">Anular factura</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dlg-eliminar" aria-labelledby="dlg-eliminar-titulo">
+        <form method="dialog">
+            <div class="dialog-icon dialog-icon--danger"><svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg></div>
+            <h2 id="dlg-eliminar-titulo">¿Dar de baja la factura N° <span data-campo="numeroFactura"></span>?</h2>
+            <p>La factura dejará de figurar en el listado, pero el comprobante y sus renglones quedan registrados para auditoría.</p>
+            <div class="dialog-actions">
+                <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button type="submit" class="btn btn-danger" value="confirmar">Dar de baja</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script type="module" src="./listado.js"></script>
+</body>
+
+</html>
