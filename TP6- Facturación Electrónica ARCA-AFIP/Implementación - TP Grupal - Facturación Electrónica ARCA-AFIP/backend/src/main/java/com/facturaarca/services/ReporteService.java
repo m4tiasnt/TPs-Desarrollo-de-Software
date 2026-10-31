@@ -172,8 +172,8 @@ public class ReporteService {
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
                             factura.getNumeroFactura() != null ? factura.getNumeroFactura().toString() : "")
                             .setTextAlignment(TextAlignment.RIGHT)));
-                    table.addCell(formatoFecha.format(factura.getFechaEmision()));
-                    table.addCell(factura.getClienteDenominacion());
+                    table.addCell(factura.getFechaEmision() != null ? formatoFecha.format(factura.getFechaEmision()) : "");
+                    table.addCell(factura.getClienteDenominacion() != null ? factura.getClienteDenominacion() : "Consumidor Final");
                     table.addCell(factura.getCondicionIva());
                     table.addCell(factura.getPuntoVentaDescripcion() != null ? factura.getPuntoVentaDescripcion() : "");
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("$ " + String.format(formatoArgentino, "%,.2f", factura.getImporteTotal()))

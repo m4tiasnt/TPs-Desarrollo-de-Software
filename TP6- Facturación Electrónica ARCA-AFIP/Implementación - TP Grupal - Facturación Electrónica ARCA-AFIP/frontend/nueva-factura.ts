@@ -39,7 +39,24 @@ const linkVolver = document.getElementById('link-volver') as HTMLAnchorElement;
 
 // Cabecera
 const selectCondicionIva = document.getElementById('condicionIvaId') as HTMLSelectElement;
-const selectCliente = document.getElementById('clienteId') as HTMLSelectElement;
+const inputClienteId = document.getElementById('clienteId') as HTMLInputElement;
+const clienteDisplay = document.getElementById('clienteDisplay') as HTMLInputElement;
+const btnAbrirModalCliente = document.getElementById('btnAbrirModalCliente') as HTMLButtonElement;
+
+// Elementos del Modal Explorer de Clientes
+const modalClienteExplorer = document.getElementById('modal-cliente-explorer') as HTMLDivElement;
+const btnCerrarModalCliente = document.getElementById('btnCerrarModalCliente') as HTMLButtonElement;
+const inputBuscarCliente = document.getElementById('inputBuscarCliente') as HTMLInputElement;
+const btnBuscarCliente = document.getElementById('btnBuscarCliente') as HTMLButtonElement;
+const tbodyClientesExplorer = document.getElementById('tbody-clientes-explorer') as HTMLTableSectionElement;
+const btnPaginacionAnterior = document.getElementById('btnPaginacionAnterior') as HTMLButtonElement;
+const btnPaginacionSiguiente = document.getElementById('btnPaginacionSiguiente') as HTMLButtonElement;
+const infoPaginacionCliente = document.getElementById('infoPaginacionCliente') as HTMLSpanElement;
+
+let paginaActualClientes = 0;
+let totalPaginasClientes = 0;
+let terminoBusquedaCliente = '';
+let selectedClienteId: number | null = null;
 const clienteOpcional = document.getElementById('cliente-opcional') as HTMLSpanElement;
 const hintCliente = document.getElementById('hint-cliente') as HTMLParagraphElement;
 const errorCliente = document.getElementById('error-clienteId') as HTMLParagraphElement;
@@ -105,9 +122,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Cargar catálogos al inicio
 async function cargarCatalogos(): Promise<void> {
     try {
-        const [listas, clientes, puntos, ivas, monedas] = await Promise.all([
+        const [listas, puntos, ivas, monedas] = await Promise.all([
             facturaService.obtenerListasPrecio(),
-            facturaService.obtenerClientes(),
             facturaService.obtenerPuntosVenta(),
             facturaService.obtenerCondicionesIva(),
             facturaService.obtenerTiposMoneda()
@@ -117,7 +133,6 @@ async function cargarCatalogos(): Promise<void> {
         poblarSelect(selectListaBase, listas, 'denominacion', true);
 
         poblarSelect(selectCondicionIva, ivas, 'denominacion');
-        poblarSelect(selectCliente, clientes, 'denominacion', false, 'cuitCuil');
         poblarSelect(selectPuntoVenta, puntos, 'descripcion');
         poblarSelect(selectTipoMoneda, monedas, 'denominacion');
 
@@ -151,21 +166,52 @@ function setupEventListeners(): void {
     // Condición IVA -> cliente opcional si Consumidor Final (id 3)
     selectCondicionIva.addEventListener('change', () => {
         const esConsumidorFinal = selectCondicionIva.value === '3';
-        selectCliente.required = !esConsumidorFinal;
         clienteOpcional.hidden = !esConsumidorFinal;
         hintCliente.textContent = esConsumidorFinal
             ? 'Podés dejarlo sin cliente (se emite a Consumidor Final) o elegir uno.'
             : '';
         if (esConsumidorFinal) {
-            selectCliente.value = '';
+            selectedClienteId = null;
+            if (inputClienteId) inputClienteId.value = '';
+            if (clienteDisplay) clienteDisplay.value = '';
             errorCliente.hidden = true;
-            selectCliente.classList.remove('is-invalid');
+            if (clienteDisplay) clienteDisplay.classList.remove('is-invalid');
         }
         validarCliente();
     });
 
     // Validar cliente al cambiar
-    selectCliente.addEventListener('change', validarCliente);
+    // Modal Explorer de Clientes listeners
+    btnAbrirModalCliente?.addEventListener('click', abrirModalCliente);
+    btnCerrarModalCliente?.addEventListener('click', cerrarModalCliente);
+    modalClienteExplorer?.addEventListener('click', (e) => {
+        if (e.target === modalClienteExplorer) {
+            cerrarModalCliente();
+        }
+    });
+
+    btnBuscarCliente?.addEventListener('click', () => {
+        buscarClientes(inputBuscarCliente.value.trim(), 0);
+    });
+
+    inputBuscarCliente?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            buscarClientes(inputBuscarCliente.value.trim(), 0);
+        }
+    });
+
+    btnPaginacionAnterior?.addEventListener('click', () => {
+        if (paginaActualClientes > 0) {
+            buscarClientes(terminoBusquedaCliente, paginaActualClientes - 1);
+        }
+    });
+
+    btnPaginacionSiguiente?.addEventListener('click', () => {
+        if (paginaActualClientes < totalPaginasClientes - 1) {
+            buscarClientes(terminoBusquedaCliente, paginaActualClientes + 1);
+        }
+    });
 
     // Lista base cambia -> si hay renglones, pedir confirmación
     selectListaBase.addEventListener('change', () => {
@@ -210,7 +256,7 @@ function setupEventListeners(): void {
     formFactura.addEventListener('submit', handleSubmit);
 
     // Cancelar / Volver -> dialog descartar si hay datos
-    const hayDatos = () => renglones.length > 0 || textareaObservaciones.value.trim() || selectCliente.value || selectPuntoVenta.value;
+    const hayDatos = () => renglones.length > 0 || textareaObservaciones.value.trim() || !!selectedClienteId || (inputClienteId && !!inputClienteId.value) || selectPuntoVenta.value;
     btnCancelar.addEventListener('click', (e) => { e.preventDefault(); if (hayDatos()) dlgDescartar.showModal(); else window.location.href = 'index.html'; });
     linkVolver.addEventListener('click', (e) => { if (hayDatos()) { e.preventDefault(); dlgDescartar.showModal(); } });
     dlgDescartar.addEventListener('close', () => { if (dlgDescartar.returnValue === 'confirmar') window.location.href = 'index.html'; });
@@ -301,12 +347,13 @@ function setupEventListeners(): void {
 
 function validarCliente(): void {
     const esConsumidorFinal = selectCondicionIva.value === '3';
-    if (!esConsumidorFinal && !selectCliente.value) {
+    const tieneCliente = !!(selectedClienteId || (inputClienteId && inputClienteId.value));
+    if (!esConsumidorFinal && !tieneCliente) {
         errorCliente.hidden = false;
-        selectCliente.classList.add('is-invalid');
+        if (clienteDisplay) clienteDisplay.classList.add('is-invalid');
     } else {
         errorCliente.hidden = true;
-        selectCliente.classList.remove('is-invalid');
+            if (clienteDisplay) clienteDisplay.classList.remove('is-invalid');
     }
 }
 
@@ -737,13 +784,14 @@ async function handleSubmit(e: Event): Promise<void> {
     if (!selectPuntoVenta.value) { mostrarAlertaError('Elegí un punto de venta'); return; }
     if (!selectTipoMoneda.value) { mostrarAlertaError('Elegí un tipo de moneda'); return; }
     if (!selectListaBase.value) { mostrarAlertaError('Elegí una lista base'); return; }
-    if (!selectCliente.value && selectCondicionIva.value !== '3') {
+    const idClienteFinal = selectedClienteId ?? (inputClienteId?.value ? parseInt(inputClienteId.value, 10) : undefined);
+    if (!idClienteFinal && selectCondicionIva.value !== '3') {
         validarCliente(); return;
     }
 
     // Preparar DTO para backend
     const dto: FacturaRequestDTO = {
-        clienteId: selectCliente.value ? parseInt(selectCliente.value, 10) : undefined,
+        clienteId: idClienteFinal,
         condicionIvaId: parseInt(selectCondicionIva.value, 10),
         puntoVentaId: parseInt(selectPuntoVenta.value, 10),
         tipoMonedaId: parseInt(selectTipoMoneda.value, 10),
@@ -789,4 +837,111 @@ function mostrarAlertaError(texto: string): void {
 
 function ocultarAlertaError(): void {
     alertaError.hidden = true;
+}
+// ============================================================================
+// LÓGICA DEL MODAL EXPLORER DE CLIENTES
+// ============================================================================
+
+async function buscarClientes(termino: string, pagina: number = 0): Promise<void> {
+    try {
+        tbodyClientesExplorer.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 15px; color: #64748b;">Cargando clientes…</td></tr>';
+        
+        const url = 'http://localhost:8080/api/clientes/buscar?filtro=' + encodeURIComponent(termino) + '&page=' + pagina + '&size=5';
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('Error al obtener clientes: ' + response.statusText);
+        }
+        
+        const data = await response.json();
+        const lista: Array<{ id: number; cuitCuil: string; denominacion: string }> = data.content ?? data.contenido ?? [];
+        totalPaginasClientes = data.totalPages ?? data.totalPaginas ?? 0;
+        paginaActualClientes = data.number ?? data.paginaActual ?? 0;
+        terminoBusquedaCliente = termino;
+
+        renderizarTablaClientes(lista);
+        actualizarPaginacionCliente();
+    } catch (err: any) {
+        console.error('Error al buscar clientes:', err);
+        tbodyClientesExplorer.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #dc2626; padding: 15px;">Error al obtener clientes del servidor.</td></tr>';
+    }
+}
+
+function renderizarTablaClientes(clientes: Array<{ id: number; cuitCuil: string; denominacion: string }>): void {
+    tbodyClientesExplorer.innerHTML = '';
+
+    if (clientes.length === 0) {
+        tbodyClientesExplorer.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 15px; color: #64748b;">No se encontraron clientes para la búsqueda.</td></tr>';
+        return;
+    }
+
+    clientes.forEach(cliente => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #f1f5f9';
+
+        const tdCuit = document.createElement('td');
+        tdCuit.style.padding = '8px 10px';
+        tdCuit.textContent = cliente.cuitCuil;
+
+        const tdDenominacion = document.createElement('td');
+        tdDenominacion.style.padding = '8px 10px';
+        tdDenominacion.textContent = cliente.denominacion;
+
+        const tdAccion = document.createElement('td');
+        tdAccion.style.padding = '8px 10px';
+        tdAccion.style.textAlign = 'center';
+
+        const btnSelect = document.createElement('button');
+        btnSelect.type = 'button';
+        btnSelect.className = 'btn btn-primary';
+        btnSelect.style.padding = '4px 10px';
+        btnSelect.style.fontSize = '0.85rem';
+        btnSelect.textContent = 'Seleccionar';
+        btnSelect.addEventListener('click', () => {
+            seleccionarCliente(cliente);
+        });
+
+        tdAccion.appendChild(btnSelect);
+        tr.appendChild(tdCuit);
+        tr.appendChild(tdDenominacion);
+        tr.appendChild(tdAccion);
+        tbodyClientesExplorer.appendChild(tr);
+    });
+}
+
+function actualizarPaginacionCliente(): void {
+    if (totalPaginasClientes === 0) {
+        infoPaginacionCliente.textContent = 'Página 0 de 0';
+        btnPaginacionAnterior.disabled = true;
+        btnPaginacionSiguiente.disabled = true;
+    } else {
+        infoPaginacionCliente.textContent = 'Página ' + (paginaActualClientes + 1) + ' de ' + totalPaginasClientes;
+        btnPaginacionAnterior.disabled = paginaActualClientes === 0;
+        btnPaginacionSiguiente.disabled = paginaActualClientes >= totalPaginasClientes - 1;
+    }
+}
+
+function seleccionarCliente(cliente: { id: number; cuitCuil: string; denominacion: string }): void {
+    selectedClienteId = cliente.id;
+    if (inputClienteId) {
+        inputClienteId.value = String(cliente.id);
+    }
+    if (clienteDisplay) {
+        clienteDisplay.value = cliente.denominacion + ' (' + cliente.cuitCuil + ')';
+    }
+    validarCliente();
+    cerrarModalCliente();
+}
+
+function abrirModalCliente(): void {
+    if (modalClienteExplorer) {
+        modalClienteExplorer.style.display = 'flex';
+        inputBuscarCliente.focus();
+        buscarClientes(inputBuscarCliente.value.trim(), 0);
+    }
+}
+
+function cerrarModalCliente(): void {
+    if (modalClienteExplorer) {
+        modalClienteExplorer.style.display = 'none';
+    }
 }

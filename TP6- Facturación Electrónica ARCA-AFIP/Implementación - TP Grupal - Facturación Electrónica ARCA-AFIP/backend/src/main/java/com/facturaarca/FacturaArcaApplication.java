@@ -5,8 +5,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import java.util.List;
-
 @SpringBootApplication
 public class FacturaArcaApplication implements CommandLineRunner {
 
@@ -21,8 +19,13 @@ public class FacturaArcaApplication implements CommandLineRunner {
     }
 
     @Override
-    public void run(String... args) throws Exception {
-        reporteService.generarReportePdf();
-        reporteService.generarReporteExcel();
+    public void run(String... args) {
+        try {
+            reporteService.generarReportePdf();
+            reporteService.generarReporteExcel();
+        } catch (Exception e) {
+            System.err.println("[ADVERTENCIA] No se pudieron generar los reportes al iniciar: " + e.getMessage());
+        
+        }
     }
 }

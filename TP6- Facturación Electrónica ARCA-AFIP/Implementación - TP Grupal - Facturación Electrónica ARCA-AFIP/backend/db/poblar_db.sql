@@ -5,6 +5,9 @@
 CREATE SCHEMA IF NOT EXISTS model;
 SET search_path TO model;
 
+-- Permitir que cliente_id acepte nulos si la tabla ya habia sido creada previamente
+ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN cliente_id DROP NOT NULL;
+
 TRUNCATE TABLE 
     usuarios,
     contactos,
