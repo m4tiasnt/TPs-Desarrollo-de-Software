@@ -2,6 +2,7 @@ import {
     FacturaReporteDTO,
     FacturaRequestDTO,
     FacturaFiltrosDTO,
+    RespuestaPaginadaDTO,
     ListaPrecioArticuloDTO,
     ListaPrecioDTO,
     ClienteDTO,
@@ -25,25 +26,31 @@ export class FacturaService {
     }
 
     /**
-     * Obtiene la lista de facturas aplicando filtros opcionales.
-     * GET /api/facturas
+     * Obtiene facturas paginadas aplicando filtros opcionales.
+     * GET /api/facturas?pagina=0&tamanio=5&...
      */
-    async obtenerFacturas(filtros?: FacturaFiltrosDTO): Promise<FacturaReporteDTO[]> {
+    async obtenerFacturas(filtros?: FacturaFiltrosDTO): Promise<RespuestaPaginadaDTO<FacturaReporteDTO>> {
         let url = this.baseUrl;
 
+        const params = new URLSearchParams();
         if (filtros) {
-            const params = new URLSearchParams();
             if (filtros.fechaDesde) params.append('fechaDesde', filtros.fechaDesde);
             if (filtros.fechaHasta) params.append('fechaHasta', filtros.fechaHasta);
             if (filtros.estado) params.append('estado', filtros.estado);
             if (filtros.montoMinimo !== undefined && filtros.montoMinimo !== null) {
                 params.append('montoMinimo', filtros.montoMinimo.toString());
             }
-
-            const queryString = params.toString();
-            if (queryString) {
-                url += `?${queryString}`;
+            if (filtros.pagina !== undefined && filtros.pagina !== null) {
+                params.append('pagina', filtros.pagina.toString());
             }
+            if (filtros.tamanio !== undefined && filtros.tamanio !== null) {
+                params.append('tamanio', filtros.tamanio.toString());
+            }
+        }
+
+        const queryString = params.toString();
+        if (queryString) {
+            url += `?${queryString}`;
         }
 
         const response = await fetch(url, {

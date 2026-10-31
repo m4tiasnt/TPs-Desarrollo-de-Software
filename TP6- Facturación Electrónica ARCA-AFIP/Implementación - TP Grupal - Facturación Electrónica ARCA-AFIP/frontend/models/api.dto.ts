@@ -46,12 +46,23 @@ export interface ListaPrecioArticuloDTO {
     precioVenta: number;
 }
 
-// 5. DTO de filtros para búsquedas (parámetros de FacturaRestController)
+// 5. Respuesta paginada genérica (RespuestaPaginadaDTO.java)
+export interface RespuestaPaginadaDTO<T> {
+    contenido: T[];
+    paginaActual: number;
+    tamanioPagina: number;
+    totalElementos: number;
+    totalPaginas: number;
+}
+
+// 6. DTO de filtros para búsquedas (parámetros de FacturaRestController)
 export interface FacturaFiltrosDTO {
     fechaDesde?: string;
     fechaHasta?: string;
     estado?: string;
     montoMinimo?: number;
+    pagina?: number;
+    tamanio?: number;
 }
 
 // 6. Catálogos para selects del formulario de Nueva Factura

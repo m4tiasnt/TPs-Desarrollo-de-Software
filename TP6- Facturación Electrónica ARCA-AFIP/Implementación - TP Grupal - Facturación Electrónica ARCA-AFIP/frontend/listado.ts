@@ -1,12 +1,17 @@
 import {
     FacturaReporteDTO,
-    FacturaFiltrosDTO
+    FacturaFiltrosDTO,
+    RespuestaPaginadaDTO
 } from './models/api.dto.js';
 
 import { FacturaService } from './services/FacturaService.js';
 
 // 1. Instancia del servicio que se comunica con la API de Spring Boot
 const facturaService = new FacturaService('http://localhost:8080/api/facturas');
+
+//  Estado de paginación 
+let paginaActual = 0;   // 0-indexed (la API espera 0-indexed)
+let tamanioPagina = 5;  // coincide con el <select> default
 
 // Función para mostrar avisos en el sistema
 function mostrarMensaje(texto: string, tipo: 'exito' | 'error'): void {
@@ -60,22 +65,40 @@ btnFiltros?.addEventListener('click', () => {
     btnFiltros.setAttribute('aria-expanded', String(!plegado));
 });
 
-// Evento al hacer clic en buscar comprobantes
-formFiltros?.addEventListener('submit', async (e: Event) => {
-    e.preventDefault();
-
-    const filtros: FacturaFiltrosDTO = {
+// Recolecta los valores actuales de los filtros (sin tocar page/size)
+function obtenerFiltrosActuales(): FacturaFiltrosDTO {
+    return {
         fechaDesde: inputFiltroFechaDesde.value || undefined,
         fechaHasta: inputFiltroFechaHasta.value || undefined,
         estado: selectFiltroEstado.value || undefined,
         montoMinimo: inputFiltroMontoMinimo.value ? parseFloat(inputFiltroMontoMinimo.value) : undefined
     };
-    await cargarFacturas(filtros);
+}
+
+// Evento al hacer clic en buscar comprobantes → vuelve a la página 0
+formFiltros?.addEventListener('submit', async (e: Event) => {
+    e.preventDefault();
+    paginaActual = 0;
+    await cargarFacturas();
 });
 
 // Evento al hacer clic en limpiar filtros
 btnLimpiarFiltros?.addEventListener('click', async () => {
     formFiltros.reset();
+    paginaActual = 0;
+    await cargarFacturas();
+});
+
+
+// ─── Paginación: elementos DOM ──────────────────────────────────────────────
+const paginacionInfo = document.getElementById('paginacion-info') as HTMLSpanElement;
+const paginacionPages = document.getElementById('paginacion-pages') as HTMLDivElement;
+const paginacionSize = document.getElementById('paginacion-size') as HTMLSelectElement;
+
+// Cuando el usuario cambia el "por página" → vuelve a la página 0
+paginacionSize?.addEventListener('change', async () => {
+    tamanioPagina = parseInt(paginacionSize.value, 10);
+    paginaActual = 0;
     await cargarFacturas();
 });
 
@@ -85,7 +108,7 @@ btnLimpiarFiltros?.addEventListener('click', async () => {
 const tablaFacturasBody = document.getElementById('tabla-facturas-body') as HTMLTableSectionElement;
 
 // Función para consultar facturas a la API y mandarlas a dibujar
-async function cargarFacturas(filtros?: FacturaFiltrosDTO): Promise<void> {
+async function cargarFacturas(): Promise<void> {
     if (!tablaFacturasBody) return;
 
     try {
@@ -105,9 +128,18 @@ async function cargarFacturas(filtros?: FacturaFiltrosDTO): Promise<void> {
             </tr>
         `;
 
-        // Llamamos al método GET del servicio
-        const facturas = await facturaService.obtenerFacturas(filtros);
-        renderizarTablaFacturas(facturas);
+        // Armar filtros incluyendo pagina y tamanio
+        const filtros: FacturaFiltrosDTO = {
+            ...obtenerFiltrosActuales(),
+            pagina: paginaActual,
+            tamanio: tamanioPagina
+        };
+
+        // Llamamos al método GET del servicio (devuelve RespuestaPaginadaDTO)
+        const respuesta: RespuestaPaginadaDTO<FacturaReporteDTO> = await facturaService.obtenerFacturas(filtros);
+
+        renderizarTablaFacturas(respuesta.contenido);
+        renderizarPaginacion(respuesta);
 
     } catch (error: any) {
         console.error('Error al cargar facturas:', error);
@@ -212,6 +244,106 @@ function renderizarTablaFacturas(facturas: FacturaReporteDTO[]): void {
         tablaFacturasBody.appendChild(fila);
     });
 }
+
+
+// ─── Renderizar controles de paginación ─────────────────────────────────────
+
+function renderizarPaginacion(respuesta: RespuestaPaginadaDTO<FacturaReporteDTO>): void {
+    const { paginaActual: pagina, tamanioPagina: tamano, totalElementos, totalPaginas } = respuesta;
+
+    // Info: "Mostrando 1–5 de 19 comprobantes"
+    if (paginacionInfo) {
+        if (totalElementos === 0) {
+            paginacionInfo.textContent = 'No hay comprobantes';
+        } else {
+            const desde = pagina * tamano + 1;
+            const hasta = Math.min((pagina + 1) * tamano, totalElementos);
+            paginacionInfo.textContent = `Mostrando ${desde}–${hasta} de ${totalElementos} comprobantes`;
+        }
+    }
+
+    // Botones de páginas
+    if (paginacionPages) {
+        paginacionPages.innerHTML = '';
+
+        if (totalPaginas <= 1) return; // No mostrar paginador si hay una sola página
+
+        // Botón "anterior" (<)
+        const btnAnterior = document.createElement('button');
+        btnAnterior.textContent = '‹';
+        btnAnterior.disabled = pagina === 0;
+        btnAnterior.addEventListener('click', () => irAPagina(pagina - 1));
+        paginacionPages.appendChild(btnAnterior);
+
+        // Generar rango de páginas con elipsis (como en Gmail / la foto del mockup)
+        const paginas = calcularRangoPaginas(pagina, totalPaginas);
+        for (const p of paginas) {
+            if (p === -1) {
+                // Elipsis
+                const span = document.createElement('span');
+                span.className = 'pagination-ellipsis';
+                span.textContent = '…';
+                paginacionPages.appendChild(span);
+            } else {
+                const btn = document.createElement('button');
+                btn.textContent = String(p + 1); // mostrar 1-indexed al usuario
+                if (p === pagina) btn.classList.add('is-active');
+                btn.addEventListener('click', () => irAPagina(p));
+                paginacionPages.appendChild(btn);
+            }
+        }
+
+        // Botón "siguiente" (>)
+        const btnSiguiente = document.createElement('button');
+        btnSiguiente.textContent = '›';
+        btnSiguiente.disabled = pagina >= totalPaginas - 1;
+        btnSiguiente.addEventListener('click', () => irAPagina(pagina + 1));
+        paginacionPages.appendChild(btnSiguiente);
+    }
+}
+
+/**
+ * Calcula qué números de página mostrar, con -1 representando elipsis.
+ * Siempre muestra la primera, la última y un "ventana" alrededor de la
+ * página actual. Ejemplo con totalPaginas=8, current=4:
+ *   [0, -1, 3, 4, 5, -1, 7]  →  se ve como  1 … 4 5 6 … 8
+ */
+function calcularRangoPaginas(current: number, totalPaginas: number): number[] {
+    if (totalPaginas <= 7) {
+        // Pocas páginas: mostrar todas sin elipsis
+        return Array.from({ length: totalPaginas }, (_, i) => i);
+    }
+
+    const pages: number[] = [];
+
+    // Siempre la primera
+    pages.push(0);
+
+    // Ventana alrededor de la actual (current - 1 .. current + 1)
+    const start = Math.max(1, current - 1);
+    const end = Math.min(totalPaginas - 2, current + 1);
+
+    if (start > 1) pages.push(-1); // elipsis izquierda
+
+    for (let i = start; i <= end; i++) {
+        pages.push(i);
+    }
+
+    if (end < totalPaginas - 2) pages.push(-1); // elipsis derecha
+
+    // Siempre la última
+    pages.push(totalPaginas - 1);
+
+    return pages;
+}
+
+async function irAPagina(pagina: number): Promise<void> {
+    paginaActual = pagina;
+    await cargarFacturas();
+    // Scroll suave al tope de la tabla para que se vea la nueva página
+    document.getElementById('tabla-facturas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 
 window.addEventListener('DOMContentLoaded', async () => {
     await cargarFacturas();

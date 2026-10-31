@@ -107,6 +107,22 @@
                     <tbody id="tabla-facturas-body"></tbody>
                 </table>
             </div>
+
+            <!-- Barra de paginación -->
+            <div class="pagination" id="paginacion">
+                <span class="pagination-info" id="paginacion-info">Mostrando 0 comprobantes</span>
+                <div class="pagination-pages" id="paginacion-pages">
+                    <!-- Los botones se generan en listado.ts -->
+                </div>
+                <div class="pagination-size">
+                    <label for="paginacion-size">Por página</label>
+                    <select class="form-control form-control--sm" id="paginacion-size">
+                        <option value="5" selected>5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                    </select>
+                </div>
+            </div>
         </section>
 
     </main>

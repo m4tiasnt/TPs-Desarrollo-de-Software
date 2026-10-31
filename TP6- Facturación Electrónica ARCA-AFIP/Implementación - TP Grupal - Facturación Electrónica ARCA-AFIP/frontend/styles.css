@@ -194,8 +194,23 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 1; backgr
 /* Se usa en el combobox de artículos cuando no hay precio en la lista elegida */
 .badge-pendiente { background: var(--color-warning-bg); color: var(--color-warning-text); }
 
-.pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm); padding: 12px var(--space-lg); font-size: 14px; }
-.pagination > div { display: flex; gap: var(--space-sm); }
+.pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm); padding: 12px var(--space-lg); font-size: 14px; border-top: 1px solid var(--color-border); }
+.pagination-info { color: var(--color-text-muted); white-space: nowrap; }
+.pagination-pages { display: flex; align-items: center; gap: 4px; }
+.pagination-pages button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 36px; height: 36px; padding: 0 8px;
+  font: inherit; font-size: 14px; font-weight: 500;
+  color: var(--color-text); background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  cursor: pointer; transition: background 120ms ease, border-color 120ms ease;
+}
+.pagination-pages button:hover:not(:disabled):not(.is-active) { background: var(--color-bg); border-color: var(--color-border-hover); }
+.pagination-pages button.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); cursor: default; }
+.pagination-pages button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-pages .pagination-ellipsis { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; color: var(--color-text-muted); font-size: 14px; user-select: none; }
+.pagination-size { display: flex; align-items: center; gap: var(--space-sm); white-space: nowrap; }
+.pagination-size label { font-size: 14px; color: var(--color-text-muted); }
+.pagination-size select { width: auto; min-width: 60px; height: 36px; padding: 4px 28px 4px 10px; font-size: 14px; }
 
 /* 7. Estados: cargando, vacío, error, aviso ------------------------------ */
 .skeleton-row { display: flex; gap: var(--space-lg); padding: 18px var(--space-lg); border-bottom: 1px solid var(--color-border); }

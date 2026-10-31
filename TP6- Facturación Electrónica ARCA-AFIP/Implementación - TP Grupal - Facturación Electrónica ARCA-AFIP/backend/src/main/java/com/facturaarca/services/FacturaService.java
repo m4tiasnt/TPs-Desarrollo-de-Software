@@ -3,6 +3,7 @@ package com.facturaarca.services;
 import com.facturaarca.dto.FacturaDetalleRequestDTO;
 import com.facturaarca.dto.FacturaReporteDTO;
 import com.facturaarca.dto.FacturaRequestDTO;
+import com.facturaarca.dto.RespuestaPaginadaDTO;
 import com.facturaarca.entities.*;
 import com.facturaarca.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,13 @@ public class FacturaService {
     @Transactional(readOnly = true)
     public List<FacturaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta, String estado, Double montoMinimo) {
         return facturaRepository.buscarFacturasFiltradas(fechaDesde, fechaHasta, estado, montoMinimo);
+    }
+
+    @Transactional(readOnly = true)
+    public RespuestaPaginadaDTO<FacturaReporteDTO> buscarFacturasPaginadas(
+            Date fechaDesde, Date fechaHasta, String estado, Double montoMinimo,
+            int pagina, int tamanio) {
+        return facturaRepository.buscarFacturasPaginadas(fechaDesde, fechaHasta, estado, montoMinimo, pagina, tamanio);
     }
 
     @Transactional

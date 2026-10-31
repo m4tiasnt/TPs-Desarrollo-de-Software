@@ -2,6 +2,7 @@ package com.facturaarca.controllers;
 
 import com.facturaarca.dto.FacturaReporteDTO;
 import com.facturaarca.dto.FacturaRequestDTO;
+import com.facturaarca.dto.RespuestaPaginadaDTO;
 import com.facturaarca.services.FacturaService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -23,13 +24,15 @@ public class FacturaRestController {
     }
 
     @GetMapping
-    public List<FacturaReporteDTO> getFacturas(
+    public RespuestaPaginadaDTO<FacturaReporteDTO> getFacturas(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date fechaHasta,
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Double montoMinimo) {
+            @RequestParam(required = false) Double montoMinimo,
+            @RequestParam(value = "pagina", defaultValue = "0") int pagina,
+            @RequestParam(value = "tamanio", defaultValue = "5") int tamanio) {
 
-        return facturaService.buscarFacturasFiltradas(fechaDesde, fechaHasta, estado, montoMinimo);
+        return facturaService.buscarFacturasPaginadas(fechaDesde, fechaHasta, estado, montoMinimo, pagina, tamanio);
     }
 
     @PostMapping
