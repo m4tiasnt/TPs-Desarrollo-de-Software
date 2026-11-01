@@ -1,9 +1,14 @@
 package com.facturaarca.controllers;
 
-import com.facturaarca.dto.FacturaReporteDTO;
-import com.facturaarca.dto.FacturaRequestDTO;
+import com.facturaarca.dto.FacturaVentaDTO;
+import com.facturaarca.dto.FacturaVentaRequestDTO;
+import com.facturaarca.dto.FacturaVentaListadoDTO;
+import com.facturaarca.dto.InformarArcaResultadoDTO;
+import com.facturaarca.dto.InformarArcaSolicitudDTO;
 import com.facturaarca.dto.RespuestaPaginadaDTO;
+import com.facturaarca.enums.EstadoFactura;
 import com.facturaarca.services.FacturaService;
+import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,28 +29,38 @@ public class FacturaRestController {
     }
 
     @GetMapping
-    public RespuestaPaginadaDTO<FacturaReporteDTO> getFacturas(
+    public RespuestaPaginadaDTO<FacturaVentaListadoDTO> getFacturas(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date fechaHasta,
-            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) EstadoFactura estado,
             @RequestParam(required = false) Double montoMinimo,
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) String busqueda,
+            @RequestParam(required = false) Boolean informadaArca,
             @RequestParam(value = "pagina", defaultValue = "0") int pagina,
-            @RequestParam(value = "tamanio", defaultValue = "5") int tamanio) {
+            @RequestParam(value = "tamanio", defaultValue = "20") int tamanio) {
 
-        return facturaService.buscarFacturasPaginadas(fechaDesde, fechaHasta, estado, montoMinimo, pagina, tamanio);
+        return facturaService.buscarFacturasPaginadas(
+                fechaDesde, fechaHasta, estado, montoMinimo,
+                clienteId, busqueda, informadaArca, pagina, tamanio);
+    }
+
+    @GetMapping("/{id}")
+    public FacturaVentaDTO getFactura(@PathVariable Long id) {
+        return facturaService.obtenerDetalle(id);
     }
 
     @PostMapping
-    public ResponseEntity<FacturaReporteDTO> crearFactura(@RequestBody FacturaRequestDTO facturaRequestDTO) {
-        FacturaReporteDTO facturaCreada = facturaService.crearFactura(facturaRequestDTO);
+    public ResponseEntity<FacturaVentaDTO> crearFactura(@Valid @RequestBody FacturaVentaRequestDTO facturaVentaRequestDTO) {
+        FacturaVentaDTO facturaCreada = facturaService.crearFactura(facturaVentaRequestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(facturaCreada);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<FacturaReporteDTO> actualizarFactura(
+    public ResponseEntity<FacturaVentaDTO> actualizarFactura(
             @PathVariable Long id,
-            @RequestBody FacturaRequestDTO facturaRequestDTO) {
-        FacturaReporteDTO facturaActualizada = facturaService.actualizarFactura(id, facturaRequestDTO);
+            @Valid @RequestBody FacturaVentaRequestDTO facturaVentaRequestDTO) {
+        FacturaVentaDTO facturaActualizada = facturaService.actualizarFactura(id, facturaVentaRequestDTO);
         return ResponseEntity.ok(facturaActualizada);
     }
 
@@ -53,5 +68,21 @@ public class FacturaRestController {
     public ResponseEntity<Void> eliminarFactura(@PathVariable Long id) {
         facturaService.eliminarFactura(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/anular")
+    public ResponseEntity<FacturaVentaDTO> anularFactura(@PathVariable Long id) {
+        return ResponseEntity.ok(facturaService.anularFactura(id));
+    }
+
+    @PostMapping("/informar-arca")
+    public ResponseEntity<List<InformarArcaResultadoDTO>> informarArca(
+            @Valid @RequestBody InformarArcaSolicitudDTO solicitud) {
+        return ResponseEntity.ok(facturaService.informarArca(solicitud.getIds()));
+    }
+
+    @PostMapping("/{id}/informar-arca")
+    public ResponseEntity<List<InformarArcaResultadoDTO>> informarArcaUna(@PathVariable Long id) {
+        return ResponseEntity.ok(facturaService.informarArca(List.of(id)));
     }
 }
