@@ -1,6 +1,6 @@
 package com.facturaarca.services;
 
-import com.facturaarca.dto.FacturaReporteDTO;
+import com.facturaarca.dto.FacturaVentaReporteDTO;
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.kernel.colors.DeviceGray;
 import com.itextpdf.kernel.font.PdfFont;
@@ -42,7 +42,7 @@ public class ReporteService {
     }
 
     public Path generarReporteExcel() throws IOException {
-        List<FacturaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
+        List<FacturaVentaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
 
         Path dir = Paths.get(reportesDir);
         Files.createDirectories(dir);
@@ -82,7 +82,7 @@ public class ReporteService {
 
             // Llenar datos de facturas
             int rowNum = 1;
-            for (FacturaReporteDTO f : facturas) {
+            for (FacturaVentaReporteDTO f : facturas) {
                 Row row = sheet.createRow(rowNum++);
 
                 row.createCell(0).setCellValue(f.getNumeroFactura() != null ? f.getNumeroFactura() : 0);
@@ -102,7 +102,7 @@ public class ReporteService {
                   totalCell.setCellStyle(currencyStyle);
 
                 row.createCell(6).setCellValue(f.getCantidadItems() != null ? f.getCantidadItems() : 0);
-                row.createCell(7).setCellValue(limpiar(f.getEstado() != null ? f.getEstado() : "EMITIDA"));
+                row.createCell(7).setCellValue(f.getEstado() != null ? f.getEstado().name() : "");
             }
 
             // Autoajustar el ancho de las columnas
@@ -125,7 +125,7 @@ public class ReporteService {
     }
 
     public Path generarReportePdf() throws IOException {
-        List<FacturaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
+        List<FacturaVentaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
 
         // Buscamos o creamos el directorio donde se guardará el PDF
         Path dir = Paths.get(reportesDir);
@@ -168,7 +168,7 @@ public class ReporteService {
                 // 6. Recorremos la lista de DTOs y llenamos la tabla con los datos reales
                 SimpleDateFormat formatoFecha = new SimpleDateFormat("dd/MM/yyyy");
                 Locale formatoArgentino = Locale.forLanguageTag("es-AR");
-                for (FacturaReporteDTO factura : facturas) {
+                for (FacturaVentaReporteDTO factura : facturas) {
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
                             factura.getNumeroFactura() != null ? factura.getNumeroFactura().toString() : "")
                             .setTextAlignment(TextAlignment.RIGHT)));
@@ -181,7 +181,7 @@ public class ReporteService {
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(factura.getCantidadItems().toString())
                             .setTextAlignment(TextAlignment.RIGHT)));
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
-                            factura.getEstado() != null ? factura.getEstado() : "EMITIDA"))
+                            factura.getEstado() != null ? factura.getEstado().name() : ""))
                             .setTextAlignment(TextAlignment.CENTER));
                 }
 
