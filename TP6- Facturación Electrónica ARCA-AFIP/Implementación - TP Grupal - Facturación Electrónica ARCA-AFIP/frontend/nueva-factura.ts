@@ -849,7 +849,16 @@ async function buscarClientes(termino: string, pagina: number = 0): Promise<void
         const url = 'http://localhost:8080/api/clientes/buscar?filtro=' + encodeURIComponent(termino) + '&page=' + pagina + '&size=5';
         const response = await fetch(url);
         if (!response.ok) {
-            throw new Error('Error al obtener clientes: ' + response.statusText);
+            let detalle = response.statusText;
+            try {
+                const cuerpo = await response.json();
+                if (cuerpo && typeof cuerpo.mensaje === 'string') {
+                    detalle = cuerpo.mensaje;
+                }
+            } catch {
+                // La respuesta no era JSON: nos quedamos con el statusText.
+            }
+            throw new Error(`Error al obtener clientes (${response.status}): ${detalle}`);
         }
         
         const data = await response.json();
@@ -862,7 +871,15 @@ async function buscarClientes(termino: string, pagina: number = 0): Promise<void
         actualizarPaginacionCliente();
     } catch (err: any) {
         console.error('Error al buscar clientes:', err);
-        tbodyClientesExplorer.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #dc2626; padding: 15px;">Error al obtener clientes del servidor.</td></tr>';
+        const fila = document.createElement('tr');
+        const celda = document.createElement('td');
+        celda.colSpan = 3;
+        celda.style.textAlign = 'center';
+        celda.style.color = '#dc2626';
+        celda.style.padding = '15px';
+        celda.textContent = err?.message || 'Error al obtener clientes del servidor.';
+        fila.appendChild(celda);
+        tbodyClientesExplorer.replaceChildren(fila);
     }
 }
 
