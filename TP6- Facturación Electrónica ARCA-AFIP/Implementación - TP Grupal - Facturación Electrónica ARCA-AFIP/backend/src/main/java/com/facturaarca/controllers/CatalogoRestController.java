@@ -1,6 +1,6 @@
 package com.facturaarca.controllers;
 
-import com.facturaarca.dto.ArticuloSearchDTO;
+import com.facturaarca.dto.ArticuloPrecioDTO;
 import com.facturaarca.dto.ClienteDTO;
 import com.facturaarca.dto.CondicionIvaDTO;
 import com.facturaarca.dto.ListaPrecioDTO;
@@ -12,11 +12,13 @@ import com.facturaarca.repository.CondicionIvaRepository;
 import com.facturaarca.repository.ListaPrecioRepository;
 import com.facturaarca.repository.PuntoVentaRepository;
 import com.facturaarca.repository.TipoMonedaRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -24,6 +26,8 @@ import java.util.List;
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class CatalogoRestController {
+
+    private static final int MINIMO_CARACTERES_BUSQUEDA = 3;
 
     private final ArticuloRepository articuloRepository;
     private final ClienteRepository clienteRepository;
@@ -53,10 +57,24 @@ public class CatalogoRestController {
                 .toList();
     }
 
+    /**
+     * Busca artículos por código, denominación o marca dentro de una lista de
+     * precios. Exige al menos 3 caracteres y no devuelve artículos que no
+     * tengan precio en esa lista.
+     */
     @GetMapping("/articulos")
-    public List<ArticuloSearchDTO> buscarArticulos(@RequestParam(required = false) String search) {
-        String q = (search != null && !search.trim().isEmpty()) ? search.trim() : "";
-        return articuloRepository.buscarPorTermino(q);
+    public List<ArticuloPrecioDTO> buscarArticulos(
+            @RequestParam(required = false) String search,
+            @RequestParam Long listaPrecioId) {
+
+        String q = search != null ? search.trim() : "";
+        if (q.length() < MINIMO_CARACTERES_BUSQUEDA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Ingresá al menos " + MINIMO_CARACTERES_BUSQUEDA
+                            + " caracteres para buscar artículos");
+        }
+
+        return articuloRepository.buscarPorTermino(q, listaPrecioId);
     }
 
     @GetMapping("/clientes")
