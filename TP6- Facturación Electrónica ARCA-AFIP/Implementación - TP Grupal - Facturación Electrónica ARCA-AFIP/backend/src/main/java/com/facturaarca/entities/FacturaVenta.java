@@ -1,5 +1,6 @@
 package com.facturaarca.entities;
 
+import com.facturaarca.enums.EstadoFactura;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.ArrayList;
@@ -17,10 +18,8 @@ import java.util.List;
 @ToString(callSuper = true)
 public class FacturaVenta extends AuditoriaApp {
 
-    @EqualsAndHashCode.Include
     private Long numero;
 
-    @Column(nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaEmision;
 
@@ -56,8 +55,9 @@ public class FacturaVenta extends AuditoriaApp {
 
     private String motivoRechazo;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String estado;
+    private EstadoFactura estado;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaAnulacion;
@@ -108,25 +108,15 @@ public class FacturaVenta extends AuditoriaApp {
         }
     }
 
-    public void actualizarDatos(String nuevoEstado, String nuevasObservaciones, Date nuevaFechaEmision,
-                                Cliente nuevoCliente, CondicionIva nuevaCondicionIva,
-                                PuntoVenta nuevoPuntoVenta, TipoMoneda nuevoTipoMoneda,
-                                Usuario usuarioModificacion) {
-        if (nuevoEstado != null && !nuevoEstado.trim().isEmpty()) {
-            this.estado = nuevoEstado;
-            if ("ANULADA".equalsIgnoreCase(nuevoEstado) && this.fechaAnulacion == null) {
-                this.fechaAnulacion = new Date();
-            }
-        }
+    public void actualizarDatos(String nuevasObservaciones, Cliente nuevoCliente,
+                                CondicionIva nuevaCondicionIva, PuntoVenta nuevoPuntoVenta,
+                                TipoMoneda nuevoTipoMoneda, Usuario usuarioModificacion) {
         if (nuevasObservaciones != null) {
             this.observaciones = nuevasObservaciones;
         }
-        if (nuevaFechaEmision != null) {
-            this.fechaEmision = nuevaFechaEmision;
-        }
-        if (nuevoCliente != null) {
-            this.cliente = nuevoCliente;
-        }
+        // En una edición completa el cliente puede venir nulo (Consumidor Final),
+        // por eso se asigna siempre y no solo cuando no es nulo.
+        this.cliente = nuevoCliente;
         if (nuevaCondicionIva != null) {
             this.condicionIva = nuevaCondicionIva;
         }
@@ -136,6 +126,56 @@ public class FacturaVenta extends AuditoriaApp {
         if (nuevoTipoMoneda != null) {
             this.tipoMoneda = nuevoTipoMoneda;
         }
+        this.fechaModificacion = new Date();
+        if (usuarioModificacion != null) {
+            this.usuarioModificacion = usuarioModificacion;
+        }
+    }
+
+    public void marcarEnProceso(Usuario usuarioModificacion) {
+        this.estado = EstadoFactura.EN_PROCESO;
+        this.fechaModificacion = new Date();
+        if (usuarioModificacion != null) {
+            this.usuarioModificacion = usuarioModificacion;
+        }
+    }
+
+    /**
+     * Deja la factura autorizada con los datos que devuelve ARCA.
+     * Se usará cuando se conecte la integración real.
+     */
+    public void autorizar(Long numero, Date fechaEmision, String cae, Date caeFechaVencimiento,
+                          Usuario usuarioModificacion) {
+        this.numero = numero;
+        this.fechaEmision = fechaEmision;
+        this.cae = cae;
+        this.caeFechaVencimiento = caeFechaVencimiento;
+        this.resultadoAfip = "A";
+        this.motivoRechazo = null;
+        this.estado = EstadoFactura.AUTORIZADA;
+        this.fechaModificacion = new Date();
+        if (usuarioModificacion != null) {
+            this.usuarioModificacion = usuarioModificacion;
+        }
+    }
+
+    /**
+     * Deja la factura rechazada con el motivo que devuelve ARCA.
+     * Se usará cuando se conecte la integración real.
+     */
+    public void rechazar(String motivo, Usuario usuarioModificacion) {
+        this.motivoRechazo = motivo;
+        this.resultadoAfip = "R";
+        this.estado = EstadoFactura.RECHAZADA;
+        this.fechaModificacion = new Date();
+        if (usuarioModificacion != null) {
+            this.usuarioModificacion = usuarioModificacion;
+        }
+    }
+
+    public void anular(Usuario usuarioModificacion) {
+        this.estado = EstadoFactura.ANULADA;
+        this.fechaAnulacion = new Date();
         this.fechaModificacion = new Date();
         if (usuarioModificacion != null) {
             this.usuarioModificacion = usuarioModificacion;
