@@ -8,7 +8,7 @@ import lombok.Setter;
 
 /**
  * Precio de venta de un artículo en una lista de precios concreta.
- * Lo consume el frontend para que el usuario elija la lista de precios del renglón.
+ * Lo consume el frontend para que el usuario elija la lista de precios del detalle.
  */
 @Getter
 @Setter

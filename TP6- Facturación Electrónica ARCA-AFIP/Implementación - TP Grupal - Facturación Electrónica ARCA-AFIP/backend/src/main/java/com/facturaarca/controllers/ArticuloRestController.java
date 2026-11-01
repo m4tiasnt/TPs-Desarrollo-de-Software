@@ -30,7 +30,7 @@ public class ArticuloRestController {
     /**
      * Listas de precios disponibles para un artículo.
      * Lo usa el formulario de alta para que el usuario elija con qué lista
-     * se cotiza cada renglón.
+     * se cotiza cada detalle.
      */
     @GetMapping("/{id}/listas-precio")
     public List<ListaPrecioArticuloDTO> listasPrecio(@PathVariable Long id) {
