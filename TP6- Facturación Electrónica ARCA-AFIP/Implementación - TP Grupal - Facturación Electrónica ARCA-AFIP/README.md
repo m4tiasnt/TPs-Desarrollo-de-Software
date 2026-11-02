@@ -1,170 +1,161 @@
-# Sistema de Facturación — API REST (TP5)
+# Sistema de Facturación Electrónica ARCA-AFIP (TP6)
 
-Trabajo Práctico Grupal: **Operaciones de Escritura en API REST (POST, PUT, DELETE)**.
+Trabajo Práctico Grupal: **Facturación Electrónica ARCA-AFIP**.
 
-Sistema de facturación de venta compuesto por un **backend** Spring Boot que expone una API REST y un **frontend** en TypeScript + HTML5 que la consume.
+Sistema integral de facturación de venta compuesto por un **backend** Spring Boot que expone una API REST profesional y un **frontend** modular en TypeScript + HTML5 (compilado con Vite) que la consume.
+
+---
 
 ## Estructura del proyecto
 
 ```
 .
-├── backend/    # API REST (Spring Boot + JPA + PostgreSQL)
+├── backend/                                  # API REST (Spring Boot + JPA + PostgreSQL)
 │   ├── src/main/java/com/facturaarca/
+│   │   ├── controllers/                      # Controladores REST (*RestController)
+│   │   ├── dto/                              # DTOs de entrada, salida y paginación
+│   │   ├── entities/                         # Entidades JPA del modelo de dominio
+│   │   ├── enums/                            # EstadoFactura y reglas de negocio
+│   │   ├── repository/                       # Repositorios Spring Data JPA y consultas personalizadas
+│   │   └── services/                         # Lógica de facturación y reportes
 │   ├── src/main/resources/application.properties
 │   ├── src/main/resources/application-demo.properties
 │   ├── db/poblar_db.sql
 │   └── build.gradle
-└── frontend/   # Cliente (TypeScript + HTML5)
-    ├── index.html          # Búsqueda y listado de facturas
-    ├── listado.ts
-    ├── nueva-factura.html  # Alta de factura
-    ├── nueva-factura.ts
-    ├── styles.css
-    ├── models/api.dto.ts    # Tipos que espejan los DTOs del backend
-    ├── services/FacturaService.ts
+└── frontend/                                 # Cliente Web (TypeScript + HTML5 + Vite)
+    ├── index.html                            # Listado de facturas, filtros y acciones
+    ├── listado.ts                            # Controlador de vista de listado
+    ├── nueva-factura.html                    # Formulario de alta, edición y detalle
+    ├── nueva-factura.ts                      # Controlador de vista de formulario
+    ├── styles.css                            # Sistema de diseño y layout responsivo
+    ├── components/                           # Componentes desacoplados
+    │   ├── BuscadorArticuloCombobox.ts       # Autocompletado accesible con debounce
+    │   ├── BuscadorClienteModal.ts           # Modal con paginación integrada
+    │   ├── NotificadorToast.ts               # Feedback no intrusivo
+    │   ├── PaginadorControl.ts               # Barra de paginación numérica
+    │   └── TablaDetallesFactura.ts           # Tabla reactiva de artículos y totales
+    ├── utils/                                # Utilidades de cálculo, formato y DOM
+    ├── models/api.dto.ts                     # DTOs sincronizados con el backend
+    ├── services/FacturaService.ts            # Cliente HTTP REST centralizado
     ├── package.json
-    └── tsconfig.json
+    └── vite.config.js                        # Configuración de Vite multipágina
 ```
+
+---
+
+## Máquina de Estados de Facturas
+
+El ciclo de vida de cada factura se rige por el enum `EstadoFactura`:
+
+| Estado | Editar | Informar ARCA | Anular | Eliminar |
+| :--- | :---: | :---: | :---: | :---: |
+| **BORRADOR** | Sí | Sí | Sí | Sí (baja lógica) |
+| **EN_PROCESO** | No | No | No | No |
+| **AUTORIZADA** | No | No | No | No |
+| **RECHAZADA** | Sí | Sí | Sí | No |
+| **ANULADA** | No | No | No | No |
+
+- El número correlativo y la fecha de emisión son asignados cuando ARCA autoriza el comprobante; hasta ese momento permanecen nulos y la UI muestra el identificador provisorio `Borrador #ID`.
+- Al informar a ARCA, el estado pasa a `EN_PROCESO`.
+- Las facturas rechazadas permiten corregir cliente, detalles o listas de precios para su posterior reintento.
+
+---
 
 ## Requisitos previos
 
-- **Java 17 a 21** (recomendado JDK 21). Spring Boot 3.2.5, con el wrapper de Gradle 8.7, **no arranca en JDK 26 o superior**.
-  Si `java -version` muestra una versión más nueva, apuntá `JAVA_HOME` a un JDK 21 (o definí `org.gradle.java.home` en `backend/gradle.properties`).
+- **Java 17 a 21** (recomendado JDK 21).
 - **Node.js 18 o superior** con `npm`.
 - **PostgreSQL 14 o superior** en ejecución.
 
-## Backend
+---
+
+## Puesta en Marcha
+
+### 1. Base de datos
 
 1. Crear la base de datos `factura_arca` en PostgreSQL:
-
    ```sql
    CREATE DATABASE factura_arca;
    ```
 
-2. Configurar las credenciales de conexión en `backend/src/main/resources/application.properties`:
-
+2. Configurar credenciales en `backend/src/main/resources/application.properties`:
    ```properties
    spring.datasource.url=jdbc:postgresql://localhost:5432/factura_arca
    spring.datasource.username=postgres
-   spring.datasource.password=CAMBIAR
+   spring.datasource.password=TU_PASSWORD
    ```
 
-3. Iniciar la API una primera vez para que Hibernate cree el esquema (desde la carpeta `backend/`):
+### 2. Backend (Spring Boot)
 
-   ```bash
-   # Linux / macOS
-   ./gradlew bootRun
+Desde la carpeta `backend/`:
 
-   # Windows
-   gradlew.bat bootRun
-   ```
+- **Opción recomendada para demo/corrección** (perfil `demo`, carga datos de prueba iniciales):
+  ```bash
+  # Windows
+  gradlew.bat bootRun --args=--spring.profiles.active=demo
 
-   El esquema `model` y sus tablas se crean/actualizan automáticamente
-   (`spring.jpa.hibernate.ddl-auto=update`).
+  # Linux / macOS
+  ./gradlew bootRun --args=--spring.profiles.active=demo
+  ```
 
-4. Cargar datos de ejemplo (opcional). Hay dos caminos:
+- **Uso estándar**:
+  ```bash
+  gradlew.bat bootRun    # Windows
+  ./gradlew bootRun        # Linux / macOS
+  ```
 
-   **Opción A — correr el script a mano, una sola vez.** Con la API detenida,
-   porque el script hace `TRUNCATE`/`INSERT` sobre tablas que ya deben existir:
+La API estará disponible en `http://localhost:8080/api/facturas`.
 
-   ```bash
-   # Desde la raíz del repositorio (pgAdmin o la consola psql)
-   psql -U postgres -d factura_arca -f backend/db/poblar_db.sql
-   ```
-
-   **Opción B — perfil `demo`.** Ejecuta el mismo script en cada arranque, así
-   la base siempre queda con los datos de ejemplo (cómodo para una demo o para
-   la corrección del TP):
-
-   ```bash
-   # Windows (desde backend/)
-   gradlew.bat bootRun --args=--spring.profiles.active=demo
-
-   # Linux / macOS (desde backend/)
-   ./gradlew bootRun --args=--spring.profiles.active=demo
-   ```
-
-   > ⚠️ El perfil `demo` **borra todo lo cargado en cada arranque**: el script
-   > empieza con `TRUNCATE` de todas las tablas. Para el uso normal, arrancá
-   > **sin** el perfil; ahí el script no se ejecuta nunca.
-
-   En IntelliJ: *Run > Edit Configurations... > Active profiles: `demo`* (o
-   agregar `-Dspring.profiles.active=demo` en *VM options*).
-
-5. Volver a iniciar la API (si usaste la Opción A, para dejarla corriendo; con
-   la Opción B ya está levantada):
-
-   ```bash
-   ./gradlew bootRun        # o gradlew.bat bootRun
-   ```
-
-   La API queda disponible en `http://localhost:8080/api/facturas`.
-
-### Endpoints
-
-| Método | Ruta                 | Descripción                                       | Respuesta      |
-|--------|----------------------|---------------------------------------------------|----------------|
-| GET    | `/api/facturas`      | Lista facturas (con filtros)                      | 200 OK         |
-| POST   | `/api/facturas`      | Crea una factura en cascada                       | 201 Created    |
-| PUT    | `/api/facturas/{id}` | Actualiza cabecera/detalles; con `"estado": "ANULADA"` anula la factura | 200 OK |
-| DELETE | `/api/facturas/{id}` | Da de baja **lógicamente** la factura (setea `fecha_baja`; deja de listarse pero queda registrada) | 204 No Content |
-
-Filtros de `GET`: `fechaDesde`, `fechaHasta`, `estado`, `montoMinimo`
-(`fechaHasta` incluye todo el día indicado). El listado y el reporte excluyen
-las facturas dadas de baja.
-
-Los renglones se envían con `articuloId` y `listaPrecioArticuloId`: el backend
-valida que esa lista de precios pertenezca al artículo y toma de ahí el precio
-de venta. El cliente nunca envía precios ni importes. Las listas disponibles por
-artículo se consultan en `GET /api/articulos/{id}/listas-precio` (lo usa el
-selector del formulario de alta).
-
-Los errores de la API se devuelven siempre con el mismo formato:
-
-```json
-{ "mensaje": "Factura no encontrada con id: 99" }
-```
-
-
-## Frontend
+### 3. Frontend (Vite + TypeScript)
 
 Desde la carpeta `frontend/`:
 
 ```bash
-npm install       # instala dependencias (TypeScript)
-npm run build     # compila los .ts a .js
-npm run serve     # sirve la app en http://localhost:5173
+npm install       # Instala dependencias
+npm run dev       # Inicia el servidor de desarrollo en http://localhost:5173
 ```
 
-La app tiene dos páginas: `index.html` (búsqueda y listado de facturas) y `nueva-factura.html` (alta de factura), que se enlazan entre sí.
+Abrir `http://localhost:5173` en el navegador.
 
-Luego abrir `http://localhost:5173` en el navegador. El backend debe estar corriendo.
+#### Scripts disponibles en frontend:
 
-### Scripts disponibles
+| Script | Descripción |
+| :--- | :--- |
+| `npm run dev` | Inicia el servidor Vite en desarrollo con recarga rápida. |
+| `npm run build` | Chequea tipos (`tsc`) y empaqueta la aplicación con Vite para producción. |
+| `npm run preview` | Previsualiza el build de producción localmente. |
 
-| Script          | Descripción                                        |
-|-----------------|----------------------------------------------------|
-| `npm run build` | Compila TypeScript (`tsc`).                        |
-| `npm run watch` | Recompila automáticamente ante cambios.            |
-| `npm run serve` | Sirve la carpeta en `http://localhost:5173`.       |
+---
 
-## Notas
+## Endpoints de la API REST
 
-- La interfaz está dividida en dos páginas (`listado` y `alta`) en lugar de un
-  único `index.html`: misma funcionalidad, pero con menos estado global y
-  responsabilidades más claras por archivo.
-- Los archivos `.js` son el resultado de compilar los `.ts` y **no se versionan**: hay que ejecutar `npm run build` (o `npm run watch`) antes de servir la app.
-- `node_modules/` tampoco se versiona; se restaura con `npm install`.
-- El backend permite CORS desde cualquier origen (`@CrossOrigin(origins = "*")`), por lo que el frontend puede servirse en cualquier puerto.
-- Al iniciar, la aplicación genera un reporte PDF y uno Excel de todas las
-  facturas en `backend/reportes/` (ver `ReporteService`).
-- El perfil `demo` (`application-demo.properties`) activa `spring.sql.init.mode=always`,
-  apunta a `classpath:poblar_db.sql` y usa
-  `spring.jpa.defer-datasource-initialization=true` para que el script corra
-  **después** de que Hibernate cree las tablas con `ddl-auto=update`.
-  Ojo: hay **dos copias** del script (`backend/db/poblar_db.sql`, que se corre a
-  mano con `psql`, y `backend/src/main/resources/poblar_db.sql`, que usa el perfil
-  `demo` porque tiene que estar en el classpath). Si cambian los datos de ejemplo,
-  hay que actualizar las dos.
-- La auditoría (`usuarioCarga` / `usuarioModificacion`) toma el primer usuario de
-  la tabla `usuarios`, ya que el TP no incluye autenticación.
+### Facturación
+
+| Método | Ruta | Descripción |
+| :--- | :--- | :--- |
+| `GET` | `/api/facturas` | Listado paginado con filtros (`fechaDesde`, `fechaHasta`, `estado`, `montoMinimo`, `clienteId`, `busqueda`, `informadaArca`, `pagina`, `tamanio`). |
+| `GET` | `/api/facturas/{id}` | Detalle completo de una factura con sus artículos y totales. |
+| `POST` | `/api/facturas` | Crea una factura en estado `BORRADOR`. |
+| `PUT` | `/api/facturas/{id}` | Edita cabecera y detalles de una factura editable. |
+| `DELETE` | `/api/facturas/{id}` | Baja lógica (solo facturas en estado `BORRADOR`). |
+| `POST` | `/api/facturas/{id}/anular` | Anula una factura (permitido en `BORRADOR` y `RECHAZADA`). |
+| `POST` | `/api/facturas/informar-arca` | Envío masivo de facturas a ARCA (pasa a `EN_PROCESO`). |
+| `POST` | `/api/facturas/{id}/informar-arca` | Envío individual de una factura a ARCA. |
+
+### Catálogos y Búsqueda
+
+| Método | Ruta | Descripción |
+| :--- | :--- | :--- |
+| `GET` | `/api/clientes/buscar` | Búsqueda paginada de clientes por razón social o CUIT. |
+| `GET` | `/api/articulos` | Búsqueda de artículos filtrada por lista de precios (mínimo 3 caracteres). |
+| `GET` | `/api/articulos/{id}/listas-precio` | Listas de precios disponibles para un artículo. |
+| `GET` | `/api/puntos-venta` | Catálogo de puntos de venta configurados. |
+| `GET` | `/api/condiciones-iva` | Catálogo de condiciones de IVA (AFIP). |
+| `GET` | `/api/tipos-moneda` | Catálogo de monedas (Pesos, Dólar, etc.). |
+
+### Reportes Consolidados
+
+| Método | Ruta | Descripción |
+| :--- | :--- | :--- |
+| `GET` | `/api/reportes/facturas/pdf` | Descarga directa del reporte consolidado en PDF (apaisado). |
+| `GET` | `/api/reportes/facturas/excel` | Descarga directa del reporte consolidado en Microsoft Excel (.xlsx). |
