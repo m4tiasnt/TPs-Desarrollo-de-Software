@@ -9,3 +9,4 @@ models/*.js
 models/*.js.map
 services/*.js
 services/*.js.map
+dist/
