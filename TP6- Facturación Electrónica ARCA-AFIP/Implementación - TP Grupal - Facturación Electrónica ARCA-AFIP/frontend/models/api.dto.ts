@@ -1,52 +1,93 @@
 /**
- * DTOs que consume el frontend (espejo de los DTOs del backend).
- * Incluye facturas, renglones, filtros, catálogos y listas de precio.
+ * DTOs que consume el frontend (espejo de los DTOs del backend, package com.facturaarca.dto).
+ * Los campos de fecha llegan como ISO-8601 (string) o null.
  */
 
-// 1. DTO de reporte/salida (FacturaReporteDTO.java)
-export interface FacturaReporteDTO {
+/** Enum de estados de una factura de venta (com.facturaarca.enums.EstadoFactura). */
+export type EstadoFactura =
+    | 'BORRADOR'
+    | 'EN_PROCESO'
+    | 'AUTORIZADA'
+    | 'RECHAZADA'
+    | 'ANULADA';
+
+// ─── Salida / consulta ──────────────────────────────────────────────────────
+
+/** Fila del listado (FacturaVentaListadoDTO). */
+export interface FacturaVentaListadoDTO {
     id: number;
-    numeroFactura: number;
-    fechaEmision: string;
+    numero: number | null;
+    numeroComprobante: string | null;
+    fechaEmision: string | null;
     clienteDenominacion: string;
     condicionIva: string;
+    puntoVentaNumero: number | null;
     puntoVentaDescripcion: string;
     importeTotal: number;
     cantidadItems: number;
-    estado: string;
+    estado: EstadoFactura;
 }
 
-// 2. DTO de renglón/detalle de entrada (FacturaDetalleRequestDTO.java)
-export interface FacturaDetalleRequestDTO {
-    articuloId?: number;
-    listaPrecioArticuloId?: number;
-    descripcion?: string;
-    cantidad: number;
-    porcentajeBonificacion?: number;
-}
-
-// 3. DTO de cabecera de entrada (FacturaRequestDTO.java)
-export interface FacturaRequestDTO {
-    numero?: number;
-    fechaEmision?: string;
-    clienteId?: number;
-    condicionIvaId?: number;
-    puntoVentaId?: number;
-    tipoMonedaId?: number;
-    estado?: string;
-    observaciones?: string;
-    detalles?: FacturaDetalleRequestDTO[];
-}
-
-// 4. Precio de un artículo en una lista de precios (ListaPrecioArticuloDTO.java)
-export interface ListaPrecioArticuloDTO {
+/** Cada detalle de una factura (FacturaVentaDetalleDTO). */
+export interface FacturaVentaDetalleDTO {
     id: number;
-    listaPrecioId: number;
-    listaPrecio: string;
-    precioVenta: number;
+    articuloId: number | null;
+    codigoArticulo: string | null;
+    denominacionArticulo: string | null;
+    listaPrecioArticuloId: number | null;
+    listaPrecio: string | null;
+    descripcion: string | null;
+    cantidad: number;
+    precioUnitario: number;
+    porcentajeBonificacion: number;
+    importeNeto: number;
+    importeIva: number;
+    importeSubtotal: number;
 }
 
-// 5. Respuesta paginada genérica (RespuestaPaginadaDTO.java)
+/** Detalle completo de una factura (FacturaVentaDTO). */
+export interface FacturaVentaDTO {
+    id: number;
+    numero: number | null;
+    numeroComprobante: string | null;
+    fechaEmision: string | null;
+
+    clienteId: number | null;
+    clienteDenominacion: string;
+    clienteCuitCuil: string | null;
+
+    condicionIvaId: number | null;
+    condicionIva: string;
+
+    puntoVentaId: number | null;
+    puntoVentaNumero: number | null;
+    puntoVentaDescripcion: string;
+
+    tipoMonedaId: number | null;
+    tipoMoneda: string;
+    tipoMonedaSimbolo: string;
+
+    importeNeto: number;
+    importeIva: number;
+    importeTotal: number;
+    importeCobrado: number;
+    importeSaldo: number;
+
+    estado: EstadoFactura;
+    cae: string | null;
+    caeFechaVencimiento: string | null;
+    resultadoAfip: string | null;
+    motivoRechazo: string | null;
+    observaciones: string | null;
+
+    fechaAlta: string | null;
+    fechaModificacion: string | null;
+    fechaAnulacion: string | null;
+
+    detalles: FacturaVentaDetalleDTO[];
+}
+
+/** Envoltura paginada en español (RespuestaPaginadaDTO<T>). */
 export interface RespuestaPaginadaDTO<T> {
     contenido: T[];
     paginaActual: number;
@@ -55,17 +96,84 @@ export interface RespuestaPaginadaDTO<T> {
     totalPaginas: number;
 }
 
-// 6. DTO de filtros para búsquedas (parámetros de FacturaRestController)
+/** Filtros de GET /api/facturas. */
 export interface FacturaFiltrosDTO {
     fechaDesde?: string;
     fechaHasta?: string;
-    estado?: string;
+    estado?: EstadoFactura;
     montoMinimo?: number;
+    clienteId?: number;
+    /** N° de factura (`42`) o id precedido por `#` (`#10`). */
+    busqueda?: string;
+    /** true = solo AUTORIZADA; false = todo lo demás. */
+    informadaArca?: boolean;
+    /** 0-indexed. */
     pagina?: number;
     tamanio?: number;
 }
 
-// 6. Catálogos para selects del formulario de Nueva Factura
+// ─── Entrada (crear / editar) ───────────────────────────────────────────────
+
+/** Cada detalle para crear/editar (FacturaVentaDetalleRequestDTO). */
+export interface FacturaVentaDetalleRequestDTO {
+    articuloId?: number;
+    listaPrecioArticuloId?: number;
+    descripcion?: string;
+    cantidad: number;
+    porcentajeBonificacion?: number;
+}
+
+/** Cabecera y detalles para crear/editar (FacturaVentaRequestDTO). */
+export interface FacturaVentaRequestDTO {
+    clienteId?: number;
+    condicionIvaId?: number;
+    puntoVentaId?: number;
+    tipoMonedaId?: number;
+    observaciones?: string;
+    detalles: FacturaVentaDetalleRequestDTO[];
+}
+
+// ─── ARCA ───────────────────────────────────────────────────────────────────
+
+/** Body de POST /api/facturas/informar-arca (InformarArcaSolicitudDTO). */
+export interface InformarArcaSolicitudDTO {
+    ids: number[];
+}
+
+/** Resultado por factura (InformarArcaResultadoDTO). */
+export interface InformarArcaResultadoDTO {
+    id: number;
+    nroFactura: number | null;
+    estado: EstadoFactura;
+    cae: string | null;
+    caeFechaVencimiento: string | null;
+    fechaEmision: string | null;
+    motivoRechazo: string | null;
+    mensaje: string | null;
+}
+
+// ─── Catálogos ──────────────────────────────────────────────────────────────
+
+/** Artículo con el precio de la lista (ArticuloPrecioDTO). */
+export interface ArticuloPrecioDTO {
+    id: number;
+    codigo: string;
+    denominacion: string;
+    marca: string;
+    precioVenta: number | null;
+    listaPrecioArticuloId: number;
+    listaPrecioId: number;
+    listaPrecioDenominacion: string;
+}
+
+/** Precio de un artículo en una lista concreta (ListaPrecioArticuloDTO). */
+export interface ListaPrecioArticuloDTO {
+    id: number;
+    listaPrecioId: number;
+    listaPrecio: string;
+    precioVenta: number;
+}
+
 export interface ListaPrecioDTO {
     id: number;
     codigo: string;
@@ -97,12 +205,3 @@ export interface TipoMonedaDTO {
     simbolo: string;
 }
 
-// 7. Artículo para combobox de búsqueda
-export interface ArticuloSearchDTO {
-    id: number;
-    codigo: string;
-    denominacion: string;
-    marca: string;
-    precioVenta: number;
-    listaPrecioArticuloId: number;
-}

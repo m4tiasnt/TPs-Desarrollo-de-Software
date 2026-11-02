@@ -1,238 +1,239 @@
 import {
-    FacturaReporteDTO,
-    FacturaRequestDTO,
+    ArticuloPrecioDTO,
+    ClienteDTO,
+    CondicionIvaDTO,
     FacturaFiltrosDTO,
-    RespuestaPaginadaDTO,
+    FacturaVentaDTO,
+    FacturaVentaListadoDTO,
+    FacturaVentaRequestDTO,
+    InformarArcaResultadoDTO,
     ListaPrecioArticuloDTO,
     ListaPrecioDTO,
-    ClienteDTO,
     PuntoVentaDTO,
-    CondicionIvaDTO,
-    TipoMonedaDTO,
-    ArticuloSearchDTO
+    RespuestaPaginadaDTO,
+    TipoMonedaDTO
 } from '../models/api.dto';
 
+/** Error de la API con el status HTTP disponible (para distinguir 409, 400, etc.). */
+export class ApiError extends Error {
+    constructor(public readonly status: number, mensaje: string) {
+        super(mensaje);
+        this.name = 'ApiError';
+    }
+}
+
 /**
- * Servicio API para centralizar llamadas HTTP al backend Spring Boot.
- * Consume los endpoints REST (GET, POST, PUT, DELETE) usando fetch y async/await.
+ * Servicio API que centraliza las llamadas HTTP al backend Spring Boot.
+ * Consume los endpoints REST (GET, POST, PUT, DELETE) con fetch + async/await.
  */
 export class FacturaService {
-    private baseUrl: string;
-    private articulosUrl: string;
+    private readonly baseUrl: string;
+    private readonly apiBase: string;
 
     constructor(baseUrl: string = 'http://localhost:8080/api/facturas') {
         this.baseUrl = baseUrl;
-        this.articulosUrl = baseUrl.replace('/facturas', '/articulos');
+        this.apiBase = baseUrl.replace(/\/facturas\/?$/, '');
     }
 
-    /**
-     * Obtiene facturas paginadas aplicando filtros opcionales.
-     * GET /api/facturas?pagina=0&tamanio=5&...
-     */
-    async obtenerFacturas(filtros?: FacturaFiltrosDTO): Promise<RespuestaPaginadaDTO<FacturaReporteDTO>> {
-        let url = this.baseUrl;
+    // ─── Facturas ───────────────────────────────────────────────────────────
 
+    /** GET /api/facturas — listado paginado con filtros. */
+    async obtenerFacturas(filtros?: FacturaFiltrosDTO): Promise<RespuestaPaginadaDTO<FacturaVentaListadoDTO>> {
         const params = new URLSearchParams();
         if (filtros) {
             if (filtros.fechaDesde) params.append('fechaDesde', filtros.fechaDesde);
             if (filtros.fechaHasta) params.append('fechaHasta', filtros.fechaHasta);
             if (filtros.estado) params.append('estado', filtros.estado);
             if (filtros.montoMinimo !== undefined && filtros.montoMinimo !== null) {
-                params.append('montoMinimo', filtros.montoMinimo.toString());
+                params.append('montoMinimo', String(filtros.montoMinimo));
+            }
+            if (filtros.clienteId !== undefined && filtros.clienteId !== null) {
+                params.append('clienteId', String(filtros.clienteId));
+            }
+            if (filtros.busqueda) params.append('busqueda', filtros.busqueda);
+            if (filtros.informadaArca !== undefined && filtros.informadaArca !== null) {
+                params.append('informadaArca', String(filtros.informadaArca));
             }
             if (filtros.pagina !== undefined && filtros.pagina !== null) {
-                params.append('pagina', filtros.pagina.toString());
+                params.append('pagina', String(filtros.pagina));
             }
             if (filtros.tamanio !== undefined && filtros.tamanio !== null) {
-                params.append('tamanio', filtros.tamanio.toString());
+                params.append('tamanio', String(filtros.tamanio));
             }
         }
 
-        const queryString = params.toString();
-        if (queryString) {
-            url += `?${queryString}`;
-        }
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(await this.mensajeDeError(response, 'Error al obtener facturas'));
-        }
-
+        const query = params.toString();
+        const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw await this.errorDe(response, 'Error al obtener facturas');
         return await response.json();
     }
 
-    /**
-     * Crea una nueva factura enviando el DTO de entrada.
-     * POST /api/facturas
-     */
-    async crearFactura(factura: FacturaRequestDTO): Promise<FacturaReporteDTO> {
+    /** GET /api/facturas/{id} — detalle completo. */
+    async obtenerDetalle(id: number): Promise<FacturaVentaDTO> {
+        const response = await fetch(`${this.baseUrl}/${id}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw await this.errorDe(response, 'Error al obtener la factura');
+        return await response.json();
+    }
+
+    /** POST /api/facturas — crea en BORRADOR (201). */
+    async crearFactura(factura: FacturaVentaRequestDTO): Promise<FacturaVentaDTO> {
         const response = await fetch(this.baseUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(factura)
         });
-
-        if (!response.ok) {
-            throw new Error(await this.mensajeDeError(response, 'Error al crear la factura'));
-        }
-
+        if (!response.ok) throw await this.errorDe(response, 'Error al crear la factura');
         return await response.json();
     }
 
-    /**
-     * Actualiza el estado y observaciones de una factura existente.
-     * PUT /api/facturas/{id} (retorna 200 OK con FacturaReporteDTO)
-     */
-    async actualizarEstado(id: number, estado: string, observaciones?: string): Promise<FacturaReporteDTO> {
+    /** PUT /api/facturas/{id} — edita (409 si el estado no lo permite). */
+    async actualizarFactura(id: number, factura: FacturaVentaRequestDTO): Promise<FacturaVentaDTO> {
         const response = await fetch(`${this.baseUrl}/${id}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                estado,
-                observaciones
-            })
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(factura)
         });
-
-        if (!response.ok) {
-            throw new Error(await this.mensajeDeError(response, 'Error al actualizar estado'));
-        }
-
+        if (!response.ok) throw await this.errorDe(response, 'Error al guardar la factura');
         return await response.json();
     }
 
-    /**
-     * Listas de precios disponibles para un artículo.
-     * GET /api/articulos/{id}/listas-precio
-     */
-    async listasPrecioDeArticulo(articuloId: number): Promise<ListaPrecioArticuloDTO[]> {
-        const response = await fetch(`${this.articulosUrl}/${articuloId}/listas-precio`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(await this.mensajeDeError(response, 'Error al obtener las listas de precios'));
-        }
-
-        return await response.json();
-    }
-
-    /**
-     * Da de baja lógicamente una factura (deja de listarse, pero queda registrada).
-     * DELETE /api/facturas/{id} (retorna 204 No Content)
-     */
+    /** DELETE /api/facturas/{id} — baja lógica (204). */
     async eliminarFactura(id: number): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            throw new Error(await this.mensajeDeError(response, 'Error al eliminar la factura'));
-        }
+        const response = await fetch(`${this.baseUrl}/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw await this.errorDe(response, 'Error al eliminar la factura');
     }
 
-    // === Catálogos para formulario de alta ===
+    /** POST /api/facturas/{id}/anular. */
+    async anularFactura(id: number): Promise<FacturaVentaDTO> {
+        const response = await fetch(`${this.baseUrl}/${id}/anular`, {
+            method: 'POST',
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al anular la factura');
+        return await response.json();
+    }
 
-    /**
-     * Todas las listas de precios (para selector global "Lista base").
-     * GET /api/listas-precio
-     */
+    /** POST /api/facturas/informar-arca — informa varias por body { ids }. */
+    async informarArca(ids: number[]): Promise<InformarArcaResultadoDTO[]> {
+        const response = await fetch(`${this.baseUrl}/informar-arca`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ ids })
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al informar a ARCA');
+        return await response.json();
+    }
+
+    /** POST /api/facturas/{id}/informar-arca — informa una sola. */
+    async informarArcaUna(id: number): Promise<InformarArcaResultadoDTO[]> {
+        const response = await fetch(`${this.baseUrl}/${id}/informar-arca`, {
+            method: 'POST',
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al informar a ARCA');
+        return await response.json();
+    }
+
+    // ─── Artículos ──────────────────────────────────────────────────────────
+
+    /** GET /api/articulos?search=&listaPrecioId= — mínimo 3 caracteres. */
+    async buscarArticulos(q: string, listaPrecioId: number): Promise<ArticuloPrecioDTO[]> {
+        const params = new URLSearchParams({ search: q, listaPrecioId: String(listaPrecioId) });
+        const response = await fetch(`${this.apiBase}/articulos?${params.toString()}`, {
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al buscar artículos');
+        return await response.json();
+    }
+
+    /** GET /api/articulos/{id}/listas-precio. */
+    async listasPrecioDeArticulo(articuloId: number): Promise<ListaPrecioArticuloDTO[]> {
+        const response = await fetch(`${this.apiBase}/articulos/${articuloId}/listas-precio`, {
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al obtener las listas de precios');
+        return await response.json();
+    }
+
+    // ─── Catálogos ──────────────────────────────────────────────────────────
+
     async obtenerListasPrecio(): Promise<ListaPrecioDTO[]> {
-        const response = await fetch(`${this.baseUrl.replace('/facturas', '')}/listas-precio`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) throw new Error(await this.mensajeDeError(response, 'Error al obtener listas de precio'));
-        return await response.json();
+        return this.getCatalogo<ListaPrecioDTO>('listas-precio');
     }
 
-    /**
-     * Busca artículos por código, nombre o marca (combobox).
-     * GET /api/articulos?search=
-     */
-    async buscarArticulos(q: string): Promise<ArticuloSearchDTO[]> {
-        const url = `${this.articulosUrl}?search=${encodeURIComponent(q)}`;
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) throw new Error(await this.mensajeDeError(response, 'Error al buscar artículos'));
-        return await response.json();
-    }
-
-    /**
-     * Clientes para select.
-     * GET /api/clientes
-     */
-    async obtenerClientes(): Promise<ClienteDTO[]> {
-        const response = await fetch(`${this.baseUrl.replace('/facturas', '')}/clientes`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) throw new Error(await this.mensajeDeError(response, 'Error al obtener clientes'));
-        return await response.json();
-    }
-
-    /**
-     * Puntos de venta para select.
-     * GET /api/puntos-venta
-     */
     async obtenerPuntosVenta(): Promise<PuntoVentaDTO[]> {
-        const response = await fetch(`${this.baseUrl.replace('/facturas', '')}/puntos-venta`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) throw new Error(await this.mensajeDeError(response, 'Error al obtener puntos de venta'));
-        return await response.json();
+        return this.getCatalogo<PuntoVentaDTO>('puntos-venta');
     }
 
-    /**
-     * Condiciones IVA para select.
-     * GET /api/condiciones-iva
-     */
     async obtenerCondicionesIva(): Promise<CondicionIvaDTO[]> {
-        const response = await fetch(`${this.baseUrl.replace('/facturas', '')}/condiciones-iva`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) throw new Error(await this.mensajeDeError(response, 'Error al obtener condiciones IVA'));
-        return await response.json();
+        return this.getCatalogo<CondicionIvaDTO>('condiciones-iva');
     }
 
-    /**
-     * Tipos de moneda para select.
-     * GET /api/tipos-moneda
-     */
     async obtenerTiposMoneda(): Promise<TipoMonedaDTO[]> {
-        const response = await fetch(`${this.baseUrl.replace('/facturas', '')}/tipos-moneda`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) throw new Error(await this.mensajeDeError(response, 'Error al obtener tipos de moneda'));
+        return this.getCatalogo<TipoMonedaDTO>('tipos-moneda');
+    }
+
+    private async getCatalogo<T>(ruta: string): Promise<T[]> {
+        const response = await fetch(`${this.apiBase}/${ruta}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw await this.errorDe(response, `Error al obtener ${ruta}`);
         return await response.json();
     }
 
-    /**
-     * Extrae el mensaje del JSON de error del backend ({ "mensaje": "..." }).
-     * Si la respuesta no trae JSON, usa el statusText.
-     */
-    private async mensajeDeError(response: Response, contexto: string): Promise<string> {
-        let detalle = response.statusText;
+    // ─── Clientes ───────────────────────────────────────────────────────────
 
+    /** GET /api/clientes/buscar?filtro=&page=&size= — búsqueda paginada de clientes. */
+    async buscarClientes(filtro: string, pagina: number = 0, tamanio: number = 5): Promise<RespuestaPaginadaDTO<ClienteDTO>> {
+        const params = new URLSearchParams({
+            filtro: filtro ?? '',
+            page: String(pagina),
+            size: String(tamanio)
+        });
+        const response = await fetch(`${this.apiBase}/clientes/buscar?${params.toString()}`, {
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al buscar clientes');
+        return await response.json();
+    }
+
+    // ─── Reportes ───────────────────────────────────────────────────────────
+
+    /**
+     * Descarga el reporte consolidado de facturas en formato PDF o Excel.
+     * Genera un Blob desde el endpoint REST y activa la descarga automática en el navegador.
+     */
+    async descargarReporte(tipo: 'pdf' | 'excel'): Promise<void> {
+        const extension = tipo === 'excel' ? 'xlsx' : 'pdf';
+        const url = `${this.apiBase}/reportes/facturas/${tipo}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw await this.errorDe(response, `Error al generar el reporte ${tipo.toUpperCase()}`);
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = downloadUrl;
+
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `reporte_facturas.${extension}`;
+        if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            if (match?.[1]) filename = match[1];
+        }
+
+        enlace.download = filename;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
+    }
+
+    // ─── Errores ────────────────────────────────────────────────────────────
+
+    /** Arma un ApiError leyendo el `{ mensaje }` del backend si existe. */
+    private async errorDe(response: Response, contexto: string): Promise<ApiError> {
+        let detalle = response.statusText;
         try {
             const cuerpo = await response.json();
             if (cuerpo && typeof cuerpo.mensaje === 'string') {
@@ -241,7 +242,6 @@ export class FacturaService {
         } catch {
             // La respuesta no era JSON: nos quedamos con el statusText.
         }
-
-        return `${contexto} (${response.status}): ${detalle}`;
+        return new ApiError(response.status, `${contexto} (${response.status}): ${detalle}`);
     }
 }
