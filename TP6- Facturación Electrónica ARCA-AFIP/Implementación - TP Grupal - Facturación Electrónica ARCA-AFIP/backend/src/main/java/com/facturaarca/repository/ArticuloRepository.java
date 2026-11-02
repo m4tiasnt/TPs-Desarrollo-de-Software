@@ -16,7 +16,7 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
      * Busca artículos por código, denominación o marca, pero solo devuelve
      * aquellos que tengan precio en la lista indicada.
      */
-    @Query("SELECT new com.facturaarca.dto.ArticuloPrecioDTO(" +
+    @Query("SELECT DISTINCT new com.facturaarca.dto.ArticuloPrecioDTO(" +
             "a.id, a.codigo, a.denominacion, m.denominacion, " +
             "lpa.precioVenta, lpa.id, lp.id, lp.denominacion) " +
             "FROM Articulo a " +

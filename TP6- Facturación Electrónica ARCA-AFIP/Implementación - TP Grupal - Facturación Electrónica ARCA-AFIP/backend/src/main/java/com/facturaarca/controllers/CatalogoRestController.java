@@ -74,7 +74,7 @@ public class CatalogoRestController {
                             + " caracteres para buscar artículos");
         }
 
-        return articuloRepository.buscarPorTermino(q, listaPrecioId);
+        return articuloRepository.buscarPorTermino(q, listaPrecioId).stream().limit(15).toList();
     }
 
     @GetMapping("/clientes")
