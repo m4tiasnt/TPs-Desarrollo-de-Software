@@ -11,21 +11,41 @@
 
 <body>
     <!--
-      LISTADO / BÚSQUEDA DE FACTURAS.
+      LISTADO / BÚSQUEDA DE FACTURAS  (lógica en listado.ts)
 
-      Este HTML conserva los ids que ya espera `listado.ts` (la lógica del
-      compañero), solo que con el diseño nuevo. En celular los filtros arrancan
-      plegados: #btn-filtros alterna la clase is-collapsed del formulario.
+      Ids que usa listado.ts:
+        #mensaje-feedback        avisos (clases: exito | error | info)
+        #form-filtros            filtros → campos name: busqueda, clienteId, fechaDesde, fechaHasta,
+                                 estado, montoMinimo, informadaAarca
+        #btn-abrir-dialogo-cliente / #btn-limpiar-cliente   búsqueda de cliente (reusa el explorer actual)
+        #tabla-facturas(-body)   listado; la clase .is-selecting en la tabla muestra la columna de selección
+        #btn-modo-informar       entra al modo selección (además poner .is-selecting en <body>)
+        #barra-seleccion         barra flotante; #btn-informar-arca abre #dlg-informar-arca
+        #menu-factura            menú ⋯ de fila (data-menu: editar | anular | eliminar)
+        #listado-mensaje         estados vacío / error / cargando (plantillas #tpl-*)
+        #dlg-anular, #dlg-eliminar, #dlg-informar-arca (fases con [data-fase])
+      Matriz de estados (qué se puede hacer en cada uno): ver PLAN_BACKEND.md.
     -->
-
-    <!-- Sprite de íconos: se usan con <svg class="icon"><use href="#i-nombre"/></svg> -->
+    <!-- Sprite de íconos: <svg class="icon" aria-hidden="true"><use href="#i-nombre"/></svg> -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
-        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></symbol>
-        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
         <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
-        <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></symbol>
         <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7"/><path d="M10 11v6M14 11v6"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+        <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+        <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+        <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+        <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></symbol>
+        <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
     </svg>
 
     <header class="app-header">
@@ -36,123 +56,301 @@
 
         <div class="page-title">
             <h1>Facturas</h1>
-            <a class="btn btn-primary" href="nueva-factura.html">
-                <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
-                Nueva factura
-            </a>
+            <div class="page-actions">
+                <button type="button" class="btn btn-secondary" id="btn-modo-informar"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg> Informar a ARCA</button>
+                <a class="btn btn-primary" href="nueva-factura.html"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Nueva factura</a>
+                <div class="menu-anchor">
+                    <button type="button" class="btn btn-secondary btn-icon" id="btn-exportar-toggle" aria-haspopup="menu" aria-expanded="false" title="Más opciones" aria-label="Más opciones">
+                        <svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>
+                    </button>
+                    <ul class="dropdown-menu" id="menu-exportar" role="menu" hidden>
+                        <li role="none"><button type="button" class="dropdown-item" id="btn-exportar-excel" role="menuitem"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg> Exportar a Excel (.xlsx)</button></li>
+                        <li role="none"><button type="button" class="dropdown-item" id="btn-exportar-pdf" role="menuitem"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg> Exportar a PDF (.pdf)</button></li>
+                    </ul>
+                </div>
+            </div>
         </div>
 
-        <!-- Contenedor para mostrar mensajes de éxito o error en la UI -->
+        <!-- Avisos de éxito / error / información (clases: exito, error, info) -->
         <div id="mensaje-feedback"></div>
 
-        <!-- Botón que despliega los filtros (solo visible en celular) -->
-        <button type="button" class="btn btn-secondary filters-toggle" id="btn-filtros" aria-expanded="false"
-            aria-controls="form-filtros">
-            Filtros
-            <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+        <button type="button" class="btn btn-secondary filters-toggle" id="btn-filtros" aria-expanded="false" aria-controls="form-filtros">
+            Filtros <span id="filtros-badge" class="filters-badge" hidden>0</span> <svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg>
         </button>
 
-        <!-- 7.a Formulario de Búsqueda -->
+        <!-- Filtros: 4 columnas × 2 filas -->
         <form class="card filters is-collapsed" id="form-filtros" aria-label="Filtros de búsqueda">
-            <div class="card-body form-row">
+            <div class="card-body filters-grid">
+                <div class="form-group">
+                    <label for="filtro-busqueda">N° Factura o #ID</label>
+                    <input class="form-control" type="text" id="filtro-busqueda" name="busqueda" placeholder="Ej: 42 o #10">
+                </div>
+                <div class="form-group">
+                    <label for="filtro-cliente-nombre">Cliente</label>
+                    <div class="input-dialog-trigger">
+                        <input type="hidden" id="filtro-cliente-id" name="clienteId">
+                        <input type="text" class="form-control" id="filtro-cliente-nombre" readonly placeholder="Todos los clientes">
+                        <button type="button" class="btn btn-secondary" id="btn-abrir-dialogo-cliente" aria-haspopup="dialog" aria-label="Buscar cliente" title="Buscar cliente"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
+                        <button type="button" class="btn-icon" id="btn-limpiar-cliente" aria-label="Quitar cliente seleccionado" title="Quitar cliente seleccionado" hidden><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="filtro-fecha-desde">Fecha desde</label>
                     <input class="form-control" type="date" id="filtro-fecha-desde" name="fechaDesde">
                 </div>
-
                 <div class="form-group">
                     <label for="filtro-fecha-hasta">Fecha hasta</label>
                     <input class="form-control" type="date" id="filtro-fecha-hasta" name="fechaHasta">
                 </div>
-
                 <div class="form-group">
                     <label for="filtro-estado">Estado</label>
                     <select class="form-control" id="filtro-estado" name="estado">
-                        <option value="">Todos los estados</option>
-                        <option value="EMITIDA">Emitida</option>
+                        <option value="">Todos</option>
+                        <option value="BORRADOR">Borrador</option>
+                        <option value="EN_PROCESO">En proceso</option>
+                        <option value="AUTORIZADA">Autorizada</option>
+                        <option value="RECHAZADA">Rechazada</option>
                         <option value="ANULADA">Anulada</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label for="filtro-monto-minimo">Monto mínimo ($)</label>
-                    <input class="form-control" type="number" id="filtro-monto-minimo" name="montoMinimo" min="0"
-                        step="0.01" placeholder="Ej: 5000">
+                    <input class="form-control" type="number" id="filtro-monto-minimo" name="montoMinimo" min="0" step="0.01" placeholder="Ej: 5000">
                 </div>
-
-                <div class="form-row">
+                <div class="form-group">
+                    <label for="filtro-arca">Informada a ARCA</label>
+                    <select class="form-control" id="filtro-arca" name="informadaAarca">
+                        <option value="">Todas</option>
+                        <option value="true">Informadas (con CAE)</option>
+                        <option value="false">Sin informar</option>
+                    </select>
+                </div>
+                <div class="filters-actions">
+                    <button type="button" id="btn-limpiar-filtros" class="btn btn-link">Limpiar</button>
                     <button type="submit" id="btn-buscar" class="btn btn-primary">Buscar</button>
-                    <button type="button" id="btn-limpiar-filtros" class="btn btn-secondary">Limpiar filtros</button>
                 </div>
             </div>
         </form>
 
-        <!-- Listado de comprobantes (las filas las dibuja listado.ts) -->
-        <section class="card" aria-label="Listado de comprobantes">
-            <div class="table-wrap">
+        <!-- Listado -->
+        <section class="card" aria-label="Listado de facturas">
+            <!-- Estados: sin facturas / sin resultados / error / cargando. listado.ts clona la plantilla correspondiente acá y oculta la tabla. -->
+            <div id="listado-mensaje" hidden></div>
+
+            <div class="table-wrap" id="listado-tabla-wrap">
                 <table class="table table--cards" id="tabla-facturas">
                     <thead>
                         <tr>
-                            <th>N° Factura</th>
-                            <th>Fecha emisión</th>
-                            <th>Cliente</th>
-                            <th>Cond. IVA</th>
-                            <th>Pto. venta</th>
-                            <th class="num">Total ($)</th>
-                            <th class="num">Cant. ítems</th>
-                            <th>Estado</th>
-                            <th class="actions">Acciones</th>
+                            <th class="col-select"><input type="checkbox" class="chk" id="chk-seleccionar-todos" aria-label="Seleccionar facturas pendientes de informar" title="Seleccionar facturas pendientes de informar"></th>
+                            <th class="col-numero">N° Factura</th>
+                            <th class="col-fecha">Fecha emisión</th>
+                            <th class="col-cliente">Cliente</th>
+                            <th class="col-total num">Total ($)</th>
+                            <th class="col-estado">Estado</th>
+                            <th class="col-acciones actions">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="tabla-facturas-body"></tbody>
+                    <tbody id="tabla-facturas-body">
+                        <!-- Filas dibujadas por listado.ts con #tpl-fila-factura -->
+                    </tbody>
                 </table>
             </div>
 
-            <!-- Barra de paginación -->
-            <div class="pagination" id="paginacion">
-                <span class="pagination-info" id="paginacion-info">Mostrando 0 comprobantes</span>
-                <div class="pagination-pages" id="paginacion-pages">
-                    <!-- Los botones se generan en listado.ts -->
-                </div>
+            <div class="pagination-bar" aria-label="Navegación de páginas">
+                <span id="pag-info">Mostrando <strong>0</strong> facturas</span>
+                <nav class="pagination-controls" aria-label="Páginas">
+                    <button type="button" class="page-btn" id="pag-prev" aria-label="Página anterior" disabled><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></button>
+                    <button type="button" class="page-btn" id="pag-next" aria-label="Página siguiente" disabled><svg class="icon" aria-hidden="true"><use href="#i-next"/></svg></button>
+                </nav>
                 <div class="pagination-size">
-                    <label for="paginacion-size">Por página</label>
-                    <select class="form-control form-control--sm" id="paginacion-size">
-                        <option value="5" selected>5</option>
+                    <label for="pag-tamano">Por página</label>
+                    <select class="form-control form-control--sm" id="pag-tamano">
                         <option value="10">10</option>
-                        <option value="20">20</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
                     </select>
                 </div>
             </div>
         </section>
-
     </main>
 
-    <!-- Diálogos de confirmación (reemplazan al confirm() nativo) -->
-    <dialog id="dlg-anular" aria-labelledby="dlg-anular-titulo">
-        <form method="dialog">
-            <div class="dialog-icon dialog-icon--warning"><svg class="icon" aria-hidden="true"><use href="#i-ban" /></svg></div>
-            <h2 id="dlg-anular-titulo">¿Anular la factura N° <span data-campo="numeroFactura"></span>?</h2>
-            <p>La factura pasará a estado <strong>ANULADA</strong> y seguirá figurando en el listado.</p>
+    <!-- Barra flotante del modo "Informar a ARCA" (aparece al activar modo informar) -->
+    <div class="barra-seleccion-arca" id="barra-seleccion" role="region" aria-label="Acciones de selección" hidden>
+        <span id="seleccion-info" aria-live="polite">Elegí las facturas a informar</span>
+        <button type="button" class="btn btn-link" id="btn-cancelar-seleccion">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-informar-arca" disabled><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg> <span>Informar a ARCA</span></button>
+    </div>
+
+    <!-- Menú de acciones de fila (único; JS lo posiciona y deshabilita lo que el estado no permite) -->
+    <ul class="dropdown-menu" id="menu-factura" role="menu" aria-label="Acciones de la factura" hidden>
+        <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="editar"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg> Editar</button></li>
+        <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="anular"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg> Anular</button></li>
+        <li role="none"><button type="button" class="dropdown-item dropdown-item--danger" role="menuitem" data-menu="eliminar"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg> Eliminar</button></li>
+    </ul>
+
+    <!-- Plantilla de fila -->
+    <template id="tpl-fila-factura">
+        <tr>
+            <td class="col-select"><input type="checkbox" class="chk" name="facturaIds"></td>
+            <td class="col-numero" data-label="N° Factura"><div class="celda-doble"><span class="nro-factura" data-campo="numero"></span><span class="celda-subtexto" data-campo="puntoVenta"></span></div></td>
+            <td class="col-fecha" data-label="Fecha emisión" data-campo="fechaEmision"></td>
+            <td class="col-cliente" data-label="Cliente"><div class="celda-doble"><span class="truncate" data-campo="cliente"></span><span class="celda-subtexto" data-campo="condicionIva"></span></div></td>
+            <td class="col-total num" data-label="Total ($)"><div class="celda-doble celda-doble--end"><strong data-campo="importeTotal"></strong><span class="celda-subtexto" data-campo="cantidadItems"></span></div></td>
+            <td class="col-estado" data-label="Estado"><span class="badge" data-campo="estado"></span></td>
+            <td class="col-acciones actions">
+                <a class="btn-icon" data-accion="ver" href="#" aria-label="Ver detalle" title="Ver detalle"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></a>
+                <button type="button" class="btn-icon" data-accion="menu" aria-label="Más acciones" aria-haspopup="menu" aria-expanded="false" title="Más acciones"><svg class="icon" aria-hidden="true"><use href="#i-more"/></svg></button>
+            </td>
+        </tr>
+    </template>
+
+    <!-- Plantillas de estado del listado -->
+    <template id="tpl-sin-facturas">
+        <div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg><strong>Todavía no hay facturas</strong><span class="muted">Creá la primera para empezar.</span>
+            <a class="btn btn-primary" href="nueva-factura.html"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Nueva factura</a></div>
+    </template>
+    <template id="tpl-sin-resultados">
+        <div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><strong>No encontramos facturas</strong><span class="muted">Probá cambiando los filtros de búsqueda.</span>
+            <button type="button" class="btn btn-secondary" data-accion="limpiar-filtros"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg> Limpiar filtros</button></div>
+    </template>
+    <template id="tpl-error-carga">
+        <div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><strong>No se pudieron cargar las facturas</strong><span class="muted" data-campo="detalle">Error de conexión con la API.</span>
+            <button type="button" class="btn btn-secondary" data-accion="reintentar"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Reintentar</button></div>
+    </template>
+    <template id="tpl-cargando">
+        <div><div class="skeleton-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+        <div class="skeleton-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+        <div class="skeleton-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div></div>
+    </template>
+
+    <!-- Informar a ARCA: un solo diálogo, con las fases confirmar → informando → resultado | error. -->
+    <dialog id="dlg-informar-arca" class="dialog-wide" aria-labelledby="dlg-informar-titulo">
+        <form method="dialog" data-fase="confirmar">
+            <div class="dialog-icon dialog-icon--info"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></div>
+            <h2 id="dlg-informar-titulo">Informar <span data-campo="cantidad"></span> factura(s) a ARCA</h2>
+            <p>Las facturas seleccionadas se enviarán a ARCA para su validación electrónica y obtención de CAE.</p>
+            <p class="dialog-resumen" data-campo="detalle"></p>
             <div class="dialog-actions">
                 <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
-                <button type="submit" class="btn btn-primary" value="confirmar">Anular factura</button>
+                <button type="submit" class="btn btn-primary" value="confirmar">Confirmar</button>
+            </div>
+        </form>
+
+        <div data-fase="informando" aria-busy="true" hidden>
+            <div class="dialog-head"><span class="spinner spinner--lg" aria-hidden="true"></span><h2>Informando a ARCA</h2></div>
+            <div class="progress-indeterminate" role="progressbar" aria-label="Informando"><span></span></div>
+            <p style="margin-top: var(--space-md);">Se están enviando <span data-campo="cantidad"></span> factura(s). Puede demorar unos segundos.</p>
+            <p class="muted">Si salís de esta página, el envío continúa: después vas a ver el estado de cada factura en el listado.</p>
+        </div>
+
+        <form method="dialog" data-fase="resultado" hidden>
+            <h2>Resultado del envío a ARCA</h2>
+            <div class="dialog-chips" id="informar-chips"></div>
+            <div class="dialog-table">
+                <table class="table">
+                    <thead><tr><th>Factura</th><th>Resultado</th><th>Detalle</th><th aria-label="Ver"></th></tr></thead>
+                    <tbody id="informar-resultado-body"></tbody>
+                </table>
+            </div>
+            <p class="field-hint">Podés consultar el detalle completo de cada factura haciendo clic en el icono de ver. Al cerrar, el listado se actualiza.</p>
+            <div class="dialog-actions"><button type="submit" class="btn btn-primary" value="cerrar">Cerrar</button></div>
+        </form>
+
+        <form method="dialog" data-fase="error" hidden>
+            <div class="dialog-icon dialog-icon--danger"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></div>
+            <h2>No se pudo comunicar con ARCA</h2>
+            <p>Las <span data-campo="cantidad"></span> facturas quedaron En proceso. No se pueden editar ni volver a informar hasta que se resuelvan.</p>
+            <div class="dialog-actions"><button type="submit" class="btn btn-primary" value="cerrar">Cerrar</button></div>
+        </form>
+    </dialog>
+
+    <template id="tpl-resultado-fila">
+        <tr>
+            <td><strong class="nro-factura nro-factura--provisorio" data-campo="factura"></strong></td>
+            <td><span class="badge" data-campo="estado"></span></td>
+            <td class="cell-truncate" data-campo="detalle"></td>
+            <td><a class="btn-icon" data-campo="enlace" href="#" aria-label="Ver factura" title="Ver factura"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></a></td>
+        </tr>
+    </template>
+
+    <dialog id="dlg-anular" aria-labelledby="dlg-anular-titulo">
+        <form method="dialog">
+            <div class="dialog-icon dialog-icon--warning"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg></div>
+            <h2 id="dlg-anular-titulo">¿Anular <span data-campo="identificador"></span>?</h2>
+            <p>Pasará a estado Anulada y seguirá figurando en el listado. No se puede deshacer.</p>
+            <div class="dialog-actions">
+                <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
+                <button type="submit" class="btn btn-primary" value="confirmar"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg> Anular factura</button>
             </div>
         </form>
     </dialog>
 
     <dialog id="dlg-eliminar" aria-labelledby="dlg-eliminar-titulo">
         <form method="dialog">
-            <div class="dialog-icon dialog-icon--danger"><svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg></div>
-            <h2 id="dlg-eliminar-titulo">¿Dar de baja la factura N° <span data-campo="numeroFactura"></span>?</h2>
-            <p>La factura dejará de figurar en el listado, pero el comprobante y sus renglones quedan registrados para auditoría.</p>
+            <div class="dialog-icon dialog-icon--danger"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></div>
+            <h2 id="dlg-eliminar-titulo">¿Eliminar <span data-campo="identificador"></span>?</h2>
+            <p>Se eliminará definitivamente la factura en borrador junto con sus detalles. Esta acción no se puede deshacer.</p>
             <div class="dialog-actions">
                 <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
-                <button type="submit" class="btn btn-danger" value="confirmar">Dar de baja</button>
+                <button type="submit" class="btn btn-danger" value="confirmar"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg> Eliminar</button>
             </div>
         </form>
     </dialog>
 
-    <script type="module" src="./listado.js"></script>
+    <!-- Búsqueda de clientes: diálogo modal nativo con paginación integrada y unificada -->
+    <dialog id="modal-cliente-explorer" class="dialog-wide" aria-labelledby="titulo-modal-cliente">
+        <div class="dialog-head">
+            <h2 id="titulo-modal-cliente">Buscar cliente</h2>
+            <button type="button" id="btnCerrarModalCliente" class="btn-icon" aria-label="Cerrar modal"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+
+        <div class="modal-cliente-search">
+            <div class="combobox" style="flex: 1;">
+                <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                <input type="text" id="inputBuscarCliente" class="form-control" placeholder="Buscar por CUIT/CUIL o denominación…" autocomplete="off">
+            </div>
+            <button type="button" id="btnBuscarCliente" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg> Buscar</button>
+        </div>
+
+        <div class="dialog-table is-empty">
+            <table class="table" style="table-layout: fixed; width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="width: 140px;">CUIT / CUIL</th>
+                        <th>Denominación / Cliente</th>
+                        <th style="width: 130px; text-align: right;" aria-label="Acción"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-clientes-explorer">
+                    <tr class="fila-vacia">
+                        <td colspan="3" class="modal-empty-cell">
+                            <div class="modal-empty-content">
+                                <svg class="icon modal-empty-icon" aria-hidden="true"><use href="#i-search"/></svg>
+                                <span class="modal-empty-title">Buscá un cliente por nombre o CUIT</span>
+                                <span class="modal-empty-subtitle">Escribí al menos 2 caracteres para consultar clientes.</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-bar">
+            <div class="pagination-info-wrap">
+                <span id="infoPaginacionCliente"></span>
+            </div>
+            <nav class="pagination-controls" aria-label="Páginas de clientes">
+                <button type="button" class="page-btn" id="btnPaginacionAnterior" aria-label="Página anterior" disabled>
+                    <svg class="icon" aria-hidden="true"><use href="#i-back"/></svg>
+                </button>
+                <button type="button" class="page-btn" id="btnPaginacionSiguiente" aria-label="Página siguiente" disabled>
+                    <svg class="icon" aria-hidden="true"><use href="#i-next"/></svg>
+                </button>
+            </nav>
+        </div>
+    </dialog>
+
+    <script type="module" src="./listado.ts"></script>
 </body>
 
 </html>
