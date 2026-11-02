@@ -18,7 +18,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,16 +41,12 @@ public class ReporteService {
         this.facturaService = facturaService;
     }
 
-    public Path generarReporteExcel() throws IOException {
+    /**
+     * Genera el reporte Excel en memoria retornando los bytes listos para descarga HTTP.
+     */
+    public byte[] generarReporteExcelBytes() throws IOException {
         List<FacturaVentaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
 
-        Path dir = Paths.get(reportesDir);
-        Files.createDirectories(dir);
-
-        String fechaHora = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        Path destino = dir.resolve("reporte_facturas_" + fechaHora + ".xlsx");
-
-        // Creamos el archivo Excel real en memoria
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Facturas");
 
@@ -86,7 +82,7 @@ public class ReporteService {
                 Row row = sheet.createRow(rowNum++);
 
                 row.createCell(0).setCellValue(f.getNumeroFactura() != null ? f.getNumeroFactura() : 0);
-                
+
                 Cell dateCell = row.createCell(1);
                 if (f.getFechaEmision() != null) {
                     dateCell.setCellValue(f.getFechaEmision());
@@ -97,9 +93,9 @@ public class ReporteService {
                 row.createCell(3).setCellValue(limpiar(f.getCondicionIva()));
                 row.createCell(4).setCellValue(limpiar(f.getPuntoVentaDescripcion()));
 
-                 Cell totalCell = row.createCell(5);
-                 totalCell.setCellValue(f.getImporteTotal());
-                  totalCell.setCellStyle(currencyStyle);
+                Cell totalCell = row.createCell(5);
+                totalCell.setCellValue(f.getImporteTotal());
+                totalCell.setCellStyle(currencyStyle);
 
                 row.createCell(6).setCellValue(f.getCantidadItems() != null ? f.getCantidadItems() : 0);
                 row.createCell(7).setCellValue(f.getEstado() != null ? f.getEstado().name() : "");
@@ -110,11 +106,23 @@ public class ReporteService {
                 sheet.autoSizeColumn(i);
             }
 
-            // Escribir el archivo físico en el disco
-            try (FileOutputStream fileOut = new FileOutputStream(destino.toFile())) {
-                workbook.write(fileOut);
-            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            workbook.write(baos);
+            return baos.toByteArray();
         }
+    }
+
+    /**
+     * Genera el reporte Excel y lo guarda en disco (útil para auditoría o procesos batch).
+     */
+    public Path generarReporteExcel() throws IOException {
+        byte[] bytes = generarReporteExcelBytes();
+        Path dir = Paths.get(reportesDir);
+        Files.createDirectories(dir);
+
+        String fechaHora = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        Path destino = dir.resolve("reporte_facturas_" + fechaHora + ".xlsx");
+        Files.write(destino, bytes);
 
         System.out.println("Excel (.xlsx) generado exitosamente en: " + destino + ".");
         return destino;
@@ -124,19 +132,14 @@ public class ReporteService {
         return texto == null ? "" : texto.replaceAll("[\\t\\r\\n]+", " ").trim();
     }
 
-    public Path generarReportePdf() throws IOException {
+    /**
+     * Genera el reporte PDF en memoria retornando los bytes listos para descarga HTTP.
+     */
+    public byte[] generarReportePdfBytes() throws IOException {
         List<FacturaVentaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
 
-        // Buscamos o creamos el directorio donde se guardará el PDF
-        Path dir = Paths.get(reportesDir);
-        Files.createDirectories(dir);
-
-        // Generamos un nombre de archivo único basado en la fecha y hora actual
-        String fechaHoraActual = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        Path destino = dir.resolve("reporte_facturas_" + fechaHoraActual + ".pdf");
-
-        // Inicializamos el escritor y el documento PDF
-        PdfWriter writer = new PdfWriter(destino.toString());
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(baos);
         PdfDocument pdf = new PdfDocument(writer);
         Document document = new Document(pdf, PageSize.A4.rotate()); // apaisado
         PdfFont negrita = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD);
@@ -150,12 +153,10 @@ public class ReporteService {
                 document.add(new Paragraph("No hay facturas para mostrar.")
                         .setTextAlignment(TextAlignment.CENTER));
             } else {
-                // 4. Creamos una tabla con 8 columnas (incluyendo Estado)
                 float[] columnWidths = {45F, 75F, 95F, 105F, 90F, 75F, 45F, 70F};
                 Table table = new Table(columnWidths);
                 table.setWidth(UnitValue.createPercentValue(100));
 
-                // 5. Agregamos los encabezados de la tabla
                 table.addHeaderCell(headerCell("Número", negrita).setTextAlignment(TextAlignment.RIGHT));
                 table.addHeaderCell(headerCell("Fecha", negrita));
                 table.addHeaderCell(headerCell("Cliente", negrita));
@@ -165,7 +166,6 @@ public class ReporteService {
                 table.addHeaderCell(headerCell("Ítems", negrita).setTextAlignment(TextAlignment.RIGHT));
                 table.addHeaderCell(headerCell("Estado", negrita));
 
-                // 6. Recorremos la lista de DTOs y llenamos la tabla con los datos reales
                 SimpleDateFormat formatoFecha = new SimpleDateFormat("dd/MM/yyyy");
                 Locale formatoArgentino = Locale.forLanguageTag("es-AR");
                 for (FacturaVentaReporteDTO factura : facturas) {
@@ -185,10 +185,8 @@ public class ReporteService {
                             .setTextAlignment(TextAlignment.CENTER));
                 }
 
-                // 7. Agregamos la tabla al documento
                 document.add(table);
 
-                // Pie con la fecha de generación, abajo a la derecha en la última página
                 String generadoEl = "Generado el "
                         + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
                 float anchoPie = 250F;
@@ -201,6 +199,21 @@ public class ReporteService {
         } finally {
             document.close();
         }
+
+        return baos.toByteArray();
+    }
+
+    /**
+     * Genera el reporte PDF y lo guarda en disco (útil para auditoría o procesos batch).
+     */
+    public Path generarReportePdf() throws IOException {
+        byte[] bytes = generarReportePdfBytes();
+        Path dir = Paths.get(reportesDir);
+        Files.createDirectories(dir);
+
+        String fechaHoraActual = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        Path destino = dir.resolve("reporte_facturas_" + fechaHoraActual + ".pdf");
+        Files.write(destino, bytes);
 
         System.out.println("PDF generado exitosamente en: " + destino + ".");
         return destino;
