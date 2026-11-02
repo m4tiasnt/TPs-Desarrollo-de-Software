@@ -1,6 +1,7 @@
 package com.facturaarca.controllers;
 
 import com.facturaarca.dto.ClienteDTO;
+import com.facturaarca.dto.RespuestaPaginadaDTO;
 import com.facturaarca.repository.ClienteRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,22 +12,31 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/clientes")
 @CrossOrigin(origins = "*")
-public class ClienteController {
+public class ClienteRestController {
 
     private final ClienteRepository clienteRepository;
 
-    public ClienteController(ClienteRepository clienteRepository) {
+    public ClienteRestController(ClienteRepository clienteRepository) {
         this.clienteRepository = clienteRepository;
     }
 
     @GetMapping("/buscar")
-    public ResponseEntity<Page<ClienteDTO>> listarClientes(
+    public ResponseEntity<RespuestaPaginadaDTO<ClienteDTO>> listarClientes(
             @RequestParam(required = false, defaultValue = "") String filtro,
             @PageableDefault(page = 0, size = 10, sort = "denominacion") Pageable pageable) {
         String q = (filtro != null) ? filtro.trim() : "";
         Page<ClienteDTO> resultado = clienteRepository
                 .findByDenominacionOrCuitCuil(q, pageable)
                 .map(c -> new ClienteDTO(c.getId(), c.getCuitCuil(), c.getDenominacion()));
-        return ResponseEntity.ok(resultado);
+
+        RespuestaPaginadaDTO<ClienteDTO> respuesta = RespuestaPaginadaDTO.<ClienteDTO>builder()
+                .contenido(resultado.getContent())
+                .paginaActual(resultado.getNumber())
+                .tamanioPagina(resultado.getSize())
+                .totalElementos(resultado.getTotalElements())
+                .totalPaginas(resultado.getTotalPages())
+                .build();
+
+        return ResponseEntity.ok(respuesta);
     }
 }
