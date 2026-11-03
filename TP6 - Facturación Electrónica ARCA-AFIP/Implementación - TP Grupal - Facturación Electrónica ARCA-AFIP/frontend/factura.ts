@@ -443,11 +443,13 @@ async function guardar(): Promise<void> {
         const dto = construirDTO();
         if (modoActual === 'editar' && facturaId != null) {
             await facturaService.actualizarFactura(facturaId, dto);
+            snapshotInicial = serializarEstado();
+            window.location.href = `factura.html?id=${facturaId}&modo=ver`;
         } else {
-            await facturaService.crearFactura(dto);
+            const nuevaFactura = await facturaService.crearFactura(dto);
+            snapshotInicial = serializarEstado();
+            window.location.href = `factura.html?id=${nuevaFactura.id}&modo=ver`;
         }
-        snapshotInicial = serializarEstado();
-        window.location.href = 'index.html';
     } catch (e) {
         if (e instanceof ApiError && e.status === 409) {
             dlgConflicto.showModal();
