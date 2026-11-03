@@ -1,4 +1,4 @@
-import {
+﻿import {
     ClienteDTO,
     EstadoFactura,
     FacturaVentaDTO,
@@ -191,23 +191,23 @@ async function cargarCatalogos(): Promise<void> {
             facturaService.obtenerTiposMoneda()
         ]);
 
-        selectListaBase.replaceChildren(new Option('Seleccionar…', ''));
+        selectListaBase.replaceChildren(new Option('Seleccionar...', ''));
         listas.forEach((l) => selectListaBase.appendChild(new Option(l.denominacion, String(l.id))));
         if (listas.length > 0) {
             selectListaBase.value = String(listas[0].id);
             listaBaseId = listas[0].id;
         }
 
-        selectPuntoVenta.replaceChildren(new Option('Seleccionar…', ''));
+        selectPuntoVenta.replaceChildren(new Option('Seleccionar...', ''));
         puntosVenta.forEach((pv) => {
             const num = String(pv.numero).padStart(4, '0');
-            selectPuntoVenta.appendChild(new Option(`${num} · ${pv.descripcion}`, String(pv.id)));
+            selectPuntoVenta.appendChild(new Option(`${num} - ${pv.descripcion}`, String(pv.id)));
         });
 
-        selectCondicionIva.replaceChildren(new Option('Seleccionar…', ''));
+        selectCondicionIva.replaceChildren(new Option('Seleccionar...', ''));
         condiciones.forEach((c) => selectCondicionIva.appendChild(new Option(c.denominacion, String(c.id))));
 
-        selectTipoMoneda.replaceChildren(new Option('Seleccionar…', ''));
+        selectTipoMoneda.replaceChildren(new Option('Seleccionar...', ''));
         monedas.forEach((m) => selectTipoMoneda.appendChild(new Option(m.denominacion, String(m.id))));
         if (monedas.length > 0) selectTipoMoneda.value = String(monedas[0].id);
     } catch (e) {
@@ -251,10 +251,10 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         setTexto(document.body, '[data-campo="condicionIva"]', f.condicionIva || '—');
         setTexto(document.body, '[data-campo="numeroFactura"]', f.numeroComprobante || (f.id ? `Borrador #${f.id}` : '—'));
         setTexto(document.body, '[data-campo="fechaEmision"]', formatearFecha(f.fechaEmision));
-        const caeTexto = f.cae ? `${f.cae} · Vto: ${formatearFecha(f.caeFechaVencimiento)}` : '—';
+        const caeTexto = f.cae || '—';
         setTexto(document.body, '[data-campo="caeInfo"]', caeTexto);
         setTexto(document.body, '[data-campo="moneda"]', f.tipoMoneda ? `${f.tipoMoneda} (${f.tipoMonedaSimbolo || '$'})` : 'Pesos Argentinos ($)');
-        setTexto(document.body, '[data-campo="puntoVenta"]', `${String(f.puntoVentaNumero || 1).padStart(4, '0')} · ${f.puntoVentaDescripcion || 'Casa Central'}`);
+        setTexto(document.body, '[data-campo="puntoVenta"]', `${String(f.puntoVentaNumero || 1).padStart(4, '0')} - ${f.puntoVentaDescripcion || 'Casa Central'}`);
         setTexto(document.body, '[data-campo="fechaAlta"]', formatearFecha(f.fechaAlta));
         setTexto(document.body, '[data-campo="fechaModificacion"]', formatearFecha(f.fechaModificacion));
         setTexto(document.body, '[data-campo="observaciones"]', f.observaciones || '—');
@@ -290,6 +290,27 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         }));
 
         tablaDetalles.setDetalles(detalles);
+
+        // Bloqueo de seguridad AFIP: Si la factura ya fue AUTORIZADA o tiene CAE, no puede modificarse
+        const esAutorizada = f.estado === 'AUTORIZADA' || Boolean(f.cae);
+        if (esAutorizada) {
+            if (btnEditar) btnEditar.hidden = true;
+            if (modoActual === 'editar') {
+                mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada.');
+                btnGuardar.disabled = true;
+                selectCondicionIva.disabled = true;
+                selectPuntoVenta.disabled = true;
+                selectTipoMoneda.disabled = true;
+                if (selectListaBase) selectListaBase.disabled = true;
+                if (textareaObservaciones) textareaObservaciones.disabled = true;
+                if (buscadorArticulo) buscadorArticulo.disabled = true;
+                if (btnAbrirModalCliente) btnAbrirModalCliente.disabled = true;
+                if (btnLimpiarCliente) btnLimpiarCliente.disabled = true;
+                tablaDetalles.setModo('ver');
+            }
+        } else {
+            if (btnEditar) btnEditar.hidden = false;
+        }
         snapshotInicial = serializarEstado();
     } catch (e) {
         mostrarAlertaError(e instanceof Error ? e.message : 'Error al cargar la factura');
@@ -358,13 +379,21 @@ function hayCambios(): boolean {
 
 // ─── Guardar ────────────────────────────────────────────────────────────────
 async function guardar(): Promise<void> {
+    if (facturaActual && (facturaActual.estado === 'AUTORIZADA' || facturaActual.cae)) {
+        mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada.');
+        return;
+    }
+    if (modoActual === 'editar' && facturaActual && facturaActual.estado !== 'BORRADOR') {
+        mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada. Solo se permiten cambios en Borrador.');
+        return;
+    }
     if (!validar()) return;
     ocultarAlertaError();
 
     btnGuardar.disabled = true;
     const span = btnGuardar.querySelector('span');
     const textoOriginal = span?.textContent ?? 'Guardar factura';
-    if (span) span.textContent = 'Guardando…';
+    if (span) span.textContent = 'Guardando...';
 
     try {
         const dto = construirDTO();
@@ -522,33 +551,67 @@ function configurarEventos(): void {
 
         if (fase === 'confirmar' && btn === 'confirmar' && facturaId != null) {
             e.preventDefault();
+            ocultarAlertaError();
             dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
                 el.hidden = el.getAttribute('data-fase') !== 'informando';
             });
             try {
-                const res = await facturaService.informarArca([facturaId]);
+                // 1. Invoca al método de FacturaService para emitir por ID existente ante ARCA
+                const facturaEmitida = await facturaService.emitirFacturaExistente(facturaId);
+
+                // 2. Procesamiento de la respuesta exitosa (200 / 201):
+                // Actualiza el objeto de la factura en la vista y cambia estado a AUTORIZADA
+                facturaActual = facturaEmitida;
+                document.body.dataset.estado = facturaEmitida.estado;
+                aplicarBadgeEstado(badgeEstado, facturaEmitida.estado);
+
+                // Muestra número de comprobante y valor de CAE en lugar del guion
+                if (facturaEmitida.numeroComprobante) {
+                    setTexto(document.body, '[data-campo="numeroFactura"]', facturaEmitida.numeroComprobante);
+                    tituloPagina.textContent = `Factura ${facturaEmitida.numeroComprobante}`;
+                }
+                const caeTexto = facturaEmitida.cae || '—';
+
+                setTexto(document.body, '[data-campo="caeInfo"]', caeTexto);
+                if (facturaEmitida.fechaEmision) {
+                    setTexto(document.body, '[data-campo="fechaEmision"]', formatearFecha(facturaEmitida.fechaEmision));
+                }
+
+                // Desactiva bandera cargando/informando y muestra resultado
                 const chips = dlgInformar.querySelector('#informar-chips') as HTMLElement;
                 const cuerpo = dlgInformar.querySelector('#informar-resultado-body') as HTMLTableSectionElement;
                 const tplResultado = document.getElementById('tpl-resultado-fila') as HTMLTemplateElement;
 
                 chips.replaceChildren();
                 cuerpo.replaceChildren();
-                for (const r of res) {
-                    const clone = tplResultado.content.cloneNode(true) as DocumentFragment;
-                    const fila = clone.querySelector('tr') as HTMLTableRowElement;
-                    (fila.querySelector('[data-campo="factura"]') as HTMLElement).textContent = r.nroFactura != null ? `#${r.nroFactura}` : `#${r.id}`;
-                    aplicarBadgeEstado(fila.querySelector('[data-campo="estado"]') as HTMLElement, r.estado);
-                    (fila.querySelector('[data-campo="detalle"]') as HTMLElement).textContent = r.mensaje ?? '—';
-                    (fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement).href = `nueva-factura.html?id=${r.id}&modo=ver`;
-                    cuerpo.appendChild(fila);
-                }
+
+                const clone = tplResultado.content.cloneNode(true) as DocumentFragment;
+                const fila = clone.querySelector('tr') as HTMLTableRowElement;
+                (fila.querySelector('[data-campo="factura"]') as HTMLElement).textContent = facturaEmitida.numeroComprobante || `#${facturaEmitida.id}`;
+                aplicarBadgeEstado(fila.querySelector('[data-campo="estado"]') as HTMLElement, facturaEmitida.estado);
+                (fila.querySelector('[data-campo="detalle"]') as HTMLElement).textContent = facturaEmitida.cae 
+                    ? `Autorizada por ARCA. CAE: ${facturaEmitida.cae}` 
+                    : (facturaEmitida.motivoRechazo || 'Autorizada');
+                (fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement).href = `nueva-factura.html?id=${facturaEmitida.id}&modo=ver`;
+                cuerpo.appendChild(fila);
+
                 dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
                     el.hidden = el.getAttribute('data-fase') !== 'resultado';
                 });
-            } catch {
-                dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
-                    el.hidden = el.getAttribute('data-fase') !== 'error';
-                });
+            } catch (err: any) {
+                // 3. Manejo de errores (422 o 500): quita estado informando y muestra cartel rojo
+                dlgInformar.close();
+                const mensaje = err instanceof Error ? err.message : 'Error al comunicar con ARCA/AFIP.';
+                mostrarAlertaError(mensaje);
+                // Actualiza el estado visual a RECHAZADA inmediatamente en la pantalla de detalle
+                document.body.dataset.estado = 'RECHAZADA';
+                aplicarBadgeEstado(badgeEstado, 'RECHAZADA');
+                if (facturaActual) {
+                    facturaActual.estado = 'RECHAZADA';
+                    facturaActual.motivoRechazo = mensaje;
+                }
+                setTexto(document.body, '[data-campo="motivoRechazo"]', mensaje);
+                void cargarFacturaExistente(facturaId);
             }
         }
     });

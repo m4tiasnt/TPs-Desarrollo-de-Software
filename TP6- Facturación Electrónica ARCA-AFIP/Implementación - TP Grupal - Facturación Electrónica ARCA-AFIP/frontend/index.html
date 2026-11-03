@@ -21,7 +21,7 @@
         #tabla-facturas(-body)   listado; la clase .is-selecting en la tabla muestra la columna de selección
         #btn-modo-informar       entra al modo selección (además poner .is-selecting en <body>)
         #barra-seleccion         barra flotante; #btn-informar-arca abre #dlg-informar-arca
-        #menu-factura            menú ⋯ de fila (data-menu: editar | anular | eliminar)
+        #menu-factura            menú ⋮ de fila (data-menu: editar | anular | eliminar)
         #listado-mensaje         estados vacío / error / cargando (plantillas #tpl-*)
         #dlg-anular, #dlg-eliminar, #dlg-informar-arca (fases con [data-fase])
       Matriz de estados (qué se puede hacer en cada uno): ver PLAN_BACKEND.md.
@@ -307,7 +307,7 @@
         <div class="modal-cliente-search">
             <div class="combobox" style="flex: 1;">
                 <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                <input type="text" id="inputBuscarCliente" class="form-control" placeholder="Buscar por CUIT/CUIL o denominación…" autocomplete="off">
+                <input type="text" id="inputBuscarCliente" class="form-control" placeholder="Buscar por CUIT/CUIL o denominación..." autocomplete="off">
             </div>
             <button type="button" id="btnBuscarCliente" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg> Buscar</button>
         </div>

@@ -2,6 +2,7 @@ import {
     ArticuloPrecioDTO,
     ClienteDTO,
     CondicionIvaDTO,
+    EstadoFactura,
     FacturaFiltrosDTO,
     FacturaVentaDTO,
     FacturaVentaListadoDTO,
@@ -41,16 +42,16 @@ export class FacturaService {
     async obtenerFacturas(filtros?: FacturaFiltrosDTO): Promise<RespuestaPaginadaDTO<FacturaVentaListadoDTO>> {
         const params = new URLSearchParams();
         if (filtros) {
-            if (filtros.fechaDesde) params.append('fechaDesde', filtros.fechaDesde);
-            if (filtros.fechaHasta) params.append('fechaHasta', filtros.fechaHasta);
-            if (filtros.estado) params.append('estado', filtros.estado);
-            if (filtros.montoMinimo !== undefined && filtros.montoMinimo !== null) {
+            if (filtros.fechaDesde && filtros.fechaDesde.trim() !== '') params.append('fechaDesde', filtros.fechaDesde.trim());
+            if (filtros.fechaHasta && filtros.fechaHasta.trim() !== '') params.append('fechaHasta', filtros.fechaHasta.trim());
+            if (filtros.estado && filtros.estado.trim() !== '') params.append('estado', filtros.estado.trim());
+            if (filtros.montoMinimo !== undefined && filtros.montoMinimo !== null && !isNaN(Number(filtros.montoMinimo))) {
                 params.append('montoMinimo', String(filtros.montoMinimo));
             }
-            if (filtros.clienteId !== undefined && filtros.clienteId !== null) {
+            if (filtros.clienteId !== undefined && filtros.clienteId !== null && !isNaN(Number(filtros.clienteId))) {
                 params.append('clienteId', String(filtros.clienteId));
             }
-            if (filtros.busqueda) params.append('busqueda', filtros.busqueda);
+            if (filtros.busqueda && filtros.busqueda.trim() !== '') params.append('busqueda', filtros.busqueda.trim());
             if (filtros.informadaArca !== undefined && filtros.informadaArca !== null) {
                 params.append('informadaArca', String(filtros.informadaArca));
             }
@@ -114,15 +115,57 @@ export class FacturaService {
         return await response.json();
     }
 
-    /** POST /api/facturas/informar-arca — informa varias por body { ids }. */
-    async informarArca(ids: number[]): Promise<InformarArcaResultadoDTO[]> {
-        const response = await fetch(`${this.baseUrl}/informar-arca`, {
+    /** POST /api/facturas/{id}/emitir · emite factura existente con ARCA/AFIP (obtiene CAE). */
+    async emitirFacturaExistente(id: number): Promise<FacturaVentaDTO> {
+        const response = await fetch(`${this.baseUrl}/${id}/emitir`, {
+            method: 'POST',
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al emitir factura en ARCA');
+        return await response.json();
+    }
+
+    /** POST /api/facturas/emitir · emite nueva factura con ARCA/AFIP (201 Created). */
+    async emitirFactura(factura: FacturaVentaRequestDTO): Promise<FacturaVentaDTO> {
+        const response = await fetch(`${this.baseUrl}/emitir`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ ids })
+            body: JSON.stringify(factura)
         });
-        if (!response.ok) throw await this.errorDe(response, 'Error al informar a ARCA');
+        if (!response.ok) throw await this.errorDe(response, 'Error al emitir factura en ARCA');
         return await response.json();
+    }
+
+    /** Emite facturas en lote ante ARCA llamando al endpoint correspondiente para cada una. */
+    async informarArca(ids: number[]): Promise<InformarArcaResultadoDTO[]> {
+        const resultados: InformarArcaResultadoDTO[] = [];
+        for (const id of ids) {
+            try {
+                const f = await this.emitirFacturaExistente(id);
+                resultados.push({
+                    id: f.id,
+                    nroFactura: f.numero,
+                    estado: f.estado,
+                    cae: f.cae,
+                    caeFechaVencimiento: f.caeFechaVencimiento,
+                    fechaEmision: f.fechaEmision,
+                    motivoRechazo: f.motivoRechazo,
+                    mensaje: f.cae ? `Autorizada por ARCA. CAE: ${f.cae}` : 'Emitida'
+                });
+            } catch (err) {
+                resultados.push({
+                    id: id,
+                    nroFactura: null,
+                    estado: 'RECHAZADA' as EstadoFactura,
+                    cae: null,
+                    caeFechaVencimiento: null,
+                    fechaEmision: null,
+                    motivoRechazo: err instanceof Error ? err.message : String(err),
+                    mensaje: err instanceof Error ? err.message : 'Error al comunicar con ARCA'
+                });
+            }
+        }
+        return resultados;
     }
 
     /** POST /api/facturas/{id}/informar-arca — informa una sola. */
@@ -238,6 +281,10 @@ export class FacturaService {
             const cuerpo = await response.json();
             if (cuerpo && typeof cuerpo.mensaje === 'string') {
                 detalle = cuerpo.mensaje;
+            } else if (cuerpo && typeof cuerpo.message === 'string') {
+                detalle = cuerpo.message;
+            } else if (cuerpo && typeof cuerpo.motivoRechazo === 'string') {
+                detalle = cuerpo.motivoRechazo;
             }
         } catch {
             // La respuesta no era JSON: nos quedamos con el statusText.

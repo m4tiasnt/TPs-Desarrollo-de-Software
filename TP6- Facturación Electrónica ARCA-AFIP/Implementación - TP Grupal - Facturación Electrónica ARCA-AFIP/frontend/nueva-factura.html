@@ -106,7 +106,7 @@
                             <label for="clienteDisplay">Cliente <span class="muted" id="cliente-opcional" hidden>(opcional)</span></label>
                             <div class="input-dialog-trigger">
                                 <input type="hidden" id="clienteId" name="clienteId" value="">
-                                <input type="text" class="form-control" id="clienteDisplay" readonly placeholder="Ningún cliente seleccionado…" aria-describedby="error-clienteId">
+                                <input type="text" class="form-control" id="clienteDisplay" readonly placeholder="Ningún cliente seleccionado..." aria-describedby="error-clienteId">
                                 <button type="button" class="btn btn-secondary" id="btnAbrirModalCliente" aria-haspopup="dialog" aria-label="Buscar cliente" title="Buscar cliente"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
                                 <button type="button" class="btn-icon" id="btn-limpiar-cliente" aria-label="Quitar cliente" title="Quitar cliente" hidden><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
                             </div>
@@ -117,17 +117,17 @@
                         </div>
                         <div class="form-group">
                             <label for="condicionIvaId">Condición IVA</label>
-                            <select class="form-control" id="condicionIvaId" name="condicionIvaId" required><option value="">Seleccionar…</option></select>
+                            <select class="form-control" id="condicionIvaId" name="condicionIvaId" required><option value="">Seleccionar...</option></select>
                             <div class="field-messages"><p class="field-error" id="error-condicionIvaId" hidden>Elegí una condición de IVA.</p></div>
                         </div>
                         <div class="form-group">
                             <label for="puntoVentaId">Punto de venta</label>
-                            <select class="form-control" id="puntoVentaId" name="puntoVentaId" required><option value="">Seleccionar…</option></select>
+                            <select class="form-control" id="puntoVentaId" name="puntoVentaId" required><option value="">Seleccionar...</option></select>
                             <div class="field-messages"><p class="field-error" id="error-puntoVentaId" hidden>Elegí un punto de venta.</p></div>
                         </div>
                         <div class="form-group">
                             <label for="tipoMonedaId">Moneda</label>
-                            <select class="form-control" id="tipoMonedaId" name="tipoMonedaId" required><option value="">Seleccionar…</option><option value="1" selected>Pesos Argentinos ($)</option></select>
+                            <select class="form-control" id="tipoMonedaId" name="tipoMonedaId" required><option value="">Seleccionar...</option><option value="1" selected>Pesos Argentinos ($)</option></select>
                         </div>
                     </div>
 
@@ -180,7 +180,7 @@
                     <div class="lines-toolbar solo-edicion">
                     <div class="form-group">
                         <label for="listaPrecioId">Lista para nuevos artículos</label>
-                        <select class="form-control" id="listaPrecioId" name="listaPrecioId"><option value="">Seleccionar…</option></select>
+                        <select class="form-control" id="listaPrecioId" name="listaPrecioId"><option value="">Seleccionar...</option></select>
                     </div>
                     <div class="combobox">
                         <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
@@ -288,7 +288,7 @@
             <h2 id="dlg-editar-lista-titulo">Editar lista de precios</h2>
             <div class="form-group" style="margin-top: var(--space-md);">
                 <label for="edit-listaPrecioId">Lista de precios</label>
-                <select class="form-control" id="edit-listaPrecioId" name="listaPrecioId" required><option value="">Seleccionar…</option></select>
+                <select class="form-control" id="edit-listaPrecioId" name="listaPrecioId" required><option value="">Seleccionar...</option></select>
                 <p class="field-hint" id="hint-lista-precio">El precio y el subtotal de este artículo se actualizan según la lista elegida.</p>
             </div>
             <div class="dialog-actions">
@@ -438,7 +438,7 @@
         <div class="modal-cliente-search">
             <div class="combobox" style="flex: 1;">
                 <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                <input type="text" id="inputBuscarCliente" class="form-control" placeholder="Buscar por CUIT/CUIL o denominación…" autocomplete="off">
+                <input type="text" id="inputBuscarCliente" class="form-control" placeholder="Buscar por CUIT/CUIL o denominación..." autocomplete="off">
             </div>
             <button type="button" id="btnBuscarCliente" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg> Buscar</button>
         </div>

@@ -126,11 +126,11 @@ public class FacturaRepository {
             jpql.append("AND f.estado = :estado ");
             parametros.put("estado", estado);
         }
-        if (montoMinimo != null) {
+        if (montoMinimo != null && montoMinimo > 0) {
             jpql.append("AND f.importeTotal >= :montoMinimo ");
             parametros.put("montoMinimo", montoMinimo);
         }
-        if (clienteId != null) {
+        if (clienteId != null && clienteId > 0) {
             jpql.append("AND f.cliente.id = :clienteId ");
             parametros.put("clienteId", clienteId);
         }

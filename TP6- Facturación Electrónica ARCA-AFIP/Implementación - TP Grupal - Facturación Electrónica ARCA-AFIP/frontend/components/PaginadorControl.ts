@@ -101,7 +101,7 @@ export class PaginadorControl {
 
         const desde = this.paginaActual * this.tamanioPagina + 1;
         const hasta = Math.min((this.paginaActual + 1) * this.tamanioPagina, this.totalElementos);
-        this.options.infoEl.innerHTML = `Mostrando <strong>${desde}–${hasta}</strong> de <strong>${this.totalElementos}</strong> ${etiqueta}`;
+        this.options.infoEl.innerHTML = `Mostrando <strong>${desde}ô${hasta}</strong> de <strong>${this.totalElementos}</strong> ${etiqueta}`;
     }
 
     private removerBotonesNumericos(): void {
@@ -124,7 +124,7 @@ export class PaginadorControl {
             if (p === -1) {
                 const span = document.createElement('span');
                 span.className = 'page-ellipsis';
-                span.textContent = '…';
+                span.textContent = '...';
                 fragment.appendChild(span);
             } else {
                 const btn = document.createElement('button');

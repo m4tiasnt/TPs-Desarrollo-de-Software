@@ -118,13 +118,17 @@ const paginador = new PaginadorControl({
 // ─── Filtros ────────────────────────────────────────────────────────────────
 function filtrosActuales(): FacturaFiltrosDTO {
     const arca = selectArca?.value;
+    const clienteIdVal = inputClienteId?.value ? parseInt(inputClienteId.value, 10) : undefined;
+    const montoMinimoVal = inputMontoMinimo?.value ? parseFloat(inputMontoMinimo.value) : undefined;
+    const busquedaVal = inputBusqueda?.value?.trim() || undefined;
+
     return {
-        fechaDesde: inputFechaDesde?.value || undefined,
-        fechaHasta: inputFechaHasta?.value || undefined,
+        fechaDesde: inputFechaDesde?.value?.trim() || undefined,
+        fechaHasta: inputFechaHasta?.value?.trim() || undefined,
         estado: (selectEstado?.value || undefined) as EstadoFactura | undefined,
-        montoMinimo: inputMontoMinimo?.value ? parseFloat(inputMontoMinimo.value) : undefined,
-        clienteId: inputClienteId?.value ? parseInt(inputClienteId.value, 10) : undefined,
-        busqueda: inputBusqueda?.value.trim() || undefined,
+        montoMinimo: montoMinimoVal !== undefined && !isNaN(montoMinimoVal) ? montoMinimoVal : undefined,
+        clienteId: clienteIdVal !== undefined && !isNaN(clienteIdVal) ? clienteIdVal : undefined,
+        busqueda: busquedaVal,
         informadaArca: arca === 'true' ? true : arca === 'false' ? false : undefined
     };
 }
@@ -570,9 +574,43 @@ async function ejecutarInformarArca(): Promise<void> {
     try {
         const resultados = await facturaService.informarArca(ids);
         renderResultadoArca(resultados);
+        // Actualizar el estado visual de cada factura en la tabla
+        for (const r of resultados) {
+            const tr = tbody?.querySelector<HTMLTableRowElement>(`tr[data-id="${r.id}"]`);
+            if (tr) {
+                tr.dataset.estado = r.estado;
+                const badge = tr.querySelector<HTMLElement>('[data-campo="estado"]');
+                if (badge) aplicarBadgeEstado(badge, r.estado);
+                if (r.nroFactura) {
+                    const nroEl = tr.querySelector<HTMLElement>('[data-campo="numero"]');
+                    if (nroEl) {
+                        nroEl.textContent = String(r.nroFactura);
+                        nroEl.className = 'nro-factura';
+                    }
+                }
+            }
+            const fEnMemoria = facturasPorId.get(r.id);
+            if (fEnMemoria) {
+                fEnMemoria.estado = r.estado;
+                if (r.nroFactura) fEnMemoria.numeroComprobante = String(r.nroFactura);
+            }
+        }
         informeEjecutado = true;
         mostrarFaseArca('resultado');
     } catch {
+        // Al recibir un error (500/422), actualizá el estado visual de la factura a "RECHAZADA" en la tabla
+        for (const id of ids) {
+            const tr = tbody?.querySelector<HTMLTableRowElement>(`tr[data-id="${id}"]`);
+            if (tr) {
+                tr.dataset.estado = 'RECHAZADA';
+                const badge = tr.querySelector<HTMLElement>('[data-campo="estado"]');
+                if (badge) aplicarBadgeEstado(badge, 'RECHAZADA');
+            }
+            const fEnMemoria = facturasPorId.get(id);
+            if (fEnMemoria) {
+                fEnMemoria.estado = 'RECHAZADA';
+            }
+        }
         mostrarFaseArca('error');
     }
 }
@@ -751,9 +789,9 @@ async function exportarFacturas(tipo: 'excel' | 'pdf', btn?: HTMLButtonElement |
     try {
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = `<span class="spinner" aria-hidden="true"></span> Descargando…`;
+            btn.innerHTML = `<span class="spinner" aria-hidden="true"></span> Descargando...`;
         }
-        toast.info(`Generando archivo ${tipo.toUpperCase()}…`);
+        toast.info(`Generando archivo ${tipo.toUpperCase()}...`);
         await facturaService.descargarReporte(tipo);
         toast.exito(`Reporte ${tipo.toUpperCase()} descargado exitosamente.`);
     } catch (error) {

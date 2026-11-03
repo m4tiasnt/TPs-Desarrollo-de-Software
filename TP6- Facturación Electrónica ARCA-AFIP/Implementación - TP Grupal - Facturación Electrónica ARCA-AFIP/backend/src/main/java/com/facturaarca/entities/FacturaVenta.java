@@ -1,6 +1,7 @@
 package com.facturaarca.entities;
 
 import com.facturaarca.enums.EstadoFactura;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.ArrayList;
@@ -66,6 +67,7 @@ public class FacturaVenta extends AuditoriaApp {
 
     @OneToMany(mappedBy = "factura", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
+    @JsonIgnore
     @Builder.Default
     private List<FacturaVentaDetalle> detalles = new ArrayList<>();
 
@@ -114,8 +116,6 @@ public class FacturaVenta extends AuditoriaApp {
         if (nuevasObservaciones != null) {
             this.observaciones = nuevasObservaciones;
         }
-        // En una edición completa el cliente puede venir nulo (Consumidor Final),
-        // por eso se asigna siempre y no solo cuando no es nulo.
         this.cliente = nuevoCliente;
         if (nuevaCondicionIva != null) {
             this.condicionIva = nuevaCondicionIva;
@@ -140,10 +140,6 @@ public class FacturaVenta extends AuditoriaApp {
         }
     }
 
-    /**
-     * Deja la factura autorizada con los datos que devuelve ARCA.
-     * Se usará cuando se conecte la integración real.
-     */
     public void autorizar(Long numero, Date fechaEmision, String cae, Date caeFechaVencimiento,
                           Usuario usuarioModificacion) {
         this.numero = numero;
@@ -159,10 +155,6 @@ public class FacturaVenta extends AuditoriaApp {
         }
     }
 
-    /**
-     * Deja la factura rechazada con el motivo que devuelve ARCA.
-     * Se usará cuando se conecte la integración real.
-     */
     public void rechazar(String motivo, Usuario usuarioModificacion) {
         this.motivoRechazo = motivo;
         this.resultadoAfip = "R";

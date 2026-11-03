@@ -44,3 +44,10 @@ bin/
 
 ### App ###
 reportes/
+### Certificados y Claves AFIP ###
+*.key
+*.crt
+*.csr
+afip_private.key
+afip_certificado.crt
+afip_solicitud.csr

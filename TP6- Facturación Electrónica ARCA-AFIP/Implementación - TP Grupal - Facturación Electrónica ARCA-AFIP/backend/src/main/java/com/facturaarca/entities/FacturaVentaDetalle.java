@@ -1,5 +1,6 @@
 package com.facturaarca.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,6 +18,7 @@ public class FacturaVentaDetalle extends EntityId {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "factura_venta_id", nullable = false)
     @ToString.Exclude
+    @JsonIgnore
     private FacturaVenta factura;
 
     @ManyToOne(fetch = FetchType.LAZY)
