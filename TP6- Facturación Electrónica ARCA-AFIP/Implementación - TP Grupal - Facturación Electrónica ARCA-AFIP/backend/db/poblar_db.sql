@@ -5,9 +5,11 @@
 CREATE SCHEMA IF NOT EXISTS model;
 SET search_path TO model;
 
--- Permitir que cliente_id acepte nulos si la tabla ya habia sido creada previamente
+-- Compatibilidad de esquema para comprobantes de consumidor final y campos extensos
 ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN cliente_id DROP NOT NULL;
 ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN fecha_emision DROP NOT NULL;
+ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN motivo_rechazo TYPE text;
+ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN observaciones TYPE text;
 
 TRUNCATE TABLE 
     usuarios,
@@ -71,17 +73,17 @@ INSERT INTO domicilios (id, nombre_calle, numero_calle) VALUES
 
 -- 4. CLIENTES
 INSERT INTO clientes (id, fecha_alta, fecha_modificacion, cuit_cuil, denominacion, usuario_carga_id, usuario_modificacion_id, contacto_id, domicilio_id) VALUES
-(1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-12345678-9', 'Empresa Demo S.A.', 1, 1, 1, 1),
-(2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-12345678-5', 'Juan Gomez', 1, 1, 2, 2),
-(3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-87654321-0', 'Demo Center SRL', 1, 1, 3, 3),
-(4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-11111111-2', 'Ferreteria El Tornillo', 1, 1, 4, 4),
-(5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-99999999-9', 'Tecnologica Mendoza', 2, 2, 5, 5),
-(6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-88888888-8', 'Libreria Estudiantil', 2, 2, 6, 6),
-(7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-55555555-5', 'Supermercado Todo', 1, 1, 7, 7),
-(8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-44444444-4', 'Ropa Deportiva SA', 2, 2, 8, 8),
-(9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-33333333-3', 'Estudio Contable Diaz', 5, 5, 9, 9),
-(10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-22222222-2', 'Juan Perez Jr', 6, 6, 10, 10),
-(11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-11111111-1', 'Electrohogar', 5, 5, 11, 11);
+(1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-12345678-1', 'Empresa Demo S.A.', 1, 1, 1, 1),
+(2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-12345678-6', 'Juan Gomez', 1, 1, 2, 2),
+(3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-87654321-5', 'Demo Center SRL', 1, 1, 3, 3),
+(4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-11111111-7', 'Ferreteria El Tornillo', 1, 1, 4, 4),
+(5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-99999999-5', 'Tecnologica Mendoza', 2, 2, 5, 5),
+(6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-88888888-3', 'Libreria Estudiantil', 2, 2, 6, 6),
+(7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-55555555-1', 'Supermercado Todo', 1, 1, 7, 7),
+(8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-44444444-0', 'Ropa Deportiva SA', 2, 2, 8, 8),
+(9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-33333333-9', 'Estudio Contable Diaz', 5, 5, 9, 9),
+(10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-22222222-3', 'Juan Perez Jr', 6, 6, 10, 10),
+(11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-11111111-8', 'Electrohogar', 5, 5, 11, 11);
 
 -- 5. CONDICIONES IVA
 INSERT INTO condiciones_iva (id, fecha_alta, fecha_modificacion, codigo_afip, denominacion, usuario_carga_id, usuario_modificacion_id) VALUES
