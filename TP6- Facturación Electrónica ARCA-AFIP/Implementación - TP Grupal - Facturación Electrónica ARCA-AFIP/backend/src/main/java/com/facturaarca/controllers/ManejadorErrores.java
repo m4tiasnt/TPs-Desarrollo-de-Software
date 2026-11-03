@@ -94,7 +94,7 @@ public class ManejadorErrores {
             HttpMediaTypeNotSupportedException ex) {
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
                 .body(Map.of("mensaje",
-                        "El tipo de contenido de la petición no está soportado. Usá application/json"));
+                        "El tipo de contenido de la petición no está soportado. Utilice application/json"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

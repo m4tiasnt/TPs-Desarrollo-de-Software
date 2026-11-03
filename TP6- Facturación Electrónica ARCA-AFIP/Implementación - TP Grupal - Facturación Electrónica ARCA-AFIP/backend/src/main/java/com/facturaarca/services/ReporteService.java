@@ -15,6 +15,8 @@ import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +33,8 @@ import java.util.Locale;
 
 @Service
 public class ReporteService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReporteService.class);
 
     private final FacturaService facturaService;
 
@@ -81,7 +85,12 @@ public class ReporteService {
             for (FacturaVentaReporteDTO f : facturas) {
                 Row row = sheet.createRow(rowNum++);
 
-                row.createCell(0).setCellValue(f.getNumeroFactura() != null ? f.getNumeroFactura() : 0);
+                Cell numCell = row.createCell(0);
+                if (f.getNumeroFactura() != null) {
+                    numCell.setCellValue(f.getNumeroFactura());
+                } else {
+                    numCell.setCellValue("—");
+                }
 
                 Cell dateCell = row.createCell(1);
                 if (f.getFechaEmision() != null) {
@@ -124,7 +133,7 @@ public class ReporteService {
         Path destino = dir.resolve("reporte_facturas_" + fechaHora + ".xlsx");
         Files.write(destino, bytes);
 
-        System.out.println("Excel (.xlsx) generado exitosamente en: " + destino + ".");
+        log.info("Excel (.xlsx) generado exitosamente en: {}.", destino);
         return destino;
     }
 
@@ -178,7 +187,8 @@ public class ReporteService {
                     table.addCell(factura.getPuntoVentaDescripcion() != null ? factura.getPuntoVentaDescripcion() : "");
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("$ " + String.format(formatoArgentino, "%,.2f", factura.getImporteTotal()))
                             .setTextAlignment(TextAlignment.RIGHT)));
-                    table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(factura.getCantidadItems().toString())
+                    table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
+                            factura.getCantidadItems() != null ? factura.getCantidadItems().toString() : "0")
                             .setTextAlignment(TextAlignment.RIGHT)));
                     table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
                             factura.getEstado() != null ? factura.getEstado().name() : ""))
@@ -215,7 +225,7 @@ public class ReporteService {
         Path destino = dir.resolve("reporte_facturas_" + fechaHoraActual + ".pdf");
         Files.write(destino, bytes);
 
-        System.out.println("PDF generado exitosamente en: " + destino + ".");
+        log.info("PDF generado exitosamente en: {}.", destino);
         return destino;
     }
 

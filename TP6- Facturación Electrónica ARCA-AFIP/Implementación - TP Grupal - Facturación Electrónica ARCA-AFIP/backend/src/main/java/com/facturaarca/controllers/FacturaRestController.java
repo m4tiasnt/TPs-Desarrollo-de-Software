@@ -3,32 +3,31 @@ package com.facturaarca.controllers;
 import com.facturaarca.dto.FacturaVentaDTO;
 import com.facturaarca.dto.FacturaVentaRequestDTO;
 import com.facturaarca.dto.FacturaVentaListadoDTO;
-import com.facturaarca.dto.InformarArcaResultadoDTO;
-import com.facturaarca.dto.InformarArcaSolicitudDTO;
+import com.facturaarca.dto.ResultadoAutorizacionDTO;
 import com.facturaarca.dto.RespuestaPaginadaDTO;
 import com.facturaarca.enums.EstadoFactura;
 import com.facturaarca.services.FacturaService;
-import com.facturaarca.services.FacturacionService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
-import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/facturas")
 @CrossOrigin(origins = "*")
 public class FacturaRestController {
 
     private final FacturaService facturaService;
-    private final FacturacionService facturacionService;
 
-    public FacturaRestController(FacturaService facturaService, FacturacionService facturacionService) {
+    public FacturaRestController(FacturaService facturaService) {
         this.facturaService = facturaService;
-        this.facturacionService = facturacionService;
     }
 
     @GetMapping
@@ -40,8 +39,11 @@ public class FacturaRestController {
             @RequestParam(required = false) Long clienteId,
             @RequestParam(required = false) String busqueda,
             @RequestParam(required = false) Boolean informadaArca,
-            @RequestParam(value = "pagina", defaultValue = "0") int pagina,
-            @RequestParam(value = "tamanio", defaultValue = "20") int tamanio) {
+            @RequestParam(value = "pagina", defaultValue = "0")
+            @Min(value = 0, message = "El número de página no puede ser negativo") int pagina,
+            @RequestParam(value = "tamanio", defaultValue = "20")
+            @Min(value = 1, message = "El tamaño de página debe ser al menos 1")
+            @Max(value = 100, message = "El tamaño de página no puede ser superior a 100") int tamanio) {
 
         return facturaService.buscarFacturasPaginadas(
                 fechaDesde, fechaHasta, estado, montoMinimo,
@@ -60,26 +62,6 @@ public class FacturaRestController {
     public ResponseEntity<FacturaVentaDTO> crearFactura(@Valid @RequestBody FacturaVentaRequestDTO facturaVentaRequestDTO) {
         FacturaVentaDTO facturaCreada = facturaService.crearFactura(facturaVentaRequestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(facturaCreada);
-    }
-
-    /**
-     * Emite una factura directamente con ARCA / AFIP:
-     * Solicita Token y Sign a WSAA, consulta último comprobante en WSFEv1,
-     * pide CAE a AFIP y persiste la factura AUTORIZADA en PostgreSQL.
-     */
-    @PostMapping("/emitir")
-    public ResponseEntity<FacturaVentaDTO> emitirFactura(@Valid @RequestBody FacturaVentaRequestDTO facturaVentaRequestDTO) {
-        FacturaVentaDTO facturaEmitida = facturacionService.emitirFactura(facturaVentaRequestDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(facturaEmitida);
-    }
-
-    /**
-     * Emite una factura previamente guardada en estado BORRADOR con ARCA / AFIP.
-     */
-    @PostMapping("/{id}/emitir")
-    public ResponseEntity<FacturaVentaDTO> emitirFacturaExistente(@PathVariable Long id) {
-        FacturaVentaDTO facturaEmitida = facturacionService.emitirFacturaExistente(id);
-        return ResponseEntity.ok(facturaEmitida);
     }
 
     @PutMapping("/{id}")
@@ -101,14 +83,11 @@ public class FacturaRestController {
         return ResponseEntity.ok(facturaService.anularFactura(id));
     }
 
-    @PostMapping("/informar-arca")
-    public ResponseEntity<List<InformarArcaResultadoDTO>> informarArca(
-            @Valid @RequestBody InformarArcaSolicitudDTO solicitud) {
-        return ResponseEntity.ok(facturaService.informarArca(solicitud.getIds()));
-    }
-
+    /**
+     * Informa una factura individual ante ARCA / AFIP para obtener CAE.
+     */
     @PostMapping("/{id}/informar-arca")
-    public ResponseEntity<List<InformarArcaResultadoDTO>> informarArcaUna(@PathVariable Long id) {
-        return ResponseEntity.ok(facturaService.informarArca(List.of(id)));
+    public ResponseEntity<ResultadoAutorizacionDTO> informarArca(@PathVariable Long id) {
+        return ResponseEntity.ok(facturaService.informarArca(id));
     }
 }

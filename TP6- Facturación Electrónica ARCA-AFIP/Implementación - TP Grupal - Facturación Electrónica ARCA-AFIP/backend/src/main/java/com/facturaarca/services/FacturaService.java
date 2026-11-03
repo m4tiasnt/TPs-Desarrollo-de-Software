@@ -1,12 +1,13 @@
 package com.facturaarca.services;
 
+import com.facturaarca.arca.ResultadoAutorizacionArca;
 import com.facturaarca.dto.FacturaVentaDTO;
 import com.facturaarca.dto.FacturaVentaRequestDTO;
 import com.facturaarca.dto.FacturaVentaDetalleDTO;
 import com.facturaarca.dto.FacturaVentaDetalleRequestDTO;
 import com.facturaarca.dto.FacturaVentaListadoDTO;
 import com.facturaarca.dto.FacturaVentaReporteDTO;
-import com.facturaarca.dto.InformarArcaResultadoDTO;
+import com.facturaarca.dto.ResultadoAutorizacionDTO;
 import com.facturaarca.dto.RespuestaPaginadaDTO;
 import com.facturaarca.entities.Articulo;
 import com.facturaarca.entities.Cliente;
@@ -36,6 +37,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +51,7 @@ public class FacturaService {
     private final ClienteRepository clienteRepository;
     private final ListaPrecioArticuloRepository listaPrecioArticuloRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ArcaService arcaService;
 
     @Transactional(readOnly = true)
     public List<FacturaVentaReporteDTO> obtenerTodasLasFacturas() {
@@ -115,9 +118,8 @@ public class FacturaService {
         agregarDetalles(factura, dto.getDetalles());
         factura.recalcularTotales();
 
-        FacturaVenta guardada = facturaVentaRepository.saveAndFlush(factura);
-        FacturaVenta recargada = facturaVentaRepository.buscarConDetalles(guardada.getId()).orElse(guardada);
-        return convertirAFacturaVentaDTO(recargada);
+        FacturaVenta guardada = facturaVentaRepository.save(factura);
+        return convertirAFacturaVentaDTO(guardada);
     }
 
     @Transactional
@@ -155,9 +157,8 @@ public class FacturaService {
             factura.recalcularTotales();
         }
 
-        FacturaVenta guardada = facturaVentaRepository.saveAndFlush(factura);
-        FacturaVenta recargada = facturaVentaRepository.buscarConDetalles(guardada.getId()).orElse(guardada);
-        return convertirAFacturaVentaDTO(recargada);
+        FacturaVenta guardada = facturaVentaRepository.save(factura);
+        return convertirAFacturaVentaDTO(guardada);
     }
 
     @Transactional
@@ -179,50 +180,53 @@ public class FacturaService {
                     "No se puede anular una factura en estado " + factura.getEstado());
         }
         factura.anular(obtenerUsuarioParaAuditoria());
-        FacturaVenta guardada = facturaVentaRepository.saveAndFlush(factura);
-        FacturaVenta recargada = facturaVentaRepository.buscarConDetalles(guardada.getId()).orElse(guardada);
-        return convertirAFacturaVentaDTO(recargada);
+        FacturaVenta guardada = facturaVentaRepository.save(factura);
+        return convertirAFacturaVentaDTO(guardada);
     }
 
     @Transactional
-    public List<InformarArcaResultadoDTO> informarArca(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Debe indicar al menos una factura para informar");
+    public ResultadoAutorizacionDTO informarArca(Long id) {
+        FacturaVenta factura = facturaVentaRepository.buscarConDetalles(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Factura no encontrada con id: " + id));
+
+        if (!factura.getEstado().esInformable()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se puede informar una factura en estado " + factura.getEstado());
         }
 
         Usuario usuario = obtenerUsuarioParaAuditoria();
-        List<InformarArcaResultadoDTO> resultados = new ArrayList<>();
 
-        for (Long id : ids) {
-            FacturaVenta factura = buscarFactura(id);
+        // Transición a EN_PROCESO
+        factura.marcarEnProceso(usuario);
 
-            if (!factura.getEstado().esInformable()) {
-                resultados.add(InformarArcaResultadoDTO.builder()
-                        .id(factura.getId())
-                        .nroFactura(factura.getNumero())
-                        .estado(factura.getEstado())
-                        .mensaje("No se puede informar una factura en estado " + factura.getEstado())
-                        .build());
-                continue;
-            }
+        // Delegación técnica al conector de ARCA
+        ResultadoAutorizacionArca resultadoArca = arcaService.solicitarAutorizacion(factura);
 
-            factura.marcarEnProceso(usuario);
-            FacturaVenta guardada = facturaVentaRepository.save(factura);
-
-            resultados.add(InformarArcaResultadoDTO.builder()
-                    .id(guardada.getId())
-                    .nroFactura(guardada.getNumero())
-                    .estado(guardada.getEstado())
-                    .cae(guardada.getCae())
-                    .caeFechaVencimiento(guardada.getCaeFechaVencimiento())
-                    .fechaEmision(guardada.getFechaEmision())
-                    .motivoRechazo(guardada.getMotivoRechazo())
-                    .mensaje("Enviada a ARCA. Pendiente de respuesta.")
-                    .build());
+        if (resultadoArca.isAutorizado()) {
+            factura.autorizar(
+                    resultadoArca.getNumeroComprobante(),
+                    resultadoArca.getFechaEmision(),
+                    resultadoArca.getCae(),
+                    resultadoArca.getCaeVencimiento(),
+                    usuario
+            );
+        } else {
+            factura.rechazar(resultadoArca.getMotivoRechazo(), usuario);
         }
 
-        return resultados;
+        FacturaVenta guardada = facturaVentaRepository.save(factura);
+
+        return ResultadoAutorizacionDTO.builder()
+                .id(guardada.getId())
+                .numero(guardada.getNumero())
+                .estado(guardada.getEstado())
+                .cae(guardada.getCae())
+                .caeFechaVencimiento(guardada.getCaeFechaVencimiento())
+                .fechaEmision(guardada.getFechaEmision())
+                .motivoRechazo(guardada.getMotivoRechazo())
+                .mensaje(resultadoArca.getMensaje())
+                .build();
     }
 
     public FacturaVentaDTO convertirAFacturaVentaDTO(FacturaVenta factura) {
@@ -230,84 +234,38 @@ public class FacturaService {
             return null;
         }
 
-        List<FacturaVentaDetalleDTO> detalles = new ArrayList<>();
-        if (factura.getDetalles() != null) {
-            for (FacturaVentaDetalle det : factura.getDetalles()) {
-                if (det != null) {
-                    FacturaVentaDetalleDTO detDto = convertirAFacturaVentaDetalleDTO(det);
-                    if (detDto != null) {
-                        detalles.add(detDto);
-                    }
-                }
-            }
-        }
+        List<FacturaVentaDetalleDTO> detalles = factura.getDetalles() == null
+                ? List.of()
+                : factura.getDetalles().stream()
+                        .filter(d -> d != null)
+                        .map(this::convertirAFacturaVentaDetalleDTO)
+                        .toList();
 
         double importeNeto = detalles.stream().mapToDouble(FacturaVentaDetalleDTO::getImporteNeto).sum();
         double importeIva = detalles.stream().mapToDouble(FacturaVentaDetalleDTO::getImporteIva).sum();
 
-        Long clienteId = null;
-        String clienteDenom = "Consumidor Final";
-        String clienteCuit = null;
-        if (factura.getCliente() != null) {
-            try {
-                clienteId = factura.getCliente().getId();
-                clienteDenom = (factura.getCliente().getDenominacion() != null && !factura.getCliente().getDenominacion().isBlank())
-                        ? factura.getCliente().getDenominacion() : "Consumidor Final";
-                clienteCuit = factura.getCliente().getCuitCuil();
-            } catch (Exception ignored) {}
-        }
-
-        Long condicionIvaId = null;
-        String condicionIvaDesc = "";
-        if (factura.getCondicionIva() != null) {
-            try {
-                condicionIvaId = factura.getCondicionIva().getId();
-                condicionIvaDesc = factura.getCondicionIva().getDenominacion() != null
-                        ? factura.getCondicionIva().getDenominacion() : "";
-            } catch (Exception ignored) {}
-        }
-
-        Long puntoVentaId = null;
-        Integer puntoVentaNum = null;
-        String puntoVentaDesc = "";
-        if (factura.getPuntoVenta() != null) {
-            try {
-                puntoVentaId = factura.getPuntoVenta().getId();
-                puntoVentaNum = factura.getPuntoVenta().getNumero();
-                puntoVentaDesc = factura.getPuntoVenta().getDescripcion() != null
-                        ? factura.getPuntoVenta().getDescripcion() : "";
-            } catch (Exception ignored) {}
-        }
-
-        Long tipoMonedaId = null;
-        String tipoMonedaDesc = "";
-        String tipoMonedaSimbolo = "";
-        if (factura.getTipoMoneda() != null) {
-            try {
-                tipoMonedaId = factura.getTipoMoneda().getId();
-                tipoMonedaDesc = factura.getTipoMoneda().getDenominacion() != null
-                        ? factura.getTipoMoneda().getDenominacion() : "";
-                tipoMonedaSimbolo = factura.getTipoMoneda().getSimbolo() != null
-                        ? factura.getTipoMoneda().getSimbolo() : "";
-            } catch (Exception ignored) {}
-        }
+        Cliente cliente = factura.getCliente();
+        CondicionIva condicionIva = factura.getCondicionIva();
+        PuntoVenta puntoVenta = factura.getPuntoVenta();
+        TipoMoneda tipoMoneda = factura.getTipoMoneda();
 
         return FacturaVentaDTO.builder()
                 .id(factura.getId())
                 .numero(factura.getNumero())
                 .numeroComprobante(formatearNumeroComprobante(factura))
                 .fechaEmision(factura.getFechaEmision())
-                .clienteId(clienteId)
-                .clienteDenominacion(clienteDenom)
-                .clienteCuitCuil(clienteCuit)
-                .condicionIvaId(condicionIvaId)
-                .condicionIva(condicionIvaDesc)
-                .puntoVentaId(puntoVentaId)
-                .puntoVentaNumero(puntoVentaNum)
-                .puntoVentaDescripcion(puntoVentaDesc)
-                .tipoMonedaId(tipoMonedaId)
-                .tipoMoneda(tipoMonedaDesc)
-                .tipoMonedaSimbolo(tipoMonedaSimbolo)
+                .clienteId(cliente != null ? cliente.getId() : null)
+                .clienteDenominacion(cliente != null && cliente.getDenominacion() != null && !cliente.getDenominacion().isBlank()
+                        ? cliente.getDenominacion() : "Consumidor Final")
+                .clienteCuitCuil(cliente != null ? cliente.getCuitCuil() : null)
+                .condicionIvaId(condicionIva != null ? condicionIva.getId() : null)
+                .condicionIva(condicionIva != null ? condicionIva.getDenominacion() : "")
+                .puntoVentaId(puntoVenta != null ? puntoVenta.getId() : null)
+                .puntoVentaNumero(puntoVenta != null ? puntoVenta.getNumero() : null)
+                .puntoVentaDescripcion(puntoVenta != null ? puntoVenta.getDescripcion() : "")
+                .tipoMonedaId(tipoMoneda != null ? tipoMoneda.getId() : null)
+                .tipoMoneda(tipoMoneda != null ? tipoMoneda.getDenominacion() : "")
+                .tipoMonedaSimbolo(tipoMoneda != null ? tipoMoneda.getSimbolo() : "")
                 .importeNeto(redondear(importeNeto))
                 .importeIva(redondear(importeIva))
                 .importeTotal(factura.getImporteTotal())
@@ -331,60 +289,23 @@ public class FacturaService {
             return null;
         }
 
-        ListaPrecioArticulo listaPrecioArticulo = null;
-        Articulo articulo = null;
-        ListaPrecio listaPrecio = null;
-
-        try {
-            listaPrecioArticulo = detalle.getListaPrecioArticulo();
-        } catch (Exception ignored) {}
-
-        if (listaPrecioArticulo != null) {
-            try {
-                articulo = listaPrecioArticulo.getArticulo();
-            } catch (Exception ignored) {}
-            try {
-                listaPrecio = listaPrecioArticulo.getListaPrecio();
-            } catch (Exception ignored) {}
-        }
-
-        Long articuloId = null;
-        String codigoArticulo = null;
-        String denominacionArticulo = null;
-        if (articulo != null) {
-            try {
-                articuloId = articulo.getId();
-                codigoArticulo = articulo.getCodigo();
-                denominacionArticulo = articulo.getDenominacion();
-            } catch (Exception ignored) {}
-        }
-
-        Long listaPrecioArticuloId = null;
-        String denominacionListaPrecio = null;
-        if (listaPrecioArticulo != null) {
-            try {
-                listaPrecioArticuloId = listaPrecioArticulo.getId();
-            } catch (Exception ignored) {}
-        }
-        if (listaPrecio != null) {
-            try {
-                denominacionListaPrecio = listaPrecio.getDenominacion();
-            } catch (Exception ignored) {}
-        }
+        ListaPrecioArticulo listaPrecioArticulo = detalle.getListaPrecioArticulo();
+        Articulo articulo = listaPrecioArticulo != null ? listaPrecioArticulo.getArticulo() : null;
+        ListaPrecio listaPrecio = listaPrecioArticulo != null ? listaPrecioArticulo.getListaPrecio() : null;
 
         String desc = detalle.getDescripcion();
-        if (desc == null || desc.isBlank()) {
-            desc = (denominacionArticulo != null) ? denominacionArticulo : "Detalle";
+        if ((desc == null || desc.isBlank()) && articulo != null) {
+            desc = articulo.getDenominacion();
         }
 
         return FacturaVentaDetalleDTO.builder()
                 .id(detalle.getId())
-                .articuloId(articuloId)
-                .codigoArticulo(codigoArticulo)
-                .denominacionArticulo(denominacionArticulo)
-                .listaPrecioArticuloId(listaPrecioArticuloId)
-                .listaPrecio(denominacionListaPrecio)
-                .descripcion(desc)
+                .articuloId(articulo != null ? articulo.getId() : null)
+                .codigoArticulo(articulo != null ? articulo.getCodigo() : null)
+                .denominacionArticulo(articulo != null ? articulo.getDenominacion() : null)
+                .listaPrecioArticuloId(listaPrecioArticulo != null ? listaPrecioArticulo.getId() : null)
+                .listaPrecio(listaPrecio != null ? listaPrecio.getDenominacion() : null)
+                .descripcion(desc != null ? desc : "Detalle")
                 .cantidad(detalle.getCantidad())
                 .precioUnitario(detalle.getPrecioUnitario())
                 .porcentajeBonificacion(detalle.getPorcentajeBonificacion())
@@ -492,7 +413,7 @@ public class FacturaService {
                     .findFirstByArticuloIdOrderByIdAsc(detalleDto.getArticuloId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "El artículo indicado no tiene una lista de precios asociada (id: "
-                                    + detalleDto.getArticuloId() + ")"));
+                                     + detalleDto.getArticuloId() + ")"));
         }
 
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -500,7 +421,8 @@ public class FacturaService {
     }
 
     private Usuario obtenerUsuarioParaAuditoria() {
-        return usuarioRepository.findAll().stream().findFirst().orElse(null);
+        return usuarioRepository.findById(1L)
+                .orElseGet(() -> usuarioRepository.findAll().stream().findFirst().orElse(null));
     }
 
     private static String formatearNumeroComprobante(FacturaVenta factura) {

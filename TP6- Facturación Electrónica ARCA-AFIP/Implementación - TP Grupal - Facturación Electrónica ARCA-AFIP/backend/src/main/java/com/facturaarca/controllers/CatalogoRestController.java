@@ -70,7 +70,7 @@ public class CatalogoRestController {
         String q = search != null ? search.trim() : "";
         if (q.length() < MINIMO_CARACTERES_BUSQUEDA) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Ingresá al menos " + MINIMO_CARACTERES_BUSQUEDA
+                    "Ingrese al menos " + MINIMO_CARACTERES_BUSQUEDA
                             + " caracteres para buscar artículos");
         }
 

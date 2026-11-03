@@ -1,7 +1,6 @@
 package com.facturaarca.entities;
 
 import com.facturaarca.enums.EstadoFactura;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.ArrayList;
@@ -54,6 +53,7 @@ public class FacturaVenta extends AuditoriaApp {
 
     private String resultadoAfip;
 
+    @Column(columnDefinition = "TEXT")
     private String motivoRechazo;
 
     @Enumerated(EnumType.STRING)
@@ -63,11 +63,11 @@ public class FacturaVenta extends AuditoriaApp {
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaAnulacion;
 
+    @Column(columnDefinition = "TEXT")
     private String observaciones;
 
     @OneToMany(mappedBy = "factura", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
-    @JsonIgnore
     @Builder.Default
     private List<FacturaVentaDetalle> detalles = new ArrayList<>();
 
