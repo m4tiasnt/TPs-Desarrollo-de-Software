@@ -44,6 +44,7 @@ bin/
 
 ### App ###
 reportes/
+
 ### Certificados y Claves AFIP ###
 *.key
 *.crt
