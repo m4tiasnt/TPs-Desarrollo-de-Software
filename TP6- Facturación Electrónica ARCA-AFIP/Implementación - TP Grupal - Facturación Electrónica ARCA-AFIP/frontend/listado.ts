@@ -517,8 +517,28 @@ async function anularFactura(id: number): Promise<void> {
     if (!(await abrirConfirmacion(dlg, obtenerIdentificadorFactura(f)))) return;
 
     try {
-        await facturaService.anularFactura(id);
-        toast.exito(`Factura ${obtenerIdentificadorFactura(f)} anulada.`);
+        const facturaAnulada = await facturaService.anularFactura(id);
+        const estadoFinal = facturaAnulada?.estado || ('ANULADA' as EstadoFactura);
+        f.estado = estadoFinal;
+
+        // Actualización visual de la fila en la tabla
+        const tr = tbody?.querySelector<HTMLTableRowElement>(`tr[data-id="${id}"]`);
+        if (tr) {
+            tr.dataset.estado = estadoFinal;
+            tr.classList.add('no-informable');
+            const badge = tr.querySelector<HTMLElement>('[data-campo="estado"]');
+            if (badge) aplicarBadgeEstado(badge, estadoFinal);
+            const chk = tr.querySelector<HTMLInputElement>('input[name="facturaIds"]');
+            if (chk) {
+                chk.disabled = true;
+                chk.checked = false;
+            }
+            tr.classList.remove('is-selected');
+            seleccionados.delete(id);
+            actualizarSeleccion();
+        }
+
+        toast.exito(`Factura ${obtenerIdentificadorFactura(f)} anulada con éxito.`);
         await cargarFacturas();
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'No se pudo anular la factura.');

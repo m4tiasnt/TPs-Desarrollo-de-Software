@@ -16,7 +16,7 @@ public class AfipIntegrationTest {
             String certPath = new File("backend/afip_certificado.crt").exists() ? "backend/afip_certificado.crt" : "afip_certificado.crt";
 
             // CUIT obtenido del certificado digital (homologación)
-            long cuit = 20000000001L;
+            long cuit = 20471946797L;
             int puntoDeVenta = 1;
             double importeFactura = 12100.00;
 
