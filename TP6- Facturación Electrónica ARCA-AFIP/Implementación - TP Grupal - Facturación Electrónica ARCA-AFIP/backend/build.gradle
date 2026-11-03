@@ -21,11 +21,6 @@ repositories {
     mavenCentral()
 }
 
-// Declaración de configuración para la herramienta de generación JAX-WS
-configurations {
-    jaxws
-}
-
 dependencies {
     // PostgreSQL Driver
     implementation 'org.postgresql:postgresql:42.7.3'
@@ -56,7 +51,6 @@ dependencies {
     // Dependencias JAX-WS (WSFE v1)
     implementation 'jakarta.xml.ws:jakarta.xml.ws-api:4.0.0'
     implementation 'com.sun.xml.ws:jaxws-rt:4.0.1'
-    jaxws 'com.sun.xml.ws:jaxws-tools:4.0.1'
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -64,11 +58,4 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
-}
-
-// Tarea para descargar e importar las clases de WSFE v1 desde el WSDL
-task generateWsfe(type: JavaExec) {
-    mainClass = 'com.sun.tools.ws.WsImport'
-    classpath = configurations.jaxws
-    args = ['-keep', '-p', 'com.facturaarca.wsfe', '-d', 'src/main/java', 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL']
 }

@@ -1,4 +1,4 @@
-package com.facturaarca;
+package com.facturaarca.arca;
 
 import com.facturaarca.wsfe.*;
 import jakarta.xml.ws.BindingProvider;
@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter;
 /**
  * Cliente SOAP para el servicio de Facturación Electrónica WSFEv1 de ARCA / AFIP (Homologación).
  */
-public class AfipWsfeClient {
+public class ArcaWsfeClient {
 
     private static final String URL_WSFE_HOMO = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
 
@@ -30,13 +30,6 @@ public class AfipWsfeClient {
 
     /**
      * Consulta el último número de comprobante autorizado para un punto de venta y tipo de comprobante.
-     *
-     * @param token      Token de autenticación obtenido de WSAA
-     * @param sign       Firma de autenticación obtenida de WSAA
-     * @param cuit       CUIT del emisor
-     * @param puntoVenta Punto de venta a consultar (ej. 1 o 2)
-     * @param cbteTipo   Tipo de comprobante (ej. 11 = Factura C)
-     * @return El último número de comprobante emitido (0 si no se emitió ninguno aún)
      */
     public static int obtenerUltimoComprobante(String token, String sign, long cuit, int puntoVenta, int cbteTipo) throws Exception {
         ServiceSoap serviceSoap = obtenerPuertoSoap();
@@ -60,17 +53,12 @@ public class AfipWsfeClient {
     }
 
     /**
-     * Arma y solicita el CAE para una Factura C (cbteTipo = 11) a consumidor final (docTipo = 99).
-     *
-     * @param token          Token obtenido de WSAA
-     * @param sign           Sign obtenido de WSAA
-     * @param cuit           CUIT del emisor
-     * @param puntoVenta     Punto de venta
-     * @param nroComprobante Número de comprobante a autorizar (generalmente último + 1)
-     * @param importeTotal   Importe total del comprobante
-     * @return Respuesta completa del WSFEv1 con el resultado y CAE
+     * Solicita CAE ante WSFEv1 de forma parametrizada.
      */
-    public static FECAEResponse solicitarCaeFacturaC(String token, String sign, long cuit, int puntoVenta, long nroComprobante, double importeTotal) throws Exception {
+    public static FECAEResponse solicitarCae(String token, String sign, long cuit,
+                                            int puntoVenta, int cbteTipo, long nroComprobante,
+                                            int docTipo, long docNro, int condicionIvaReceptorId,
+                                            double importeTotal, double importeNeto, double importeIva) throws Exception {
         ServiceSoap serviceSoap = obtenerPuertoSoap();
 
         // 1. Configurar credenciales de autenticación
@@ -78,8 +66,6 @@ public class AfipWsfeClient {
         auth.setToken(token);
         auth.setSign(sign);
         auth.setCuit(cuit);
-
-        int cbteTipo = 11; // Factura C
 
         // 2. Armar la solicitud de factura (FECAESolicitar)
         FECAERequest feReq = new FECAERequest();
@@ -95,9 +81,9 @@ public class AfipWsfeClient {
         ArrayOfFECAEDetRequest detArray = new ArrayOfFECAEDetRequest();
         FECAEDetRequest det = new FECAEDetRequest();
         det.setConcepto(1); // 1 = Productos
-        det.setDocTipo(99); // 99 = Consumidor Final
-        det.setDocNro(0L);  // 0 para consumidor final
-        det.setCondicionIVAReceptorId(5); // 5 = Consumidor Final (RG 5616)
+        det.setDocTipo(docTipo);
+        det.setDocNro(docNro);
+        det.setCondicionIVAReceptorId(condicionIvaReceptorId);
         det.setCbteDesde(nroComprobante);
         det.setCbteHasta(nroComprobante);
 
@@ -107,48 +93,28 @@ public class AfipWsfeClient {
 
         det.setImpTotal(importeTotal);
         det.setImpTotConc(0.00);
-        det.setImpNeto(importeTotal);
+        det.setImpNeto(importeNeto);
         det.setImpOpEx(0.00);
         det.setImpTrib(0.00);
-        det.setImpIVA(0.00); // Factura C no discrimina IVA
+        det.setImpIVA(importeIva);
         det.setMonId("PES");
         det.setMonCotiz(1.0);
+
+        // Si discrimina IVA (por ejemplo Factura A o B con importe IVA > 0), agregamos el array de alícuotas
+        if (importeIva > 0 && cbteTipo != 11) {
+            ArrayOfAlicIva ivaArray = new ArrayOfAlicIva();
+            AlicIva alic = new AlicIva();
+            alic.setId(5); // 5 = 21%
+            alic.setBaseImp(importeNeto);
+            alic.setImporte(importeIva);
+            ivaArray.getAlicIva().add(alic);
+            det.setIva(ivaArray);
+        }
 
         detArray.getFECAEDetRequest().add(det);
         feReq.setFeDetReq(detArray);
 
         // 3. Invocar el método de autorización SOAP
         return serviceSoap.fecaeSolicitar(auth, feReq);
-    }
-
-    /**
-     * Flujo completo integrado:
-     * 1. Consulta el último comprobante autorizado (FECompUltimoAutorizado) para calcular el siguiente número.
-     * 2. Arma la solicitud y pide el CAE mediante FECAESolicitar para una Factura C a consumidor final.
-     *
-     * @param token      Token obtenido de WSAA
-     * @param sign       Sign obtenido de WSAA
-     * @param cuit       CUIT del emisor
-     * @param puntoVenta Punto de venta
-     * @param importe    Importe total de la factura
-     * @return Respuesta de autorización FECAEResponse
-     */
-    public static FECAEResponse emitirFacturaCConsumidorFinal(String token, String sign, long cuit, int puntoVenta, double importe) throws Exception {
-        int cbteTipo = 11; // Factura C
-
-        System.out.println("2. Consultando último comprobante autorizado (PtoVta=" + puntoVenta + ", CbteTipo=" + cbteTipo + ")...");
-        int ultimoNro = obtenerUltimoComprobante(token, sign, cuit, puntoVenta, cbteTipo);
-        long nuevoNro = ultimoNro + 1;
-        System.out.println("   Último número registrado: " + ultimoNro + ". Siguiente a emitir: " + nuevoNro);
-
-        System.out.println("3. Enviando factura a WSFEv1 para solicitud de CAE...");
-        return solicitarCaeFacturaC(token, sign, cuit, puntoVenta, nuevoNro, importe);
-    }
-
-    /**
-     * Sobrecarga que recibe token, sign y cuit con punto de venta 1 y monto por defecto.
-     */
-    public static FECAEResponse emitirFacturaCConsumidorFinal(String token, String sign, long cuit) throws Exception {
-        return emitirFacturaCConsumidorFinal(token, sign, cuit, 1, 12100.00);
     }
 }

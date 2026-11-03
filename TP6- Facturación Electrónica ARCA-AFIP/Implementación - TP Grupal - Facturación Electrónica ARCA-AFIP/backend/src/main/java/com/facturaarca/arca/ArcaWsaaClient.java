@@ -1,4 +1,4 @@
-package com.facturaarca;
+package com.facturaarca.arca;
 
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSSignedData;
@@ -8,6 +8,8 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.ConnectException;
@@ -27,21 +29,56 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Collections;
 
-public class AfipWsaaClient {
+/**
+ * Cliente de autenticación contra el Web Service de Autenticación y Autorización (WSAA)
+ * de ARCA / AFIP (ambiente homologación).
+ */
+public class ArcaWsaaClient {
+
+    private static final Logger log = LoggerFactory.getLogger(ArcaWsaaClient.class);
 
     private static final String URL_WSAA_HOMO = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms";
+    private static final String CACHE_FILE_NAME = "ta_wsfe_cache.xml";
 
-    // Caché en memoria de credenciales WSAA para evitar error 500 'coe.alreadyAuthenticated'
+    // Caché en memoria de credenciales WSAA
     private static String cachedToken = null;
     private static String cachedSign = null;
     private static ZonedDateTime cachedExpirationTime = null;
 
+    private static File resolverArchivoCache() {
+        if (new File("backend").isDirectory()) {
+            return new File("backend/" + CACHE_FILE_NAME);
+        }
+        return new File(CACHE_FILE_NAME);
+    }
+
     public static synchronized String[] obtenerTokenYSign(String keyPath, String certPath, String service) throws Exception {
         ZonedDateTime now = ZonedDateTime.now();
-        // Si existe un Token en memoria y la fecha actual es anterior a expirationTime, reutilizarlo directamente
+        // 1. Si existe un Token en memoria y no expiró, reutilizarlo directamente
         if (cachedToken != null && cachedSign != null && cachedExpirationTime != null
                 && now.isBefore(cachedExpirationTime.minusMinutes(2))) {
             return new String[]{cachedToken, cachedSign};
+        }
+
+        // 2. Si existe un archivo de ticket en disco y no expiró, reutilizarlo (persistencia en disco)
+        File cacheFile = resolverArchivoCache();
+        if (cacheFile.exists()) {
+            try {
+                String contenidoCache = Files.readString(cacheFile.toPath(), StandardCharsets.UTF_8);
+                if (contenidoCache.contains("<token>") && contenidoCache.contains("<sign>") && contenidoCache.contains("<expirationTime>")) {
+                    String token = contenidoCache.substring(contenidoCache.indexOf("<token>") + 7, contenidoCache.indexOf("</token>"));
+                    String sign = contenidoCache.substring(contenidoCache.indexOf("<sign>") + 6, contenidoCache.indexOf("</sign>"));
+                    String expStr = contenidoCache.substring(contenidoCache.indexOf("<expirationTime>") + 16, contenidoCache.indexOf("</expirationTime>"));
+                    ZonedDateTime expiration = ZonedDateTime.parse(expStr, DateTimeFormatter.ISO_DATE_TIME);
+                    if (now.isBefore(expiration.minusMinutes(2))) {
+                        cachedToken = token;
+                        cachedSign = sign;
+                        cachedExpirationTime = expiration;
+                        return new String[]{token, sign};
+                    }
+                }
+            } catch (Exception ignored) {
+            }
         }
 
         if (Security.getProvider("BC") == null) {
@@ -53,7 +90,6 @@ public class AfipWsaaClient {
 
         // Formato estricto W3C con offset de zona horaria sin milisegundos (requerido por AFIP WSAA)
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
-        // 'now' ya fue declarado al inicio del método para el chequeo de caché
         String genTime = now.minusMinutes(10).format(dtf);
         String expTime = now.plusMinutes(10).format(dtf);
 
@@ -109,6 +145,12 @@ public class AfipWsaaClient {
         cachedSign = sign;
         cachedExpirationTime = expiration;
 
+        // Persistir en disco para compartir entre procesos
+        try {
+            Files.writeString(cacheFile.toPath(), xmlLimpio, StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+        }
+
         return new String[]{token, sign};
     }
 
@@ -116,6 +158,13 @@ public class AfipWsaaClient {
         cachedToken = null;
         cachedSign = null;
         cachedExpirationTime = null;
+        try {
+            File cacheFile = resolverArchivoCache();
+            if (cacheFile.exists()) {
+                cacheFile.delete();
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private static PrivateKey cargarClavePrivada(String path) throws Exception {
@@ -170,7 +219,10 @@ public class AfipWsaaClient {
             String respuesta = sb.toString();
 
             if (responseCode != HttpURLConnection.HTTP_OK) {
-                System.err.println("\n[ERROR WSAA HTTP " + responseCode + "]: " + respuesta);
+                log.error("Error en respuesta HTTP {} de WSAA: {}", responseCode, respuesta);
+                if (respuesta.contains("coe.alreadyAuthenticated")) {
+                    throw new RuntimeException("El CEE ya posee un Ticket de Acceso (TA) válido en AFIP. Aguarde unos instantes mientras expira la ventana de bloqueo de homologación (~10 min).");
+                }
                 throw new RuntimeException("Error en WSAA (HTTP " + responseCode + "): " + respuesta);
             }
 
@@ -178,7 +230,7 @@ public class AfipWsaaClient {
 
         } catch (UnknownHostException | ConnectException | SocketTimeoutException e) {
             String mensaje = "El servicio de homologación de ARCA/AFIP se encuentra temporalmente inaccesible o no hay conexión de red.";
-            System.err.println("\n[ERROR DE CONEXIÓN ARCA/AFIP]: " + mensaje + " (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")");
+            log.error("{}: {} ({})", mensaje, e.getMessage(), e.getClass().getSimpleName());
             throw new RuntimeException(mensaje, e);
         }
     }

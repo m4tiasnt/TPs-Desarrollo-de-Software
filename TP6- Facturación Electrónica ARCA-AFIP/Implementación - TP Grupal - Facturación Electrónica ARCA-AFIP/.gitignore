@@ -4,7 +4,9 @@ node_modules/
 # Reportes generados por la aplicación
 reportes/
 
-# Gradle (backend)
+# Tokens y caché ARCA/AFIP
+*ta_wsfe*
+*.ta_cache*
 .gradle/
 build/
 
