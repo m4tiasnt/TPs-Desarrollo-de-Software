@@ -135,15 +135,10 @@ export interface FacturaVentaRequestDTO {
 
 // ─── ARCA ───────────────────────────────────────────────────────────────────
 
-/** Body de POST /api/facturas/informar-arca (InformarArcaSolicitudDTO). */
-export interface InformarArcaSolicitudDTO {
-    ids: number[];
-}
-
-/** Resultado por factura (InformarArcaResultadoDTO). */
-export interface InformarArcaResultadoDTO {
+/** Resultado de la autorización fiscal ante ARCA (ResultadoAutorizacionDTO). */
+export interface ResultadoAutorizacionDTO {
     id: number;
-    nroFactura: number | null;
+    numero: number | null;
     estado: EstadoFactura;
     cae: string | null;
     caeFechaVencimiento: string | null;

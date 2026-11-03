@@ -124,7 +124,7 @@ export class BuscadorArticuloCombobox {
                     hintLi.className = 'combobox-empty-item';
                     hintLi.style.fontSize = '11px';
                     hintLi.style.borderTop = '1px solid var(--color-border)';
-                    hintLi.textContent = `Mostrando los primeros 10 de ${todos.length} resultados. Escribí más para acotar.`;
+                    hintLi.textContent = `Mostrando los primeros 10 de ${todos.length} resultados. Escriba más caracteres para acotar.`;
                     fragment.appendChild(hintLi);
                 }
 

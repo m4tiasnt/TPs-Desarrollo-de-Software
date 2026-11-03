@@ -7,7 +7,7 @@ import {
     FacturaVentaDTO,
     FacturaVentaListadoDTO,
     FacturaVentaRequestDTO,
-    InformarArcaResultadoDTO,
+    ResultadoAutorizacionDTO,
     ListaPrecioArticuloDTO,
     ListaPrecioDTO,
     PuntoVentaDTO,
@@ -115,61 +115,8 @@ export class FacturaService {
         return await response.json();
     }
 
-    /** POST /api/facturas/{id}/emitir · emite factura existente con ARCA/AFIP (obtiene CAE). */
-    async emitirFacturaExistente(id: number): Promise<FacturaVentaDTO> {
-        const response = await fetch(`${this.baseUrl}/${id}/emitir`, {
-            method: 'POST',
-            headers: { Accept: 'application/json' }
-        });
-        if (!response.ok) throw await this.errorDe(response, 'Error al emitir factura en ARCA');
-        return await response.json();
-    }
-
-    /** POST /api/facturas/emitir · emite nueva factura con ARCA/AFIP (201 Created). */
-    async emitirFactura(factura: FacturaVentaRequestDTO): Promise<FacturaVentaDTO> {
-        const response = await fetch(`${this.baseUrl}/emitir`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify(factura)
-        });
-        if (!response.ok) throw await this.errorDe(response, 'Error al emitir factura en ARCA');
-        return await response.json();
-    }
-
-    /** Emite facturas en lote ante ARCA llamando al endpoint correspondiente para cada una. */
-    async informarArca(ids: number[]): Promise<InformarArcaResultadoDTO[]> {
-        const resultados: InformarArcaResultadoDTO[] = [];
-        for (const id of ids) {
-            try {
-                const f = await this.emitirFacturaExistente(id);
-                resultados.push({
-                    id: f.id,
-                    nroFactura: f.numero,
-                    estado: f.estado,
-                    cae: f.cae,
-                    caeFechaVencimiento: f.caeFechaVencimiento,
-                    fechaEmision: f.fechaEmision,
-                    motivoRechazo: f.motivoRechazo,
-                    mensaje: f.cae ? `Autorizada por ARCA. CAE: ${f.cae}` : 'Emitida'
-                });
-            } catch (err) {
-                resultados.push({
-                    id: id,
-                    nroFactura: null,
-                    estado: 'RECHAZADA' as EstadoFactura,
-                    cae: null,
-                    caeFechaVencimiento: null,
-                    fechaEmision: null,
-                    motivoRechazo: err instanceof Error ? err.message : String(err),
-                    mensaje: err instanceof Error ? err.message : 'Error al comunicar con ARCA'
-                });
-            }
-        }
-        return resultados;
-    }
-
-    /** POST /api/facturas/{id}/informar-arca — informa una sola. */
-    async informarArcaUna(id: number): Promise<InformarArcaResultadoDTO[]> {
+    /** POST /api/facturas/{id}/informar-arca — informa una factura ante ARCA/AFIP y obtiene CAE. */
+    async informarArca(id: number): Promise<ResultadoAutorizacionDTO> {
         const response = await fetch(`${this.baseUrl}/${id}/informar-arca`, {
             method: 'POST',
             headers: { Accept: 'application/json' }
@@ -274,17 +221,13 @@ export class FacturaService {
 
     // ─── Errores ────────────────────────────────────────────────────────────
 
-    /** Arma un ApiError leyendo el `{ mensaje }` del backend si existe. */
+    /** Construye un ApiError leyendo el `{ mensaje }` del backend si existe. */
     private async errorDe(response: Response, contexto: string): Promise<ApiError> {
         let detalle = response.statusText;
         try {
             const cuerpo = await response.json();
             if (cuerpo && typeof cuerpo.mensaje === 'string') {
                 detalle = cuerpo.mensaje;
-            } else if (cuerpo && typeof cuerpo.message === 'string') {
-                detalle = cuerpo.message;
-            } else if (cuerpo && typeof cuerpo.motivoRechazo === 'string') {
-                detalle = cuerpo.motivoRechazo;
             }
         } catch {
             // La respuesta no era JSON: nos quedamos con el statusText.

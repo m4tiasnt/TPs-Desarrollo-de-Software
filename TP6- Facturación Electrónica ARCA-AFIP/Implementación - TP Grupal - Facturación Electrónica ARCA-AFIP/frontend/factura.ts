@@ -1,13 +1,14 @@
-﻿import {
+import {
     ClienteDTO,
     EstadoFactura,
     FacturaVentaDTO,
     FacturaVentaRequestDTO,
-    InformarArcaResultadoDTO
+    ResultadoAutorizacionDTO
 } from './models/api.dto';
 import { ApiError, FacturaService } from './services/FacturaService';
 import {
     aplicarBadgeEstado,
+    esFacturaInformable,
     formatearFecha,
     formatearMoneda,
     obtenerIdentificadorFactura
@@ -37,7 +38,7 @@ const linkVolver = document.getElementById('link-volver') as HTMLAnchorElement;
 const btnCancelar = document.getElementById('btn-cancelar') as HTMLButtonElement;
 const btnGuardar = document.getElementById('btn-guardar') as HTMLButtonElement;
 const btnInformar = document.getElementById('btn-informar') as HTMLButtonElement;
-const btnEditar = document.getElementById('btn-editar') as HTMLAnchorElement;
+const btnEditar = document.getElementById('btn-editar') as HTMLButtonElement;
 const btnMasAcciones = document.getElementById('btn-mas-acciones') as HTMLButtonElement;
 const menuFactura = document.getElementById('menu-factura') as HTMLUListElement;
 const tituloPagina = document.getElementById('titulo-pagina') as HTMLHeadingElement;
@@ -52,6 +53,8 @@ const btnLimpiarCliente = document.getElementById('btn-limpiar-cliente') as HTML
 const clienteOpcional = document.getElementById('cliente-opcional') as HTMLSpanElement;
 const hintCliente = document.getElementById('hint-cliente') as HTMLParagraphElement;
 const errorCliente = document.getElementById('error-clienteId') as HTMLParagraphElement;
+const errorCondicionIva = document.getElementById('error-condicionIvaId') as HTMLElement | null;
+const errorPuntoVenta = document.getElementById('error-puntoVentaId') as HTMLElement | null;
 const selectPuntoVenta = document.getElementById('puntoVentaId') as HTMLSelectElement;
 const selectTipoMoneda = document.getElementById('tipoMonedaId') as HTMLSelectElement;
 const selectListaBase = document.getElementById('listaPrecioId') as HTMLSelectElement;
@@ -259,7 +262,20 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         setTexto(document.body, '[data-campo="fechaModificacion"]', formatearFecha(f.fechaModificacion));
         setTexto(document.body, '[data-campo="observaciones"]', f.observaciones || '—');
 
-        // Banners informativos según estado (rechazo ARCA / en proceso)
+        // Banners informativos según estado (ARCA)
+        const esAutorizada = f.estado === 'AUTORIZADA' || Boolean(f.cae);
+        if (esAutorizada) {
+            setTexto(document.body, '[data-campo="bannerCae"]', f.cae || '—');
+            setTexto(document.body, '[data-campo="bannerCaeVto"]', formatearFecha(f.caeFechaVencimiento));
+            let obsTexto = '';
+            if (f.resultadoAfip && f.resultadoAfip !== 'A') {
+                obsTexto = `· Obs: ${f.resultadoAfip}`;
+            } else if (f.observaciones && f.observaciones.toLowerCase().includes('obs')) {
+                obsTexto = `· Obs: ${f.observaciones}`;
+            }
+            setTexto(document.body, '[data-campo="bannerAutorizadaObs"]', obsTexto);
+        }
+
         setTexto(document.body, '[data-campo="motivoRechazo"]', f.motivoRechazo || f.resultadoAfip || 'Factura rechazada por ARCA. Revisá los datos del cliente y los detalles antes de volver a informar.');
         setTexto(document.body, '[data-campo="fechaIntento"]', formatearFecha(f.fechaModificacion || f.fechaAlta));
 
@@ -291,25 +307,32 @@ async function cargarFacturaExistente(id: number): Promise<void> {
 
         tablaDetalles.setDetalles(detalles);
 
-        // Bloqueo de seguridad AFIP: Si la factura ya fue AUTORIZADA o tiene CAE, no puede modificarse
-        const esAutorizada = f.estado === 'AUTORIZADA' || Boolean(f.cae);
-        if (esAutorizada) {
-            if (btnEditar) btnEditar.hidden = true;
-            if (modoActual === 'editar') {
-                mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada.');
-                btnGuardar.disabled = true;
-                selectCondicionIva.disabled = true;
-                selectPuntoVenta.disabled = true;
-                selectTipoMoneda.disabled = true;
-                if (selectListaBase) selectListaBase.disabled = true;
-                if (textareaObservaciones) textareaObservaciones.disabled = true;
-                if (buscadorArticulo) buscadorArticulo.disabled = true;
-                if (btnAbrirModalCliente) btnAbrirModalCliente.disabled = true;
-                if (btnLimpiarCliente) btnLimpiarCliente.disabled = true;
-                tablaDetalles.setModo('ver');
-            }
-        } else {
-            if (btnEditar) btnEditar.hidden = false;
+        // Bloqueo de seguridad AFIP y habilitación dinámica de acciones
+        const puedeEditar = f.estado === 'BORRADOR' || f.estado === 'RECHAZADA';
+        const puedeInformar = esFacturaInformable(f.estado);
+        const puedeAnular = f.estado === 'BORRADOR' || f.estado === 'RECHAZADA';
+        const puedeEliminar = f.estado === 'BORRADOR';
+
+        if (btnEditar) btnEditar.disabled = !puedeEditar;
+        if (btnInformar) btnInformar.disabled = !puedeInformar;
+
+        const btnAnular = menuFactura?.querySelector<HTMLButtonElement>('[data-menu="anular"]');
+        const btnEliminar = menuFactura?.querySelector<HTMLButtonElement>('[data-menu="eliminar"]');
+        if (btnAnular) btnAnular.disabled = !puedeAnular;
+        if (btnEliminar) btnEliminar.disabled = !puedeEliminar;
+
+        if (esAutorizada && modoActual === 'editar') {
+            mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada. Solo se permiten cambios en Borrador o Rechazada.');
+            btnGuardar.disabled = true;
+            selectCondicionIva.disabled = true;
+            selectPuntoVenta.disabled = true;
+            selectTipoMoneda.disabled = true;
+            if (selectListaBase) selectListaBase.disabled = true;
+            if (textareaObservaciones) textareaObservaciones.disabled = true;
+            if (buscadorArticulo) buscadorArticulo.disabled = true;
+            if (btnAbrirModalCliente) btnAbrirModalCliente.disabled = true;
+            if (btnLimpiarCliente) btnLimpiarCliente.disabled = true;
+            tablaDetalles.setModo('ver');
         }
         snapshotInicial = serializarEstado();
     } catch (e) {
@@ -333,8 +356,29 @@ function validar(): boolean {
         errorDetalles.hidden = true;
     }
 
-    if (!selectCondicionIva.value || !selectPuntoVenta.value || !selectTipoMoneda.value) {
+    if (!selectCondicionIva.value) {
+        selectCondicionIva.classList.add('is-invalid');
+        if (errorCondicionIva) errorCondicionIva.hidden = false;
         ok = false;
+    } else {
+        selectCondicionIva.classList.remove('is-invalid');
+        if (errorCondicionIva) errorCondicionIva.hidden = true;
+    }
+
+    if (!selectPuntoVenta.value) {
+        selectPuntoVenta.classList.add('is-invalid');
+        if (errorPuntoVenta) errorPuntoVenta.hidden = false;
+        ok = false;
+    } else {
+        selectPuntoVenta.classList.remove('is-invalid');
+        if (errorPuntoVenta) errorPuntoVenta.hidden = true;
+    }
+
+    if (!selectTipoMoneda.value) {
+        selectTipoMoneda.classList.add('is-invalid');
+        ok = false;
+    } else {
+        selectTipoMoneda.classList.remove('is-invalid');
     }
 
     const tieneCliente = Boolean(inputClienteId.value || clienteDisplay.value);
@@ -383,8 +427,8 @@ async function guardar(): Promise<void> {
         mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada.');
         return;
     }
-    if (modoActual === 'editar' && facturaActual && facturaActual.estado !== 'BORRADOR') {
-        mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada. Solo se permiten cambios en Borrador.');
+    if (modoActual === 'editar' && facturaActual && facturaActual.estado !== 'BORRADOR' && facturaActual.estado !== 'RECHAZADA') {
+        mostrarAlertaError('Solo se permiten cambios en facturas en estado Borrador o Rechazada.');
         return;
     }
     if (!validar()) return;
@@ -457,6 +501,23 @@ async function eliminarDesdeDetalle(): Promise<void> {
 // ─── Event Wiring ───────────────────────────────────────────────────────────
 function configurarEventos(): void {
     btnCerrarAlerta?.addEventListener('click', ocultarAlertaError);
+    selectCondicionIva?.addEventListener('change', () => {
+        if (selectCondicionIva.value) {
+            selectCondicionIva.classList.remove('is-invalid');
+            if (errorCondicionIva) errorCondicionIva.hidden = true;
+        }
+    });
+    selectPuntoVenta?.addEventListener('change', () => {
+        if (selectPuntoVenta.value) {
+            selectPuntoVenta.classList.remove('is-invalid');
+            if (errorPuntoVenta) errorPuntoVenta.hidden = true;
+        }
+    });
+    selectTipoMoneda?.addEventListener('change', () => {
+        if (selectTipoMoneda.value) {
+            selectTipoMoneda.classList.remove('is-invalid');
+        }
+    });
     formFactura?.addEventListener('submit', (e) => {
         e.preventDefault();
         void guardar();
@@ -464,7 +525,7 @@ function configurarEventos(): void {
 
     const obtenerUrlRetorno = (): string => {
         return (modoActual === 'editar' && facturaId != null)
-            ? `nueva-factura.html?id=${facturaId}&modo=ver`
+            ? `factura.html?id=${facturaId}&modo=ver`
             : 'index.html';
     };
 
@@ -510,9 +571,10 @@ function configurarEventos(): void {
     });
 
     btnEditar?.addEventListener('click', (e) => {
+        if (btnEditar.disabled) return;
         if (facturaId != null) {
             e.preventDefault();
-            window.location.href = `nueva-factura.html?id=${facturaId}&modo=editar`;
+            window.location.href = `factura.html?id=${facturaId}&modo=editar`;
         }
     });
 
@@ -523,7 +585,7 @@ function configurarEventos(): void {
 
     menuFactura?.addEventListener('click', (e) => {
         const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-menu]');
-        if (!btn) return;
+        if (!btn || btn.disabled) return;
         menuFactura.hidden = true;
         if (btn.dataset.menu === 'anular') void anularDesdeDetalle();
         if (btn.dataset.menu === 'eliminar') void eliminarDesdeDetalle();
@@ -535,9 +597,25 @@ function configurarEventos(): void {
         dlgInformar.querySelectorAll<HTMLElement>('[data-campo="cantidad"]').forEach((el) => {
             el.textContent = '1';
         });
-        dlgInformar.querySelectorAll<HTMLElement>('[data-campo="detalle"]').forEach((el) => {
-            el.textContent = facturaActual ? obtenerIdentificadorFactura(facturaActual) : `#${facturaId}`;
-        });
+
+        const tbodyConfirmar = dlgInformar.querySelector('#informar-confirmar-body');
+        const totalConfirmar = dlgInformar.querySelector('#informar-confirmar-total');
+        if (tbodyConfirmar && facturaActual) {
+            tbodyConfirmar.innerHTML = '';
+            const identificador = obtenerIdentificadorFactura(facturaActual);
+            const ptoVta = `${String(facturaActual.puntoVentaNumero || 1).padStart(4, '0')}${facturaActual.puntoVentaDescripcion ? ' - ' + facturaActual.puntoVentaDescripcion : ''}`;
+            const cliente = facturaActual.clienteDenominacion || 'Consumidor Final';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${identificador}</strong></td>
+                <td>${ptoVta}</td>
+                <td><span>${cliente}</span></td>
+                <td class="num">${formatearMoneda(facturaActual.importeTotal)}</td>
+            `;
+            tbodyConfirmar.appendChild(tr);
+            if (totalConfirmar) totalConfirmar.textContent = formatearMoneda(facturaActual.importeTotal);
+        }
+
         dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
             el.hidden = el.getAttribute('data-fase') !== 'confirmar';
         });
@@ -556,28 +634,7 @@ function configurarEventos(): void {
                 el.hidden = el.getAttribute('data-fase') !== 'informando';
             });
             try {
-                // 1. Invoca al método de FacturaService para emitir por ID existente ante ARCA
-                const facturaEmitida = await facturaService.emitirFacturaExistente(facturaId);
-
-                // 2. Procesamiento de la respuesta exitosa (200 / 201):
-                // Actualiza el objeto de la factura en la vista y cambia estado a AUTORIZADA
-                facturaActual = facturaEmitida;
-                document.body.dataset.estado = facturaEmitida.estado;
-                aplicarBadgeEstado(badgeEstado, facturaEmitida.estado);
-
-                // Muestra número de comprobante y valor de CAE en lugar del guion
-                if (facturaEmitida.numeroComprobante) {
-                    setTexto(document.body, '[data-campo="numeroFactura"]', facturaEmitida.numeroComprobante);
-                    tituloPagina.textContent = `Factura ${facturaEmitida.numeroComprobante}`;
-                }
-                const caeTexto = facturaEmitida.cae || '—';
-
-                setTexto(document.body, '[data-campo="caeInfo"]', caeTexto);
-                if (facturaEmitida.fechaEmision) {
-                    setTexto(document.body, '[data-campo="fechaEmision"]', formatearFecha(facturaEmitida.fechaEmision));
-                }
-
-                // Desactiva bandera cargando/informando y muestra resultado
+                const r = await facturaService.informarArca(facturaId);
                 const chips = dlgInformar.querySelector('#informar-chips') as HTMLElement;
                 const cuerpo = dlgInformar.querySelector('#informar-resultado-body') as HTMLTableSectionElement;
                 const tplResultado = document.getElementById('tpl-resultado-fila') as HTMLTemplateElement;
@@ -587,31 +644,23 @@ function configurarEventos(): void {
 
                 const clone = tplResultado.content.cloneNode(true) as DocumentFragment;
                 const fila = clone.querySelector('tr') as HTMLTableRowElement;
-                (fila.querySelector('[data-campo="factura"]') as HTMLElement).textContent = facturaEmitida.numeroComprobante || `#${facturaEmitida.id}`;
-                aplicarBadgeEstado(fila.querySelector('[data-campo="estado"]') as HTMLElement, facturaEmitida.estado);
-                (fila.querySelector('[data-campo="detalle"]') as HTMLElement).textContent = facturaEmitida.cae 
-                    ? `Autorizada por ARCA. CAE: ${facturaEmitida.cae}` 
-                    : (facturaEmitida.motivoRechazo || 'Autorizada');
-                (fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement).href = `nueva-factura.html?id=${facturaEmitida.id}&modo=ver`;
+                (fila.querySelector('[data-campo="factura"]') as HTMLElement).textContent = r.numero != null ? `#${r.numero}` : (facturaActual ? obtenerIdentificadorFactura(facturaActual) : `#${r.id}`);
+                aplicarBadgeEstado(fila.querySelector('[data-campo="estado"]') as HTMLElement, r.estado);
+                const detalleEl = fila.querySelector('[data-campo="detalle"]') as HTMLElement;
+                const textoDetalle = r.mensaje ?? '—';
+                detalleEl.textContent = textoDetalle;
+                detalleEl.title = textoDetalle;
+                (fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement).href = `factura.html?id=${r.id}&modo=ver`;
                 cuerpo.appendChild(fila);
 
                 dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
                     el.hidden = el.getAttribute('data-fase') !== 'resultado';
                 });
+                await cargarFacturaExistente(facturaId);
             } catch (err: any) {
-                // 3. Manejo de errores (422 o 500): quita estado informando y muestra cartel rojo
-                dlgInformar.close();
-                const mensaje = err instanceof Error ? err.message : 'Error al comunicar con ARCA/AFIP.';
-                mostrarAlertaError(mensaje);
-                // Actualiza el estado visual a RECHAZADA inmediatamente en la pantalla de detalle
-                document.body.dataset.estado = 'RECHAZADA';
-                aplicarBadgeEstado(badgeEstado, 'RECHAZADA');
-                if (facturaActual) {
-                    facturaActual.estado = 'RECHAZADA';
-                    facturaActual.motivoRechazo = mensaje;
-                }
-                setTexto(document.body, '[data-campo="motivoRechazo"]', mensaje);
-                void cargarFacturaExistente(facturaId);
+                dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
+                    el.hidden = el.getAttribute('data-fase') !== 'error';
+                });
             }
         }
     });
@@ -713,7 +762,7 @@ async function init(): Promise<void> {
     } else if (modoActual === 'editar') {
         tituloPagina.textContent = 'Editar factura';
         if (facturaId != null && linkVolver) {
-            linkVolver.href = `nueva-factura.html?id=${facturaId}&modo=ver`;
+            linkVolver.href = `factura.html?id=${facturaId}&modo=ver`;
             linkVolver.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-back"/></svg> Volver a la factura`;
         }
     } else {
@@ -721,12 +770,18 @@ async function init(): Promise<void> {
     }
 
     configurarEventos();
-    await cargarCatalogos();
+    try {
+        await cargarCatalogos();
 
-    if (facturaId != null) {
-        await cargarFacturaExistente(facturaId);
-    } else {
-        snapshotInicial = serializarEstado();
+        if (facturaId != null) {
+            await cargarFacturaExistente(facturaId);
+        } else {
+            snapshotInicial = serializarEstado();
+        }
+    } finally {
+        document.documentElement.classList.remove('pagina-cargando');
+        const pantallaCarga = document.getElementById('pantalla-carga');
+        if (pantallaCarga) pantallaCarga.style.display = 'none';
     }
 }
 

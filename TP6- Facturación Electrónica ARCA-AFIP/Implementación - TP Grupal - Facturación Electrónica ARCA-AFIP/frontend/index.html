@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Facturas · FacturaArca</title>
+    <title>Facturas · Facturitas</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -16,7 +17,7 @@
       Ids que usa listado.ts:
         #mensaje-feedback        avisos (clases: exito | error | info)
         #form-filtros            filtros → campos name: busqueda, clienteId, fechaDesde, fechaHasta,
-                                 estado, montoMinimo, informadaAarca
+                                 estado, montoMinimo, informadaArca
         #btn-abrir-dialogo-cliente / #btn-limpiar-cliente   búsqueda de cliente (reusa el explorer actual)
         #tabla-facturas(-body)   listado; la clase .is-selecting en la tabla muestra la columna de selección
         #btn-modo-informar       entra al modo selección (además poner .is-selecting en <body>)
@@ -49,7 +50,25 @@
     </svg>
 
     <header class="app-header">
-        <div class="container"><span class="brand">FacturaArca</span></div>
+        <div class="container">
+            <a href="index.html" class="brand" aria-label="Facturitas">
+                <svg class="brand-icon" viewBox="4 10 192 88" width="36" height="20" role="img" aria-label="Croissant" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <mask id="cuts" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="104">
+                      <rect x="0" y="0" width="200" height="104" fill="#FFFFFF"/>
+                      <g stroke="#000000" stroke-width="9" stroke-linecap="round">
+                        <line x1="100" y1="-10" x2="70" y2="110"/>
+                        <line x1="100" y1="-10" x2="130" y2="110"/>
+                        <line x1="100" y1="-10" x2="36" y2="92"/>
+                        <line x1="100" y1="-10" x2="164" y2="92"/>
+                      </g>
+                    </mask>
+                  </defs>
+                  <path d="M 10 15 C 20 72, 70 96, 100 96 C 130 96, 180 72, 190 15 C 170 42, 140 42, 100 42 C 60 42, 30 42, 10 15 Z" fill="currentColor" stroke="currentColor" stroke-width="8" stroke-linejoin="round" mask="url(#cuts)"/>
+                </svg>
+                <span class="brand-text">Facturitas</span>
+            </a>
+        </div>
     </header>
 
     <main class="container stack">
@@ -58,7 +77,7 @@
             <h1>Facturas</h1>
             <div class="page-actions">
                 <button type="button" class="btn btn-secondary" id="btn-modo-informar"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg> Informar a ARCA</button>
-                <a class="btn btn-primary" href="nueva-factura.html"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Nueva factura</a>
+                <a class="btn btn-primary" href="factura.html"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Nueva factura</a>
                 <div class="menu-anchor">
                     <button type="button" class="btn btn-secondary btn-icon" id="btn-exportar-toggle" aria-haspopup="menu" aria-expanded="false" title="Más opciones" aria-label="Más opciones">
                         <svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>
@@ -119,9 +138,9 @@
                 </div>
                 <div class="form-group">
                     <label for="filtro-arca">Informada a ARCA</label>
-                    <select class="form-control" id="filtro-arca" name="informadaAarca">
+                    <select class="form-control" id="filtro-arca" name="informadaArca">
                         <option value="">Todas</option>
-                        <option value="true">Informadas (con CAE)</option>
+                        <option value="true">Informadas (Autorizadas)</option>
                         <option value="false">Sin informar</option>
                     </select>
                 </div>
@@ -151,7 +170,34 @@
                         </tr>
                     </thead>
                     <tbody id="tabla-facturas-body">
-                        <!-- Filas dibujadas por listado.ts con #tpl-fila-factura -->
+                        <!-- Filas skeleton iniciales para evitar layout shift durante la carga -->
+                        <tr class="fila-skeleton">
+                            <td class="col-select"><span class="skeleton" style="width:16px;height:16px;margin:auto;display:block;"></span></td>
+                            <td class="col-numero"><span class="skeleton" style="width:125px;height:14px;display:inline-block;"></span></td>
+                            <td class="col-fecha"><span class="skeleton" style="width:75px;height:14px;display:inline-block;"></span></td>
+                            <td class="col-cliente"><span class="skeleton" style="width:70%;height:14px;display:inline-block;"></span></td>
+                            <td class="col-total num"><span class="skeleton" style="width:85px;height:14px;margin-left:auto;display:block;"></span></td>
+                            <td class="col-estado"><span class="skeleton" style="width:80px;height:22px;border-radius:999px;display:inline-block;"></span></td>
+                            <td class="col-acciones actions"><span class="skeleton" style="width:28px;height:28px;border-radius:4px;margin-left:auto;display:block;"></span></td>
+                        </tr>
+                        <tr class="fila-skeleton">
+                            <td class="col-select"><span class="skeleton" style="width:16px;height:16px;margin:auto;display:block;"></span></td>
+                            <td class="col-numero"><span class="skeleton" style="width:110px;height:14px;display:inline-block;"></span></td>
+                            <td class="col-fecha"><span class="skeleton" style="width:75px;height:14px;display:inline-block;"></span></td>
+                            <td class="col-cliente"><span class="skeleton" style="width:55%;height:14px;display:inline-block;"></span></td>
+                            <td class="col-total num"><span class="skeleton" style="width:70px;height:14px;margin-left:auto;display:block;"></span></td>
+                            <td class="col-estado"><span class="skeleton" style="width:80px;height:22px;border-radius:999px;display:inline-block;"></span></td>
+                            <td class="col-acciones actions"><span class="skeleton" style="width:28px;height:28px;border-radius:4px;margin-left:auto;display:block;"></span></td>
+                        </tr>
+                        <tr class="fila-skeleton">
+                            <td class="col-select"><span class="skeleton" style="width:16px;height:16px;margin:auto;display:block;"></span></td>
+                            <td class="col-numero"><span class="skeleton" style="width:130px;height:14px;display:inline-block;"></span></td>
+                            <td class="col-fecha"><span class="skeleton" style="width:75px;height:14px;display:inline-block;"></span></td>
+                            <td class="col-cliente"><span class="skeleton" style="width:65%;height:14px;display:inline-block;"></span></td>
+                            <td class="col-total num"><span class="skeleton" style="width:90px;height:14px;margin-left:auto;display:block;"></span></td>
+                            <td class="col-estado"><span class="skeleton" style="width:80px;height:22px;border-radius:999px;display:inline-block;"></span></td>
+                            <td class="col-acciones actions"><span class="skeleton" style="width:28px;height:28px;border-radius:4px;margin-left:auto;display:block;"></span></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -183,6 +229,7 @@
 
     <!-- Menú de acciones de fila (único; JS lo posiciona y deshabilita lo que el estado no permite) -->
     <ul class="dropdown-menu" id="menu-factura" role="menu" aria-label="Acciones de la factura" hidden>
+        <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="informar"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg> Informar a ARCA</button></li>
         <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="editar"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg> Editar</button></li>
         <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="anular"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg> Anular</button></li>
         <li role="none"><button type="button" class="dropdown-item dropdown-item--danger" role="menuitem" data-menu="eliminar"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg> Eliminar</button></li>
@@ -207,7 +254,7 @@
     <!-- Plantillas de estado del listado -->
     <template id="tpl-sin-facturas">
         <div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg><strong>Todavía no hay facturas</strong><span class="muted">Creá la primera para empezar.</span>
-            <a class="btn btn-primary" href="nueva-factura.html"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Nueva factura</a></div>
+            <a class="btn btn-primary" href="factura.html"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Nueva factura</a></div>
     </template>
     <template id="tpl-sin-resultados">
         <div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><strong>No encontramos facturas</strong><span class="muted">Probá cambiando los filtros de búsqueda.</span>
@@ -228,8 +275,27 @@
         <form method="dialog" data-fase="confirmar">
             <div class="dialog-icon dialog-icon--info"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></div>
             <h2 id="dlg-informar-titulo">Informar <span data-campo="cantidad"></span> factura(s) a ARCA</h2>
-            <p>Las facturas seleccionadas se enviarán a ARCA para su validación electrónica y obtención de CAE.</p>
-            <p class="dialog-resumen" data-campo="detalle"></p>
+            <p>Las facturas seleccionadas se enviarán a ARCA para obtener su autorización electrónica (CAE).</p>
+            <div class="dialog-table">
+                <table class="table" style="margin: 0; font-size: 13px; min-width: 480px;">
+                    <thead>
+                        <tr>
+                            <th>Comprobante</th>
+                            <th>Punto de Venta</th>
+                            <th>Cliente / Receptor</th>
+                            <th class="num">Total ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="informar-confirmar-body">
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight: 600; background: var(--color-bg);">
+                            <td colspan="3" style="text-align: right;">Total acumulado:</td>
+                            <td class="num" id="informar-confirmar-total"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
             <div class="dialog-actions">
                 <button type="submit" class="btn btn-secondary" value="cancelar">Cancelar</button>
                 <button type="submit" class="btn btn-primary" value="confirmar">Confirmar</button>
@@ -244,16 +310,19 @@
         </div>
 
         <form method="dialog" data-fase="resultado" hidden>
-            <h2>Resultado del envío a ARCA</h2>
-            <div class="dialog-chips" id="informar-chips"></div>
+            <h2 id="informar-progreso-titulo">Autorizando comprobantes en ARCA</h2>
+            <div class="barra-progreso-contenedor" id="informar-progreso-wrap" aria-hidden="true">
+                <div class="barra-progreso-fill" id="informar-progreso-bar"></div>
+            </div>
+            <p class="muted" id="informar-progreso-subtitulo" style="margin-bottom: var(--space-md); font-size: 13px;">Preparando comprobantes...</p>
+            <div class="dialog-chips" id="informar-chips" style="margin-bottom: var(--space-md);" hidden></div>
             <div class="dialog-table">
                 <table class="table">
                     <thead><tr><th>Factura</th><th>Resultado</th><th>Detalle</th><th aria-label="Ver"></th></tr></thead>
                     <tbody id="informar-resultado-body"></tbody>
                 </table>
             </div>
-            <p class="field-hint">Podés consultar el detalle completo de cada factura haciendo clic en el icono de ver. Al cerrar, el listado se actualiza.</p>
-            <div class="dialog-actions"><button type="submit" class="btn btn-primary" value="cerrar">Cerrar</button></div>
+            <div class="dialog-actions"><button type="submit" class="btn btn-primary" value="cerrar" id="btn-cerrar-resultado">Cerrar</button></div>
         </form>
 
         <form method="dialog" data-fase="error" hidden>
@@ -265,11 +334,11 @@
     </dialog>
 
     <template id="tpl-resultado-fila">
-        <tr>
-            <td><strong class="nro-factura nro-factura--provisorio" data-campo="factura"></strong></td>
-            <td><span class="badge" data-campo="estado"></span></td>
-            <td class="cell-truncate" data-campo="detalle"></td>
-            <td><a class="btn-icon" data-campo="enlace" href="#" aria-label="Ver factura" title="Ver factura"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></a></td>
+        <tr class="fila-resultado">
+            <td class="col-factura"><strong class="nro-factura nro-factura--provisorio" data-campo="factura"></strong></td>
+            <td class="col-estado"><span class="badge" data-campo="estado"></span></td>
+            <td class="col-detalle-resultado" data-campo="detalle"></td>
+            <td class="col-acciones actions"><a class="btn-icon" data-campo="enlace" href="#" aria-label="Ver factura" title="Ver factura"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></a></td>
         </tr>
     </template>
 
