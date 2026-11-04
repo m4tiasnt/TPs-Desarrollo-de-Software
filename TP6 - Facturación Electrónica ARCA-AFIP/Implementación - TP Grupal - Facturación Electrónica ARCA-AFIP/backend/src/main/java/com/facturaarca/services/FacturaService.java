@@ -195,15 +195,16 @@ public class FacturaService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Factura no encontrada con id: " + id));
 
-        if (!factura.getEstado().esInformable()) {
+        if (!factura.getEstado().esInformable() && factura.getEstado() != EstadoFactura.EN_PROCESO) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "No se puede informar una factura en estado " + factura.getEstado());
         }
 
         Usuario usuario = obtenerUsuarioParaAuditoria();
 
-        // Transición a EN_PROCESO
-        factura.marcarEnProceso(usuario);
+        if (factura.getEstado() != EstadoFactura.EN_PROCESO) {
+            factura.marcarEnProceso(usuario);
+        }
 
         // Delegación técnica al conector de ARCA
         ResultadoAutorizacionArca resultadoArca = arcaService.solicitarAutorizacion(factura);
@@ -236,8 +237,8 @@ public class FacturaService {
 
     /**
      * Informa un lote de facturas ante ARCA.
-     * Cada comprobante se procesa de forma atómica en su propia transacción para que un
-     * rechazo o error en una factura no afecte ni revierta las demás ya autorizadas.
+     * Persiste primero el lote en estado EN_PROCESO para bloquear modificaciones concurrentes
+     * y luego autoriza cada comprobante en su propia transacción para aislar fallas.
      */
     public List<ResultadoAutorizacionDTO> informarArcaLote(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
@@ -245,6 +246,8 @@ public class FacturaService {
         }
 
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        marcarLoteEnProceso(ids, transactionTemplate);
+
         List<ResultadoAutorizacionDTO> resultados = new ArrayList<>();
 
         for (Long id : ids) {
@@ -257,7 +260,7 @@ public class FacturaService {
                 log.warn("Factura ID {} no pudo ser autorizada en lote: {}", id, rse.getReason());
                 resultados.add(ResultadoAutorizacionDTO.builder()
                         .id(id)
-                        .estado(EstadoFactura.BORRADOR)
+                        .estado(EstadoFactura.EN_PROCESO)
                         .motivoRechazo(rse.getReason())
                         .mensaje(rse.getReason())
                         .build());
@@ -268,7 +271,7 @@ public class FacturaService {
                         : "Error interno al procesar el comprobante";
                 resultados.add(ResultadoAutorizacionDTO.builder()
                         .id(id)
-                        .estado(EstadoFactura.BORRADOR)
+                        .estado(EstadoFactura.EN_PROCESO)
                         .motivoRechazo(motivo)
                         .mensaje("No se pudo autorizar el comprobante")
                         .build());
@@ -276,6 +279,23 @@ public class FacturaService {
         }
 
         return resultados;
+    }
+
+    private void marcarLoteEnProceso(List<Long> ids, TransactionTemplate transactionTemplate) {
+        transactionTemplate.executeWithoutResult(status -> {
+            List<FacturaVenta> facturas = facturaVentaRepository.findAllById(ids);
+            Usuario usuario = obtenerUsuarioParaAuditoria();
+            List<FacturaVenta> actualizadas = new ArrayList<>();
+            for (FacturaVenta f : facturas) {
+                if (f.getEstado().esInformable()) {
+                    f.marcarEnProceso(usuario);
+                    actualizadas.add(f);
+                }
+            }
+            if (!actualizadas.isEmpty()) {
+                facturaVentaRepository.saveAll(actualizadas);
+            }
+        });
     }
 
     public FacturaVentaDTO convertirAFacturaVentaDTO(FacturaVenta factura) {
