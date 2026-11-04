@@ -6,6 +6,8 @@ import {
     ResultadoAutorizacionDTO
 } from './models/api.dto';
 import { FacturaService } from './services/FacturaService';
+import { ClienteService } from './services/ClienteService';
+import { ReporteService } from './services/ReporteService';
 import {
     aplicarBadgeEstado,
     esFacturaInformable,
@@ -19,6 +21,8 @@ import { BuscadorClienteModal } from './components/BuscadorClienteModal';
 
 // ─── Servicios e instancias compartidas ─────────────────────────────────────
 const facturaService = new FacturaService('http://localhost:8080/api/facturas');
+const clienteService = new ClienteService('http://localhost:8080/api/clientes');
+const reporteService = new ReporteService('http://localhost:8080/api/reportes');
 const toast = new NotificadorToast('mensaje-feedback');
 
 // ─── Estado de la vista ─────────────────────────────────────────────────────
@@ -70,7 +74,7 @@ let informeEjecutado = false;
 
 // ─── Modal de clientes ──────────────────────────────────────────────────────
 const modalCliente = new BuscadorClienteModal({
-    facturaService,
+    clienteService,
     onSeleccionarCliente: (cliente: ClienteDTO) => {
         if (inputClienteId) inputClienteId.value = String(cliente.id);
         if (inputClienteNombre) inputClienteNombre.value = cliente.denominacion;
@@ -910,7 +914,7 @@ async function exportarFacturas(tipo: 'excel' | 'pdf', btn?: HTMLButtonElement |
             btn.innerHTML = `<span class="spinner" aria-hidden="true"></span> Descargando...`;
         }
         toast.info(`Generando archivo ${tipo.toUpperCase()}...`);
-        await facturaService.descargarReporte(tipo);
+        await reporteService.descargarReporte(tipo);
         toast.exito(`Reporte ${tipo.toUpperCase()} descargado exitosamente.`);
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al exportar.';

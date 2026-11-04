@@ -42,7 +42,12 @@ Sistema integral de facturación de venta compuesto por un **backend** Spring Bo
     │   └── TablaDetallesFactura.ts           # Tabla reactiva de artículos y totales
     ├── utils/                                # Utilidades de cálculo, formato y DOM
     ├── models/api.dto.ts                     # DTOs sincronizados con el backend
-    ├── services/FacturaService.ts            # Cliente HTTP REST centralizado
+    ├── services/                             # Clientes HTTP REST desacoplados por dominio
+    │   ├── FacturaService.ts                 # Operaciones de facturas y autorización ARCA
+    │   ├── ClienteService.ts                 # Búsqueda paginada de clientes
+    │   ├── ArticuloService.ts                # Artículos y listas de precios
+    │   ├── CatalogoService.ts                # Puntos de venta, IVA y monedas
+    │   └── ReporteService.ts                 # Descarga de reportes PDF y Excel
     ├── package.json
     └── vite.config.js                        # Configuración de Vite multipágina
 ```

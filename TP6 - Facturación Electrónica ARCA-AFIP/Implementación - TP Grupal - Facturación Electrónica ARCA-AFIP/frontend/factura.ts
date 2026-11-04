@@ -6,6 +6,9 @@ import {
     ResultadoAutorizacionDTO
 } from './models/api.dto';
 import { ApiError, FacturaService } from './services/FacturaService';
+import { ClienteService } from './services/ClienteService';
+import { ArticuloService } from './services/ArticuloService';
+import { CatalogoService } from './services/CatalogoService';
 import {
     aplicarBadgeEstado,
     esFacturaInformable,
@@ -21,6 +24,9 @@ import { ModoFactura, TablaDetallesFactura, FacturaDetalleUI } from './component
 
 // ─── Servicios y Estado ─────────────────────────────────────────────────────
 const facturaService = new FacturaService('http://localhost:8080/api/facturas');
+const clienteService = new ClienteService('http://localhost:8080/api/clientes');
+const articuloService = new ArticuloService('http://localhost:8080/api/articulos');
+const catalogoService = new CatalogoService('http://localhost:8080/api');
 
 let modoActual: ModoFactura = 'nueva';
 let facturaId: number | null = null;
@@ -110,7 +116,7 @@ const comboboxArticulos = new BuscadorArticuloCombobox({
     inputEl: buscadorArticulo,
     listaEl: listaArticulos,
     tplOpcion: tplOpcionArticulo,
-    facturaService,
+    articuloService,
     getListaPrecioId: () => listaBaseId,
     onSeleccionarArticulo: (art) => {
         tablaDetalles.agregarDetalle({
@@ -130,7 +136,7 @@ const comboboxArticulos = new BuscadorArticuloCombobox({
 });
 
 const modalCliente = new BuscadorClienteModal({
-    facturaService,
+    clienteService,
     onSeleccionarCliente: (cliente: ClienteDTO) => {
         inputClienteId.value = String(cliente.id);
         clienteDisplay.value = `${cliente.denominacion} (${cliente.cuitCuil})`;
@@ -188,10 +194,10 @@ function cerrarMenuDetalle(): void {
 async function cargarCatalogos(): Promise<void> {
     try {
         const [listas, puntosVenta, condiciones, monedas] = await Promise.all([
-            facturaService.obtenerListasPrecio(),
-            facturaService.obtenerPuntosVenta(),
-            facturaService.obtenerCondicionesIva(),
-            facturaService.obtenerTiposMoneda()
+            catalogoService.obtenerListasPrecio(),
+            catalogoService.obtenerPuntosVenta(),
+            catalogoService.obtenerCondicionesIva(),
+            catalogoService.obtenerTiposMoneda()
         ]);
 
         selectListaBase.replaceChildren(new Option('Seleccionar...', ''));
@@ -694,7 +700,7 @@ function configurarEventos(): void {
         if (!detalle) return;
 
         if (accion === 'editar-lista') {
-            facturaService.listasPrecioDeArticulo(detalle.articuloId).then((listas) => {
+            articuloService.listasPrecioDeArticulo(detalle.articuloId).then((listas) => {
                 editListaPrecioId.replaceChildren();
                 for (const l of listas) {
                     const opt = new Option(`${l.listaPrecio} — ${formatearMoneda(l.precioVenta)}`, String(l.id));

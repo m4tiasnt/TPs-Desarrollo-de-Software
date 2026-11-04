@@ -1,9 +1,9 @@
 import { ClienteDTO } from '../models/api.dto';
-import { FacturaService } from '../services/FacturaService';
+import { ClienteService } from '../services/ClienteService';
 import { PaginadorControl } from './PaginadorControl';
 
 export interface BuscadorClienteOptions {
-    facturaService: FacturaService;
+    clienteService: ClienteService;
     onSeleccionarCliente: (cliente: ClienteDTO) => void;
 }
 
@@ -140,7 +140,7 @@ export class BuscadorClienteModal {
 
         try {
             const [data] = await Promise.all([
-                this.options.facturaService.buscarClientes(termino, pagina, 5),
+                this.options.clienteService.buscarClientes(termino, pagina, 5),
                 new Promise((resolve) => setTimeout(resolve, 180))
             ]);
             this.paginaActual = data.paginaActual;

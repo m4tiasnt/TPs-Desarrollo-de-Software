@@ -1,5 +1,5 @@
 import { ArticuloPrecioDTO } from '../models/api.dto';
-import { FacturaService } from '../services/FacturaService';
+import { ArticuloService } from '../services/ArticuloService';
 import { formatearMoneda } from '../utils/formatters';
 import { setTexto } from '../utils/dom';
 
@@ -7,7 +7,7 @@ export interface BuscadorArticuloOptions {
     inputEl: HTMLInputElement;
     listaEl: HTMLUListElement;
     tplOpcion: HTMLTemplateElement;
-    facturaService: FacturaService;
+    articuloService: ArticuloService;
     getListaPrecioId: () => number | null;
     onSeleccionarArticulo: (articulo: ArticuloPrecioDTO) => void;
     onError?: (mensaje: string) => void;
@@ -81,7 +81,7 @@ export class BuscadorArticuloCombobox {
         }
 
         try {
-            const todos = await this.options.facturaService.buscarArticulos(termino, listaBaseId);
+            const todos = await this.options.articuloService.buscarArticulos(termino, listaBaseId);
             const resultados = todos.slice(0, 10);
             this.options.listaEl.replaceChildren();
             this.indiceActivo = -1;
