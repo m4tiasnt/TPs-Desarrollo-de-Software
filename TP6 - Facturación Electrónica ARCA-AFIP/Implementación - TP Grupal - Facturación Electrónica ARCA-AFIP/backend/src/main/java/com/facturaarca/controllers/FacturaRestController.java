@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.List;
 
 @Validated
 @RestController
@@ -84,10 +85,18 @@ public class FacturaRestController {
     }
 
     /**
-     * Informa una factura individual ante ARCA / AFIP para obtener CAE.
+     * Informa una factura individual ante ARCA para obtener CAE.
      */
     @PostMapping("/{id}/informar-arca")
     public ResponseEntity<ResultadoAutorizacionDTO> informarArca(@PathVariable Long id) {
         return ResponseEntity.ok(facturaService.informarArca(id));
+    }
+
+    /**
+     * Informa un lote de facturas ante ARCA para obtener CAE.
+     */
+    @PostMapping("/informar-arca-lote")
+    public ResponseEntity<List<ResultadoAutorizacionDTO>> informarArcaLote(@RequestBody List<Long> ids) {
+        return ResponseEntity.ok(facturaService.informarArcaLote(ids));
     }
 }

@@ -303,19 +303,18 @@
         </form>
 
         <div data-fase="informando" aria-busy="true" hidden>
-            <div class="dialog-head"><span class="spinner spinner--lg" aria-hidden="true"></span><h2>Informando a ARCA</h2></div>
+            <div class="dialog-head"><span class="spinner spinner--lg" aria-hidden="true"></span><h2>Informando facturas a ARCA</h2></div>
             <div class="progress-indeterminate" role="progressbar" aria-label="Informando"><span></span></div>
-            <p style="margin-top: var(--space-md);">Se están enviando <span data-campo="cantidad"></span> factura(s). Puede demorar unos segundos.</p>
-            <p class="muted">Si salís de esta página, el envío continúa: después vas a ver el estado de cada factura en el listado.</p>
+            <p style="margin-top: var(--space-md);">Estamos informando las facturas seleccionadas a ARCA.</p>
+            <p class="muted">Podés esperar acá o continuar en segundo plano sin interrumpir el envío.</p>
+            <div class="dialog-actions" style="margin-top: var(--space-lg); justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="btn-cerrar-informando">Continuar en segundo plano</button>
+            </div>
         </div>
 
         <form method="dialog" data-fase="resultado" hidden>
-            <h2 id="informar-progreso-titulo">Autorizando comprobantes en ARCA</h2>
-            <div class="barra-progreso-contenedor" id="informar-progreso-wrap" aria-hidden="true">
-                <div class="barra-progreso-fill" id="informar-progreso-bar"></div>
-            </div>
-            <p class="muted" id="informar-progreso-subtitulo" style="margin-bottom: var(--space-md); font-size: 13px;">Preparando comprobantes...</p>
-            <div class="dialog-chips" id="informar-chips" style="margin-bottom: var(--space-md);" hidden></div>
+            <h2 id="informar-progreso-titulo">Resultado del envío a ARCA</h2>
+            <div class="dialog-chips" id="informar-chips" style="margin-bottom: var(--space-md);"></div>
             <div class="dialog-table">
                 <table class="table">
                     <thead><tr><th>Factura</th><th>Resultado</th><th>Detalle</th><th aria-label="Ver"></th></tr></thead>
@@ -327,8 +326,8 @@
 
         <form method="dialog" data-fase="error" hidden>
             <div class="dialog-icon dialog-icon--danger"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></div>
-            <h2>No se pudo comunicar con ARCA</h2>
-            <p>Las <span data-campo="cantidad"></span> facturas quedaron En proceso. No se pueden editar ni volver a informar hasta que se resuelvan.</p>
+            <h2>No pudimos conectar con ARCA</h2>
+            <p id="informar-error-mensaje">Hubo un problema de conexión. Las facturas conservan su estado original para que puedas volver a intentar.</p>
             <div class="dialog-actions"><button type="submit" class="btn btn-primary" value="cerrar">Cerrar</button></div>
         </form>
     </dialog>

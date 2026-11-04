@@ -29,9 +29,12 @@ import com.facturaarca.repository.PuntoVentaRepository;
 import com.facturaarca.repository.TipoMonedaRepository;
 import com.facturaarca.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
@@ -39,6 +42,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FacturaService {
@@ -52,6 +56,7 @@ public class FacturaService {
     private final ListaPrecioArticuloRepository listaPrecioArticuloRepository;
     private final UsuarioRepository usuarioRepository;
     private final ArcaService arcaService;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional(readOnly = true)
     public List<FacturaVentaReporteDTO> obtenerTodasLasFacturas() {
@@ -227,6 +232,50 @@ public class FacturaService {
                 .motivoRechazo(guardada.getMotivoRechazo())
                 .mensaje(resultadoArca.getMensaje())
                 .build();
+    }
+
+    /**
+     * Informa un lote de facturas ante ARCA.
+     * Cada comprobante se procesa de forma atómica en su propia transacción para que un
+     * rechazo o error en una factura no afecte ni revierta las demás ya autorizadas.
+     */
+    public List<ResultadoAutorizacionDTO> informarArcaLote(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        List<ResultadoAutorizacionDTO> resultados = new ArrayList<>();
+
+        for (Long id : ids) {
+            try {
+                ResultadoAutorizacionDTO res = transactionTemplate.execute(status -> informarArca(id));
+                if (res != null) {
+                    resultados.add(res);
+                }
+            } catch (ResponseStatusException rse) {
+                log.warn("Factura ID {} no pudo ser autorizada en lote: {}", id, rse.getReason());
+                resultados.add(ResultadoAutorizacionDTO.builder()
+                        .id(id)
+                        .estado(EstadoFactura.BORRADOR)
+                        .motivoRechazo(rse.getReason())
+                        .mensaje(rse.getReason())
+                        .build());
+            } catch (Exception ex) {
+                log.error("Error al procesar factura ID {} en lote: {}", id, ex.getMessage(), ex);
+                String motivo = ex.getMessage() != null && !ex.getMessage().isBlank()
+                        ? ex.getMessage()
+                        : "Error interno al procesar el comprobante";
+                resultados.add(ResultadoAutorizacionDTO.builder()
+                        .id(id)
+                        .estado(EstadoFactura.BORRADOR)
+                        .motivoRechazo(motivo)
+                        .mensaje("No se pudo autorizar el comprobante")
+                        .build());
+            }
+        }
+
+        return resultados;
     }
 
     public FacturaVentaDTO convertirAFacturaVentaDTO(FacturaVenta factura) {

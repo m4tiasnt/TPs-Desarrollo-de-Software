@@ -621,61 +621,11 @@ async function ejecutarInformarArca(): Promise<void> {
     const ids = [...seleccionados];
     if (ids.length === 0) return;
 
-    // Pasamos directamente a la fase de resultado para mostrar el progreso en tiempo real
-    mostrarFaseArca('resultado');
+    // Apenas se confirma el envío, quitamos la barra inferior de selección
+    salirModoSeleccion();
 
-    const chips = dlgInformar.querySelector('#informar-chips') as HTMLElement;
-    const cuerpo = dlgInformar.querySelector('#informar-resultado-body') as HTMLTableSectionElement;
-    const tplResultado = document.getElementById('tpl-resultado-fila') as HTMLTemplateElement;
-    const btnCerrar = dlgInformar.querySelector<HTMLButtonElement>('#btn-cerrar-resultado') ?? dlgInformar.querySelector<HTMLButtonElement>('form[data-fase="resultado"] button[value="cerrar"]');
-    const tituloProgreso = dlgInformar.querySelector<HTMLElement>('#informar-progreso-titulo');
-    const barraProgreso = dlgInformar.querySelector<HTMLElement>('#informar-progreso-bar');
-    const subtituloProgreso = dlgInformar.querySelector<HTMLElement>('#informar-progreso-subtitulo');
-
-    if (btnCerrar) {
-        btnCerrar.disabled = true;
-        btnCerrar.textContent = `Procesando (0 de ${ids.length})...`;
-    }
-
-    if (tituloProgreso) {
-        tituloProgreso.textContent = 'Autorizando comprobantes en ARCA';
-    }
-    if (barraProgreso) {
-        barraProgreso.style.width = '0%';
-    }
-    if (subtituloProgreso) {
-        subtituloProgreso.textContent = `Iniciando autorización (0 de ${ids.length})...`;
-    }
-
-    chips.hidden = true;
-    chips.replaceChildren();
-    cuerpo.replaceChildren();
-
-    // 1. Dibujamos inicialmente todas las filas en estado "En proceso"
-    const filasDialogo = new Map<number, HTMLTableRowElement>();
+    // Marcamos visualmente en la tabla de fondo las facturas como EN_PROCESO
     for (const id of ids) {
-        const f = facturasPorId.get(id);
-        const clone = tplResultado.content.cloneNode(true) as DocumentFragment;
-        const fila = clone.querySelector('tr') as HTMLTableRowElement;
-
-        const nro = fila.querySelector('[data-campo="factura"]') as HTMLElement;
-        nro.textContent = f ? obtenerIdentificadorFactura(f) : `#${id}`;
-
-        const badge = fila.querySelector('[data-campo="estado"]') as HTMLElement;
-        aplicarBadgeEstado(badge, 'EN_PROCESO');
-
-        const detalleEl = fila.querySelector('[data-campo="detalle"]') as HTMLElement;
-        detalleEl.innerHTML = '<span class="spinner" aria-hidden="true"></span> En cola...';
-
-        const enlace = fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement;
-        enlace.href = `factura.html?id=${id}&modo=ver`;
-        enlace.style.pointerEvents = 'none';
-        enlace.style.opacity = '0.5';
-
-        cuerpo.appendChild(fila);
-        filasDialogo.set(id, fila);
-
-        // En la tabla del listado de fondo marcamos EN_PROCESO
         const trFondo = tbody?.querySelector<HTMLTableRowElement>(`tr[data-id="${id}"]`);
         if (trFondo) {
             trFondo.dataset.estado = 'EN_PROCESO';
@@ -684,124 +634,45 @@ async function ejecutarInformarArca(): Promise<void> {
         }
     }
 
-    // 2. Procesamos secuencialmente una por una con feedback suave
-    const resultadosAcumulados: ResultadoAutorizacionDTO[] = [];
-    let procesadas = 0;
-    let erroresConexion = 0;
+    // Pasamos a la fase de procesamiento en servidor
+    mostrarFaseArca('informando');
 
-    for (let i = 0; i < ids.length; i++) {
-        const id = ids[i];
-        const numPaso = i + 1;
-        const fila = filasDialogo.get(id);
+    try {
+        const resultados = await facturaService.informarArcaLote(ids);
+        informeEjecutado = true;
 
-        if (subtituloProgreso) {
-            subtituloProgreso.textContent = `Autorizando comprobante ${numPaso} de ${ids.length}...`;
+        // Si el usuario mantiene el diálogo abierto, mostramos el desglose detallado
+        if (dlgInformar.open) {
+            renderResultadoArca(resultados);
+            mostrarFaseArca('resultado');
         }
 
-        const detalleEl = fila?.querySelector('[data-campo="detalle"]') as HTMLElement | undefined;
-        if (detalleEl) {
-            detalleEl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Enviando a ARCA...';
+        // Actualizamos la tabla del listado de fondo con los datos persistidos
+        await cargarFacturas();
+
+        const autorizadas = resultados.filter((r) => r.estado === 'AUTORIZADA').length;
+        const rechazadas = resultados.filter((r) => r.estado === 'RECHAZADA').length;
+
+        if (rechazadas === 0) {
+            toast.exito(autorizadas === 1
+                ? 'Factura informada correctamente a ARCA.'
+                : `Se informaron correctamente ${autorizadas} facturas a ARCA.`);
+        } else {
+            toast.info(`Envío completado: ${autorizadas} informada(s) y ${rechazadas} rechazada(s).`);
         }
+    } catch (err: unknown) {
+        const mensajeError = err instanceof Error ? err.message : 'Error al comunicar con el servidor';
 
-        try {
-            const resultado = await facturaService.informarArca(id);
-            if (resultado) {
-                resultadosAcumulados.push(resultado);
-                actualizarFilaResultadoArca(fila, resultado, false);
+        // Restauramos los datos reales del listado
+        await cargarFacturas();
 
-                // Actualizar tabla del listado de fondo
-                const trFondo = tbody?.querySelector<HTMLTableRowElement>(`tr[data-id="${id}"]`);
-                if (trFondo) {
-                    trFondo.dataset.estado = resultado.estado;
-                    const badgeFondo = trFondo.querySelector<HTMLElement>('[data-campo="estado"]');
-                    if (badgeFondo) {
-                        aplicarBadgeEstado(badgeFondo, resultado.estado);
-                    }
-                    if (resultado.numero) {
-                        const nroFondo = trFondo.querySelector<HTMLElement>('[data-campo="numero"]');
-                        if (nroFondo) {
-                            nroFondo.textContent = String(resultado.numero);
-                            nroFondo.className = 'nro-factura';
-                        }
-                    }
-                }
-                const fEnMemoria = facturasPorId.get(id);
-                if (fEnMemoria) {
-                    fEnMemoria.estado = resultado.estado;
-                    if (resultado.numero) fEnMemoria.numeroComprobante = String(resultado.numero);
-                }
-            }
-        } catch (err) {
-            const mensajeError = err instanceof Error ? err.message : 'Error de comunicación con el servidor';
-            const fEnMemoria = facturasPorId.get(id);
-            const estadoOriginal = fEnMemoria?.estado || 'BORRADOR';
-
-            // Ante un fallo de red o conexión, NO se marca la factura como RECHAZADA.
-            // Se restaura su estado original en la tabla para reflejar la verdad del servidor.
-            const trFondo = tbody?.querySelector<HTMLTableRowElement>(`tr[data-id="${id}"]`);
-            if (trFondo) {
-                trFondo.dataset.estado = estadoOriginal;
-                const badgeFondo = trFondo.querySelector<HTMLElement>('[data-campo="estado"]');
-                if (badgeFondo) {
-                    aplicarBadgeEstado(badgeFondo, estadoOriginal);
-                }
-            }
-
-            if (fila) {
-                const badge = fila.querySelector('[data-campo="estado"]') as HTMLElement;
-                if (badge) {
-                    aplicarBadgeEstado(badge, estadoOriginal);
-                    badge.classList.remove('anim-badge-in');
-                    void badge.offsetWidth;
-                    badge.classList.add('anim-badge-in');
-                }
-
-                const detalleEl = fila.querySelector('[data-campo="detalle"]') as HTMLElement;
-                if (detalleEl) {
-                    detalleEl.innerHTML = `<span class="anim-text-in" style="color: var(--color-danger-strong);">Error de conexión: ${mensajeError}</span>`;
-                }
-
-                const enlace = fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement;
-                if (enlace) {
-                    enlace.style.pointerEvents = '';
-                    enlace.style.opacity = '1';
-                }
-            }
-            erroresConexion++;
+        if (dlgInformar.open) {
+            mostrarFaseArca('error');
+            const errP = dlgInformar.querySelector('#informar-error-mensaje');
+            if (errP) errP.textContent = mensajeError;
+        } else {
+            toast.error(mensajeError);
         }
-
-        procesadas++;
-        const pct = Math.round((procesadas / ids.length) * 100);
-        if (barraProgreso) {
-            barraProgreso.style.width = `${pct}%`;
-        }
-        if (btnCerrar) {
-            btnCerrar.textContent = `Procesando (${procesadas} de ${ids.length})...`;
-        }
-
-        // Breve pausa para brindar fluidez visual sin saltos violentos
-        if (i < ids.length - 1) {
-            await new Promise(res => setTimeout(res, 250));
-        }
-    }
-
-    // 3. Finalización: transición tranquila y resumen
-    informeEjecutado = true;
-    if (tituloProgreso) {
-        tituloProgreso.textContent = 'Autorización completada';
-    }
-    if (subtituloProgreso) {
-        subtituloProgreso.textContent = `Se procesaron los ${ids.length} comprobante(s) seleccionados.`;
-    }
-    if (btnCerrar) {
-        btnCerrar.disabled = false;
-        btnCerrar.textContent = 'Cerrar';
-    }
-
-    chips.hidden = false;
-    renderizarChipsResumen(chips, resultadosAcumulados, erroresConexion);
-    if (erroresConexion > 0) {
-        toast.error('Hubo problemas de conexión al comunicar con el servidor.');
     }
 }
 
@@ -828,7 +699,7 @@ function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: R
 
     const detalleEl = fila.querySelector('[data-campo="detalle"]') as HTMLElement;
     if (detalleEl) {
-        const texto = r.mensaje || (r.estado === 'AUTORIZADA' ? 'Comprobante autorizado por ARCA' : 'Rechazada');
+        const texto = r.mensaje || (r.estado === 'AUTORIZADA' ? 'Factura informada a ARCA' : 'Rechazada');
         detalleEl.innerHTML = `<span class="anim-text-in">${texto}</span>`;
     }
 
@@ -988,10 +859,19 @@ dlgInformar?.addEventListener('submit', (e) => {
     }
 });
 
+const btnCerrarInformando = document.getElementById('btn-cerrar-informando') as HTMLButtonElement | null;
+btnCerrarInformando?.addEventListener('click', () => {
+    salirModoSeleccion();
+    if (dlgInformar?.open) {
+        dlgInformar.close();
+    }
+    toast.info('Informando facturas en segundo plano...');
+});
+
 dlgInformar?.addEventListener('close', () => {
     bloquearScrollBody(false);
+    salirModoSeleccion();
     if (informeEjecutado) {
-        salirModoSeleccion();
         void cargarFacturas();
     }
 });

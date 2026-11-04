@@ -63,6 +63,7 @@ El ciclo de vida de cada factura se rige por el enum `EstadoFactura`:
 
 - El número correlativo y la fecha de emisión son asignados cuando ARCA autoriza el comprobante; hasta ese momento permanecen nulos y la UI muestra el identificador provisorio `Borrador #ID`.
 - Al informar a ARCA, el estado pasa transitoriamente a `EN_PROCESO`, se consulta el último comprobante autorizado, se solicita el CAE mediante WSFEv1 y se persiste como `AUTORIZADA` o `RECHAZADA` según la respuesta del fisco.
+- Tanto en el envío individual como en el lote masivo (`/api/facturas/informar-arca-lote`), la orquestación corre íntegramente en el backend con transacciones independientes (`TransactionTemplate`): si una factura es rechazada o el usuario cierra el navegador, las demás continúan procesándose y las autorizadas conservan su CAE legal.
 - Las facturas rechazadas permiten corregir cliente, detalles o listas de precios para su posterior reintento.
 
 ---
@@ -192,6 +193,7 @@ Abrir `http://localhost:5173` en el navegador.
 | `DELETE` | `/api/facturas/{id}` | Baja lógica (solo facturas en estado `BORRADOR`). |
 | `POST` | `/api/facturas/{id}/anular` | Anula una factura (permitido en `BORRADOR` y `RECHAZADA`). |
 | `POST` | `/api/facturas/{id}/informar-arca` | Envío de una factura a ARCA (solicita CAE ante WSFEv1 y persiste resultado). |
+| `POST` | `/api/facturas/informar-arca-lote` | Envío masivo de comprobantes a ARCA (procesamiento atómico por factura en el servidor). |
 
 ### Catálogos y Búsqueda
 

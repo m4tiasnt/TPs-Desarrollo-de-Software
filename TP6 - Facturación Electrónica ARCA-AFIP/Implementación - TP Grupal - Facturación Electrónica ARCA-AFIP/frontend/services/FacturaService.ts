@@ -125,6 +125,20 @@ export class FacturaService {
         return await response.json();
     }
 
+    /** POST /api/facturas/informar-arca-lote — informa un lote de facturas ante ARCA y obtiene CAE. */
+    async informarArcaLote(ids: number[]): Promise<ResultadoAutorizacionDTO[]> {
+        const response = await fetch(`${this.baseUrl}/informar-arca-lote`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json'
+            },
+            body: JSON.stringify(ids)
+        });
+        if (!response.ok) throw await this.errorDe(response, 'Error al informar lote a ARCA');
+        return await response.json();
+    }
+
     // ─── Artículos ──────────────────────────────────────────────────────────
 
     /** GET /api/articulos?search=&listaPrecioId= — mínimo 3 caracteres. */
