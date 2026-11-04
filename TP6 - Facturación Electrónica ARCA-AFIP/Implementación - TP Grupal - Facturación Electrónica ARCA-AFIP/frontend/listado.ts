@@ -709,6 +709,7 @@ function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: R
 
     const enlace = fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement;
     if (enlace) {
+        enlace.href = `factura.html?id=${r.id}&modo=ver`;
         enlace.style.pointerEvents = '';
         enlace.style.opacity = '1';
     }
