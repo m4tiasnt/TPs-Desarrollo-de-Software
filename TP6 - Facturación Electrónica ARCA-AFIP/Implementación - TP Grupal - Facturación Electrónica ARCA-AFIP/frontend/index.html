@@ -373,19 +373,23 @@
         </div>
 
         <div class="modal-cliente-search">
-            <div class="combobox" style="flex: 1;">
+            <div class="combobox" style="flex: 0.9;">
                 <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                <input type="text" id="inputBuscarCliente" class="form-control" placeholder="Buscar por CUIT/CUIL o denominación..." autocomplete="off">
+                <input type="text" id="inputBuscarClienteCuit" class="form-control" placeholder="CUIT / CUIL..." aria-label="Buscar por CUIT o CUIL" autocomplete="off">
+            </div>
+            <div class="combobox" style="flex: 1.3;">
+                <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                <input type="text" id="inputBuscarClienteRazonSocial" class="form-control" placeholder="Razón social / Denominación..." aria-label="Buscar por Razón Social" autocomplete="off">
             </div>
             <button type="button" id="btnBuscarCliente" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg> Buscar</button>
         </div>
 
-        <div class="dialog-table is-empty">
+        <div class="dialog-table">
             <table class="table" style="table-layout: fixed; width: 100%;">
                 <thead>
                     <tr>
                         <th style="width: 140px;">CUIT / CUIL</th>
-                        <th>Denominación / Cliente</th>
+                        <th>Razón Social / Denominación</th>
                         <th style="width: 130px; text-align: right;" aria-label="Acción"></th>
                     </tr>
                 </thead>

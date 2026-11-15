@@ -22,12 +22,25 @@ public class ClienteRestController {
 
     @GetMapping("/buscar")
     public ResponseEntity<RespuestaPaginadaDTO<ClienteDTO>> listarClientes(
+            @RequestParam(required = false, defaultValue = "") String cuit,
+            @RequestParam(required = false, defaultValue = "") String razonSocial,
             @RequestParam(required = false, defaultValue = "") String filtro,
             @PageableDefault(page = 0, size = 10, sort = "denominacion") Pageable pageable) {
-        String q = (filtro != null) ? filtro.trim() : "";
-        Page<ClienteDTO> resultado = clienteRepository
-                .findByDenominacionOrCuitCuil(q, pageable)
-                .map(c -> new ClienteDTO(c.getId(), c.getCuitCuil(), c.getDenominacion()));
+        String qCuit = (cuit != null) ? cuit.trim() : "";
+        String cuitSinGuiones = qCuit.replace("-", "").trim();
+        String qRazon = (razonSocial != null) ? razonSocial.trim() : "";
+        String qFiltro = (filtro != null) ? filtro.trim() : "";
+
+        Page<ClienteDTO> resultado;
+        if (qCuit.isEmpty() && qRazon.isEmpty() && !qFiltro.isEmpty()) {
+            resultado = clienteRepository
+                    .findByDenominacionOrCuitCuil(qFiltro, pageable)
+                    .map(c -> new ClienteDTO(c.getId(), c.getCuitCuil(), c.getDenominacion()));
+        } else {
+            resultado = clienteRepository
+                    .buscarPorCuitYRazonSocial(qCuit, cuitSinGuiones, qRazon, pageable)
+                    .map(c -> new ClienteDTO(c.getId(), c.getCuitCuil(), c.getDenominacion()));
+        }
 
         RespuestaPaginadaDTO<ClienteDTO> respuesta = RespuestaPaginadaDTO.<ClienteDTO>builder()
                 .contenido(resultado.getContent())

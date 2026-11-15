@@ -9,12 +9,13 @@ export interface BuscadorClienteOptions {
 
 /**
  * Componente modal para buscar y seleccionar clientes con paginación integrada y unificada.
- * Requiere un mínimo de 2 caracteres para consultar y mantiene estabilidad visual sin parpadeos.
+ * Permite filtrar por CUIT/CUIL, por Razón Social/Denominación o por ambos valores a la vez.
  */
 export class BuscadorClienteModal {
     private readonly dialog: HTMLDialogElement | null;
     private readonly btnCerrar: HTMLButtonElement | null;
-    private readonly inputBuscar: HTMLInputElement | null;
+    private readonly inputCuit: HTMLInputElement | null;
+    private readonly inputRazonSocial: HTMLInputElement | null;
     private readonly btnBuscar: HTMLButtonElement | null;
     private readonly tbody: HTMLTableSectionElement | null;
     private readonly barraPaginacion: HTMLElement | null;
@@ -22,12 +23,14 @@ export class BuscadorClienteModal {
     private readonly paginador: PaginadorControl;
 
     private paginaActual = 0;
-    private terminoBusqueda = '';
+    private filtroCuit = '';
+    private filtroRazonSocial = '';
 
     constructor(private readonly options: BuscadorClienteOptions) {
         this.dialog = document.getElementById('modal-cliente-explorer') as HTMLDialogElement | null;
         this.btnCerrar = document.getElementById('btnCerrarModalCliente') as HTMLButtonElement | null;
-        this.inputBuscar = document.getElementById('inputBuscarCliente') as HTMLInputElement | null;
+        this.inputCuit = document.getElementById('inputBuscarClienteCuit') as HTMLInputElement | null;
+        this.inputRazonSocial = document.getElementById('inputBuscarClienteRazonSocial') as HTMLInputElement | null;
         this.btnBuscar = document.getElementById('btnBuscarCliente') as HTMLButtonElement | null;
         this.tbody = document.getElementById('tbody-clientes-explorer') as HTMLTableSectionElement | null;
         this.barraPaginacion = this.dialog?.querySelector('.pagination-bar') as HTMLElement | null;
@@ -39,11 +42,18 @@ export class BuscadorClienteModal {
             nextBtn: document.getElementById('btnPaginacionSiguiente') as HTMLButtonElement | null,
             etiquetaItem: 'clientes',
             onCambiarPagina: (p) => {
-                void this.buscar(this.terminoBusqueda, p);
+                void this.buscar(this.filtroCuit, this.filtroRazonSocial, p);
             }
         });
 
         this.initEvents();
+    }
+
+    private leerFiltrosActuales(): { cuit: string; razonSocial: string } {
+        return {
+            cuit: this.inputCuit?.value.trim() ?? '',
+            razonSocial: this.inputRazonSocial?.value.trim() ?? ''
+        };
     }
 
     private initEvents(): void {
@@ -58,51 +68,43 @@ export class BuscadorClienteModal {
 
         // Buscar al hacer clic en el botón
         this.btnBuscar?.addEventListener('click', () => {
-            const termino = this.inputBuscar?.value.trim() ?? '';
-            if (termino.length < 2) {
-                this.mostrarEstadoInicial();
-                return;
-            }
-            void this.buscar(termino, 0);
+            const { cuit, razonSocial } = this.leerFiltrosActuales();
+            void this.buscar(cuit, razonSocial, 0);
         });
 
-        // Buscar en tiempo real mientras el usuario escribe (a partir de 2 caracteres)
+        // Buscar en tiempo real o con Enter en cualquiera de las dos cajas de texto
         let debounceTimer: number | undefined;
-        this.inputBuscar?.addEventListener('input', () => {
-            if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
-            debounceTimer = window.setTimeout(() => {
-                const termino = this.inputBuscar?.value.trim() ?? '';
-                if (termino.length < 2) {
-                    this.mostrarEstadoInicial();
-                    return;
-                }
-                void this.buscar(termino, 0);
-            }, 250);
-        });
+        const inputs = [this.inputCuit, this.inputRazonSocial].filter(
+            (el): el is HTMLInputElement => el !== null
+        );
 
-        // Buscar al presionar Enter en el input
-        this.inputBuscar?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
+        for (const input of inputs) {
+            input.addEventListener('input', () => {
                 if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
-                const termino = this.inputBuscar?.value.trim() ?? '';
-                if (termino.length < 2) {
-                    this.mostrarEstadoInicial();
-                    return;
+                debounceTimer = window.setTimeout(() => {
+                    const { cuit, razonSocial } = this.leerFiltrosActuales();
+                    void this.buscar(cuit, razonSocial, 0);
+                }, 250);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
+                    const { cuit, razonSocial } = this.leerFiltrosActuales();
+                    void this.buscar(cuit, razonSocial, 0);
                 }
-                void this.buscar(termino, 0);
-            }
-        });
+            });
+        }
     }
 
     abrir(): void {
         if (!this.dialog) return;
         this.dialog.showModal();
-        if (this.inputBuscar) {
-            this.inputBuscar.value = '';
-            this.inputBuscar.focus();
-        }
-        this.mostrarEstadoInicial();
+        if (this.inputCuit) this.inputCuit.value = '';
+        if (this.inputRazonSocial) this.inputRazonSocial.value = '';
+        this.inputCuit?.focus();
+        void this.buscar('', '', 0);
     }
 
     cerrar(): void {
@@ -110,27 +112,7 @@ export class BuscadorClienteModal {
         this.dialog.close();
     }
 
-    private mostrarEstadoInicial(): void {
-        this.terminoBusqueda = '';
-        this.paginaActual = 0;
-        this.tableWrap?.classList.add('is-empty');
-        if (this.tbody) {
-            this.tbody.classList.remove('is-loading');
-            this.tbody.innerHTML = `
-                <tr class="fila-vacia">
-                    <td colspan="3" class="modal-empty-cell">
-                        <div class="modal-empty-content">
-                            <svg class="icon modal-empty-icon" aria-hidden="true"><use href="#i-search"/></svg>
-                            <span class="modal-empty-title">Buscá un cliente por nombre o CUIT</span>
-                            <span class="modal-empty-subtitle">Escribí al menos 2 caracteres para consultar clientes.</span>
-                        </div>
-                    </td>
-                </tr>`;
-        }
-        this.paginador.limpiar('');
-    }
-
-    async buscar(termino: string, pagina: number = 0): Promise<void> {
+    async buscar(cuit: string = '', razonSocial: string = '', pagina: number = 0): Promise<void> {
         if (!this.tbody) return;
 
         // Quitamos la clase de vacío para que el thead y los skeletons se alineen prolijamente
@@ -140,11 +122,12 @@ export class BuscadorClienteModal {
 
         try {
             const [data] = await Promise.all([
-                this.options.clienteService.buscarClientes(termino, pagina, 5),
+                this.options.clienteService.buscarClientes({ cuit, razonSocial }, pagina, 5),
                 new Promise((resolve) => setTimeout(resolve, 180))
             ]);
             this.paginaActual = data.paginaActual;
-            this.terminoBusqueda = termino;
+            this.filtroCuit = cuit;
+            this.filtroRazonSocial = razonSocial;
 
             this.renderizarFilas(data.contenido);
 
@@ -196,7 +179,7 @@ export class BuscadorClienteModal {
                     <td colspan="3" class="modal-empty-cell">
                         <div class="modal-empty-content">
                             <span class="modal-empty-title">No se encontraron clientes</span>
-                            <span class="modal-empty-subtitle">Revisá el término ingresado o intentá con otro CUIT o denominación.</span>
+                            <span class="modal-empty-subtitle">Revisá el CUIT o razón social ingresada e intentá nuevamente.</span>
                         </div>
                     </td>
                 </tr>`;

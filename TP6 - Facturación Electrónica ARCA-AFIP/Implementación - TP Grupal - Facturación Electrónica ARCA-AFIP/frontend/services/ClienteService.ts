@@ -1,6 +1,11 @@
 import { ClienteDTO, RespuestaPaginadaDTO } from '../models/api.dto';
 import { construirErrorApi } from './api-utils';
 
+export interface FiltrosCliente {
+    cuit?: string;
+    razonSocial?: string;
+}
+
 /**
  * Servicio cliente para el dominio de Clientes (/api/clientes).
  */
@@ -11,10 +16,11 @@ export class ClienteService {
         this.baseUrl = baseUrl;
     }
 
-    /** GET /api/clientes/buscar?filtro=&page=&size= — búsqueda paginada de clientes. */
-    async buscarClientes(filtro: string, pagina: number = 0, tamanio: number = 5): Promise<RespuestaPaginadaDTO<ClienteDTO>> {
+    /** GET /api/clientes/buscar?cuit=&razonSocial=&page=&size= — búsqueda paginada de clientes. */
+    async buscarClientes(filtros: FiltrosCliente = {}, pagina: number = 0, tamanio: number = 5): Promise<RespuestaPaginadaDTO<ClienteDTO>> {
         const params = new URLSearchParams({
-            filtro: filtro ?? '',
+            cuit: (filtros.cuit ?? '').trim(),
+            razonSocial: (filtros.razonSocial ?? '').trim(),
             page: String(pagina),
             size: String(tamanio)
         });

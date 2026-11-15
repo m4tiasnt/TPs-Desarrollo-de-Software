@@ -18,3 +18,7 @@ build/
 GEMINI.md
 PLAN_BACKEND.md
 ROADMAP.md
+
+### Certificados y Claves AFIP ###
+*.key
+*.crt
