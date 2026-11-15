@@ -1,31 +1,16 @@
-import { calcularSubtotalDetalle, calcularTotalesFactura, TotalesFactura } from '../utils/calculos-factura';
+import { TotalesFactura } from '../utils/calculos-factura';
 import { formatearMoneda } from '../utils/formatters';
 import { setTexto } from '../utils/dom';
+import { Factura, ResultadoAgregarDetalle } from '../models/Factura';
+import { FacturaDetalle, FacturaDetalleProps } from '../models/FacturaDetalle';
 
-export interface FacturaDetalleUI {
-    articuloId: number;
-    listaPrecioArticuloId: number;
-    descripcion?: string;
-    cantidad: number;
-    porcentajeBonificacion: number;
-    precioUnitario: number;
-    listaPrecioDenominacion: string;
-    articuloDenominacion: string;
-    articuloCodigo: string;
-    articuloMarca?: string;
-}
+export type FacturaDetalleUI = FacturaDetalle;
+export type { ResultadoAgregarDetalle, FacturaDetalleProps };
 
 export type ModoFactura = 'nueva' | 'editar' | 'ver';
 
-export interface ResultadoAgregarDetalle {
-    /** true si el artículo ya estaba y se sumó a su renglón en vez de crear uno nuevo */
-    fusionado: boolean;
-    indice: number;
-    /** cantidad final del renglón */
-    cantidad: number;
-}
-
 export interface TablaDetallesOptions {
+    factura?: Factura;
     tbody: HTMLTableSectionElement;
     wrapEl: HTMLElement;
     vacioEl: HTMLElement;
@@ -38,17 +23,28 @@ export interface TablaDetallesOptions {
 }
 
 /**
- * Componente que gestiona la tabla de detalles/artículos de la factura de venta.
- * Controla inputs de cantidad, bonificación, subtotales y avisos de estado vacío.
+ * Componente visual que gestiona la tabla de detalles/artículos de un objeto Factura.
+ * Delega el manejo de los objetos FacturaDetalle al modelo Factura y actualiza la grilla del DOM.
  */
 export class TablaDetallesFactura {
-    private detalles: FacturaDetalleUI[] = [];
+    private factura: Factura;
     private modo: ModoFactura = 'nueva';
 
-    constructor(private readonly options: TablaDetallesOptions) {}
+    constructor(private readonly options: TablaDetallesOptions) {
+        this.factura = options.factura ?? new Factura();
+    }
 
     setModo(modo: ModoFactura): void {
         this.modo = modo;
+    }
+
+    setFactura(factura: Factura): void {
+        this.factura = factura;
+        this.render();
+    }
+
+    getFactura(): Factura {
+        return this.factura;
     }
 
     mostrarEsqueletos(cantidad: number = 3): void {
@@ -75,39 +71,28 @@ export class TablaDetallesFactura {
         this.options.tbody.replaceChildren(fragment);
     }
 
-    setDetalles(detalles: FacturaDetalleUI[]): void {
-        // Si la factura guardada trae el mismo artículo en varios renglones, se unifican.
-        this.detalles = [];
-        detalles.forEach((d) => this.fusionarOAgregar({ ...d }));
+    setDetalles(detalles: (FacturaDetalle | FacturaDetalleProps)[]): void {
+        const instancias = detalles.map((d) =>
+            d instanceof FacturaDetalle ? d : new FacturaDetalle(d)
+        );
+        this.factura.setDetalles(instancias);
         this.render();
     }
 
-    obtenerDetalles(): FacturaDetalleUI[] {
-        return [...this.detalles];
+    obtenerDetalles(): FacturaDetalle[] {
+        return this.factura.obtenerDetalles();
     }
 
     /**
-     * Agrega un artículo a la factura. Si el artículo ya está cargado, no crea un
-     * renglón nuevo: le suma la cantidad al existente.
+     * Agrega un objeto FacturaDetalle al objeto Factura.
+     * Si el artículo ya está cargado, no crea un renglón nuevo: incrementa su cantidad.
      */
-    agregarDetalle(detalle: FacturaDetalleUI): ResultadoAgregarDetalle {
-        const resultado = this.fusionarOAgregar(detalle);
+    agregarDetalle(detalle: FacturaDetalle | FacturaDetalleProps): ResultadoAgregarDetalle {
+        const instancia = detalle instanceof FacturaDetalle ? detalle : new FacturaDetalle(detalle);
+        const resultado = this.factura.agregarDetalle(instancia);
         this.render();
         if (resultado.fusionado) this.resaltarFila(resultado.indice);
         return resultado;
-    }
-
-    private fusionarOAgregar(detalle: FacturaDetalleUI): ResultadoAgregarDetalle {
-        const indice = (detalle.articuloId && detalle.articuloId > 0)
-            ? this.detalles.findIndex((d) => d.articuloId === detalle.articuloId)
-            : -1;
-        if (indice === -1) {
-            this.detalles.push(detalle);
-            return { fusionado: false, indice: this.detalles.length - 1, cantidad: detalle.cantidad };
-        }
-        const existente = this.detalles[indice];
-        existente.cantidad += detalle.cantidad > 0 ? detalle.cantidad : 1;
-        return { fusionado: true, indice, cantidad: existente.cantidad };
     }
 
     private resaltarFila(idx: number): void {
@@ -119,21 +104,22 @@ export class TablaDetallesFactura {
     }
 
     quitarDetalle(indice: number): void {
-        if (indice >= 0 && indice < this.detalles.length) {
-            this.detalles.splice(indice, 1);
+        if (indice >= 0 && indice < this.factura.detalles.length) {
+            this.factura.quitarDetalle(indice);
             this.render();
         }
     }
 
-    actualizarDetalle(indice: number, cambios: Partial<FacturaDetalleUI>): void {
-        if (indice >= 0 && indice < this.detalles.length) {
-            this.detalles[indice] = { ...this.detalles[indice], ...cambios };
+    actualizarDetalle(indice: number, cambios: Partial<FacturaDetalleProps>): void {
+        if (indice >= 0 && indice < this.factura.detalles.length) {
+            this.factura.actualizarDetalle(indice, cambios);
             this.render();
         }
     }
 
     render(): void {
-        if (this.detalles.length === 0) {
+        const detalles = this.factura.detalles;
+        if (detalles.length === 0) {
             this.options.vacioEl.hidden = false;
             this.options.wrapEl.hidden = true;
             this.options.errorEl.hidden = true;
@@ -149,7 +135,7 @@ export class TablaDetallesFactura {
         const tpl = this.modo === 'ver' ? this.options.tplVer : this.options.tplEditable;
         this.options.tbody.replaceChildren();
 
-        this.detalles.forEach((d, idx) => {
+        detalles.forEach((d, idx) => {
             const clone = tpl.content.cloneNode(true) as DocumentFragment;
             const tr = clone.querySelector('tr') as HTMLTableRowElement;
 
@@ -170,7 +156,7 @@ export class TablaDetallesFactura {
                 }
             }
 
-            setTexto(tr, '[data-campo="importeSubtotal"]', formatearMoneda(calcularSubtotalDetalle(d)));
+            setTexto(tr, '[data-campo="importeSubtotal"]', formatearMoneda(d.calcularSubtotal()));
 
             if (this.modo === 'ver') {
                 setTexto(tr, '[data-campo="cantidad"]', String(d.cantidad));
@@ -197,22 +183,24 @@ export class TablaDetallesFactura {
             const btnIncrementar = tr.querySelector('[data-accion="incrementar"]') as HTMLButtonElement | null;
 
             const actualizarEstadoDecrementar = () => {
-                if (btnDecrementar) {
-                    btnDecrementar.disabled = this.detalles[idx].cantidad <= 1;
+                const actual = this.factura.detalles[idx];
+                if (btnDecrementar && actual) {
+                    btnDecrementar.disabled = actual.cantidad <= 1;
                 }
             };
 
             const modificarCantidad = (delta: number) => {
-                const actual = this.detalles[idx].cantidad || 1;
-                const nueva = Math.max(1, actual + delta);
-                this.detalles[idx].cantidad = nueva;
-                inpCant.value = String(nueva);
+                const actual = this.factura.detalles[idx];
+                if (!actual) return;
+                const nueva = Math.max(1, (actual.cantidad || 1) + delta);
+                actual.setCantidad(nueva);
+                inpCant.value = String(actual.cantidad);
                 actualizarEstadoDecrementar();
                 this.actualizarFila(idx);
                 this.notificarTotales();
                 if (delta > 0) {
                     this.options.onMensajeFeedback?.(
-                        `Se ha agregado una unidad del artículo seleccionado: "${this.detalles[idx].articuloDenominacion}".`
+                        `Se ha agregado una unidad del artículo seleccionado: "${actual.articuloDenominacion}".`
                     );
                 }
             };
@@ -228,15 +216,18 @@ export class TablaDetallesFactura {
             });
 
             inpCant.addEventListener('input', () => {
+                const actual = this.factura.detalles[idx];
+                if (!actual) return;
                 const val = parseFloat(inpCant.value);
-                this.detalles[idx].cantidad = Math.max(1, val || 1);
+                actual.setCantidad(Math.max(1, val || 1));
                 actualizarEstadoDecrementar();
                 this.actualizarFila(idx);
                 this.notificarTotales();
             });
 
             inpCant.addEventListener('blur', () => {
-                inpCant.value = String(this.detalles[idx].cantidad);
+                const actual = this.factura.detalles[idx];
+                if (actual) inpCant.value = String(actual.cantidad);
             });
 
             actualizarEstadoDecrementar();
@@ -244,8 +235,10 @@ export class TablaDetallesFactura {
             const inpBonif = tr.querySelector('input[name="porcentajeBonificacion"]') as HTMLInputElement;
             inpBonif.value = String(d.porcentajeBonificacion ?? 0);
             inpBonif.addEventListener('input', () => {
+                const actual = this.factura.detalles[idx];
+                if (!actual) return;
                 const val = parseFloat(inpBonif.value) || 0;
-                this.detalles[idx].porcentajeBonificacion = Math.min(100, Math.max(0, val));
+                actual.setPorcentajeBonificacion(val);
                 this.actualizarFila(idx);
                 this.notificarTotales();
             });
@@ -269,15 +262,16 @@ export class TablaDetallesFactura {
 
     private actualizarFila(idx: number): void {
         const fila = this.options.tbody.querySelectorAll('tr')[idx];
-        if (!fila) return;
+        const detalle = this.factura.detalles[idx];
+        if (!fila || !detalle) return;
         const celdaSubtotal = fila.querySelector('[data-campo="importeSubtotal"]');
         if (celdaSubtotal) {
-            celdaSubtotal.textContent = formatearMoneda(calcularSubtotalDetalle(this.detalles[idx]));
+            celdaSubtotal.textContent = formatearMoneda(detalle.calcularSubtotal());
         }
     }
 
     private notificarTotales(): void {
-        const totales = calcularTotalesFactura(this.detalles);
-        this.options.onCambioTotales(totales, this.detalles.length);
+        const totales = this.factura.calcularTotales();
+        this.options.onCambioTotales(totales, this.factura.detalles.length);
     }
 }

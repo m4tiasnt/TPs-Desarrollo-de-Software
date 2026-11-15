@@ -20,7 +20,9 @@ import { TotalesFactura } from './utils/calculos-factura';
 import { setTexto } from './utils/dom';
 import { BuscadorClienteModal } from './components/BuscadorClienteModal';
 import { BuscadorArticuloCombobox } from './components/BuscadorArticuloCombobox';
-import { ModoFactura, TablaDetallesFactura, FacturaDetalleUI } from './components/TablaDetallesFactura';
+import { Factura } from './models/Factura';
+import { FacturaDetalle } from './models/FacturaDetalle';
+import { ModoFactura, TablaDetallesFactura } from './components/TablaDetallesFactura';
 import { NotificadorToast } from './components/NotificadorToast';
 
 // ─── Servicios y Estado ─────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ const catalogoService = new CatalogoService('http://localhost:8080/api');
 let modoActual: ModoFactura = 'nueva';
 let facturaId: number | null = null;
 let facturaActual: FacturaVentaDTO | null = null;
+let facturaModelo: Factura = new Factura();
 let listaBaseId: number | null = null;
 let snapshotInicial = '';
 let detalleEditando: number | null = null;
@@ -97,6 +100,7 @@ const dlgInformar = document.getElementById('dlg-informar-arca') as HTMLDialogEl
 
 // ─── Componentes ────────────────────────────────────────────────────────────
 const tablaDetalles = new TablaDetallesFactura({
+    factura: facturaModelo,
     tbody: detallesTbody,
     wrapEl: detallesWrap,
     vacioEl: detallesVacio,
@@ -124,18 +128,9 @@ const comboboxArticulos = new BuscadorArticuloCombobox({
     articuloService,
     getListaPrecioId: () => listaBaseId,
     onSeleccionarArticulo: (art) => {
-        const resultado = tablaDetalles.agregarDetalle({
-            articuloId: art.id,
-            listaPrecioArticuloId: art.listaPrecioArticuloId,
-            descripcion: undefined,
-            cantidad: 1,
-            porcentajeBonificacion: 0,
-            precioUnitario: art.precioVenta ?? 0,
-            listaPrecioDenominacion: art.listaPrecioDenominacion,
-            articuloDenominacion: art.denominacion,
-            articuloCodigo: art.codigo,
-            articuloMarca: art.marca
-        });
+        // Se crea un objeto FacturaDetalle con cantidad = 1 por defecto y se agrega a la Factura
+        const detalle = FacturaDetalle.desdeArticulo(art);
+        const resultado = tablaDetalles.agregarDetalle(detalle);
         if (resultado.fusionado) {
             toast.info(`Se ha agregado una unidad del artículo seleccionado: "${art.denominacion}".`, 3500);
         }
@@ -306,20 +301,8 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         if (selectTipoMoneda) selectTipoMoneda.value = String(f.tipoMonedaId);
         if (textareaObservaciones) textareaObservaciones.value = f.observaciones || '';
 
-        const detalles: FacturaDetalleUI[] = (f.detalles || []).map((d) => ({
-            articuloId: d.articuloId || 0,
-            listaPrecioArticuloId: d.listaPrecioArticuloId || 0,
-            descripcion: d.descripcion || undefined,
-            cantidad: d.cantidad,
-            porcentajeBonificacion: d.porcentajeBonificacion || 0,
-            precioUnitario: d.precioUnitario,
-            listaPrecioDenominacion: d.listaPrecio || '',
-            articuloDenominacion: d.denominacionArticulo || '',
-            articuloCodigo: d.codigoArticulo || '',
-            articuloMarca: undefined
-        }));
-
-        tablaDetalles.setDetalles(detalles);
+        facturaModelo = Factura.desdeDTO(f);
+        tablaDetalles.setFactura(facturaModelo);
 
         // Bloqueo de seguridad AFIP y habilitación dinámica de acciones
         const puedeEditar = f.estado === 'BORRADOR' || f.estado === 'RECHAZADA';
@@ -411,20 +394,19 @@ function validar(): boolean {
 
 function construirDTO(): FacturaVentaRequestDTO {
     const cid = inputClienteId.value ? parseInt(inputClienteId.value, 10) : undefined;
-    return {
+    const condIva = selectCondicionIva.value ? parseInt(selectCondicionIva.value, 10) : undefined;
+    const ptoVta = selectPuntoVenta.value ? parseInt(selectPuntoVenta.value, 10) : undefined;
+    const moneda = selectTipoMoneda.value ? parseInt(selectTipoMoneda.value, 10) : undefined;
+
+    facturaModelo.setCabecera({
         clienteId: Number.isFinite(cid as number) ? cid : undefined,
-        condicionIvaId: parseInt(selectCondicionIva.value, 10),
-        puntoVentaId: parseInt(selectPuntoVenta.value, 10),
-        tipoMonedaId: parseInt(selectTipoMoneda.value, 10),
-        observaciones: textareaObservaciones.value.trim() || undefined,
-        detalles: tablaDetalles.obtenerDetalles().map((r) => ({
-            articuloId: r.articuloId,
-            listaPrecioArticuloId: r.listaPrecioArticuloId,
-            descripcion: r.descripcion,
-            cantidad: r.cantidad,
-            porcentajeBonificacion: r.porcentajeBonificacion
-        }))
-    };
+        condicionIvaId: Number.isFinite(condIva as number) ? condIva : undefined,
+        puntoVentaId: Number.isFinite(ptoVta as number) ? ptoVta : undefined,
+        tipoMonedaId: Number.isFinite(moneda as number) ? moneda : undefined,
+        observaciones: textareaObservaciones.value.trim() || undefined
+    });
+
+    return facturaModelo.toRequestDTO();
 }
 
 function serializarEstado(): string {
