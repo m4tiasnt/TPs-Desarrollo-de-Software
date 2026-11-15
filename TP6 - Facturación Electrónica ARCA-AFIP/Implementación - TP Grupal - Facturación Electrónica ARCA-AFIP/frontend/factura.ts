@@ -21,8 +21,10 @@ import { setTexto } from './utils/dom';
 import { BuscadorClienteModal } from './components/BuscadorClienteModal';
 import { BuscadorArticuloCombobox } from './components/BuscadorArticuloCombobox';
 import { ModoFactura, TablaDetallesFactura, FacturaDetalleUI } from './components/TablaDetallesFactura';
+import { NotificadorToast } from './components/NotificadorToast';
 
 // ─── Servicios y Estado ─────────────────────────────────────────────────────
+const toast = new NotificadorToast('mensaje-feedback');
 const facturaService = new FacturaService('http://localhost:8080/api/facturas');
 const clienteService = new ClienteService('http://localhost:8080/api/clientes');
 const articuloService = new ArticuloService('http://localhost:8080/api/articulos');
@@ -109,6 +111,9 @@ const tablaDetalles = new TablaDetallesFactura({
     },
     onAbrirMenuDetalle: (idx, anchor) => {
         abrirMenuDetalle(idx, anchor);
+    },
+    onMensajeFeedback: (mensaje: string) => {
+        toast.info(mensaje, 3500);
     }
 });
 
@@ -119,7 +124,7 @@ const comboboxArticulos = new BuscadorArticuloCombobox({
     articuloService,
     getListaPrecioId: () => listaBaseId,
     onSeleccionarArticulo: (art) => {
-        tablaDetalles.agregarDetalle({
+        const resultado = tablaDetalles.agregarDetalle({
             articuloId: art.id,
             listaPrecioArticuloId: art.listaPrecioArticuloId,
             descripcion: undefined,
@@ -131,6 +136,9 @@ const comboboxArticulos = new BuscadorArticuloCombobox({
             articuloCodigo: art.codigo,
             articuloMarca: art.marca
         });
+        if (resultado.fusionado) {
+            toast.info(`Se ha agregado una unidad del artículo seleccionado: "${art.denominacion}".`, 3500);
+        }
     },
     onError: (msj) => mostrarAlertaError(msj)
 });
@@ -236,9 +244,9 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         aplicarBadgeEstado(badgeEstado, f.estado);
 
         // Título y subtítulo significativos
-        const nroIdentificador = f.numeroComprobante || (f.id ? `#${f.id}` : '');
+        const nroIdentificador = obtenerIdentificadorFactura(f);
         if (modoActual === 'ver') {
-            tituloPagina.textContent = f.numeroComprobante ? `Factura ${f.numeroComprobante}` : `Factura #${f.id}`;
+            tituloPagina.textContent = `Factura ${nroIdentificador}`;
         } else if (modoActual === 'editar') {
             tituloPagina.textContent = `Editar factura ${nroIdentificador}`;
         }
@@ -258,7 +266,7 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         }
         setTexto(document.body, '[data-campo="clienteCuit"]', tieneClienteRegistrado && f.clienteCuitCuil ? f.clienteCuitCuil : '—');
         setTexto(document.body, '[data-campo="condicionIva"]', f.condicionIva || '—');
-        setTexto(document.body, '[data-campo="numeroFactura"]', f.numeroComprobante || (f.id ? `Borrador #${f.id}` : '—'));
+        setTexto(document.body, '[data-campo="numeroFactura"]', obtenerIdentificadorFactura(f));
         setTexto(document.body, '[data-campo="fechaEmision"]', formatearFecha(f.fechaEmision));
         const caeTexto = f.cae || '—';
         setTexto(document.body, '[data-campo="caeInfo"]', caeTexto);
@@ -652,7 +660,10 @@ function configurarEventos(): void {
 
                 const clone = tplResultado.content.cloneNode(true) as DocumentFragment;
                 const fila = clone.querySelector('tr') as HTMLTableRowElement;
-                (fila.querySelector('[data-campo="factura"]') as HTMLElement).textContent = r.numero != null ? `#${r.numero}` : (facturaActual ? obtenerIdentificadorFactura(facturaActual) : `#${r.id}`);
+                const ptoVtaRes = String(facturaActual?.puntoVentaNumero ?? 1).padStart(4, '0');
+                (fila.querySelector('[data-campo="factura"]') as HTMLElement).textContent = r.numero != null
+                    ? `${ptoVtaRes}_${String(r.numero).padStart(8, '0')}`
+                    : (facturaActual ? obtenerIdentificadorFactura(facturaActual) : `${ptoVtaRes}_`);
                 aplicarBadgeEstado(fila.querySelector('[data-campo="estado"]') as HTMLElement, r.estado);
                 const detalleEl = fila.querySelector('[data-campo="detalle"]') as HTMLElement;
                 const textoDetalle = r.mensaje ?? '—';

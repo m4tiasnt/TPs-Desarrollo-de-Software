@@ -39,7 +39,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -70,24 +72,37 @@ public class FacturaService {
             int pagina, int tamanio) {
 
         Long idBuscado = null;
+        Integer puntoVentaBuscado = null;
         Long numeroBuscado = null;
+        boolean soloSinNumero = false;
         if (busqueda != null && !busqueda.isBlank()) {
             String limpio = busqueda.trim();
             try {
                 if (limpio.startsWith("#")) {
                     idBuscado = Long.parseLong(limpio.substring(1));
+                } else if (limpio.contains("_") || limpio.contains("-")) {
+                    String[] partes = limpio.split("[_-]", -1);
+                    if (partes.length != 2 || partes[0].isBlank()) {
+                        throw new NumberFormatException("Formato de comprobante inválido");
+                    }
+                    puntoVentaBuscado = Integer.parseInt(partes[0].trim());
+                    if (!partes[1].isBlank()) {
+                        numeroBuscado = Long.parseLong(partes[1].trim());
+                    } else {
+                        soloSinNumero = true;
+                    }
                 } else {
                     numeroBuscado = Long.parseLong(limpio);
                 }
             } catch (NumberFormatException ex) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "La búsqueda debe ser un número de factura o un id precedido por #");
+                        "La búsqueda debe ser un número de comprobante (ej: 0001_00000042 o 42) o un id precedido por #");
             }
         }
 
         return facturaRepository.buscarFacturasPaginadas(
                 fechaDesde, fechaHasta, estado, montoMinimo,
-                clienteId, idBuscado, numeroBuscado, informadaArca,
+                clienteId, idBuscado, puntoVentaBuscado, numeroBuscado, soloSinNumero, informadaArca,
                 pagina, tamanio);
     }
 
@@ -388,14 +403,33 @@ public class FacturaService {
         if (detallesDto == null || detallesDto.isEmpty()) {
             return;
         }
+        // Un mismo artículo no puede aparecer en dos renglones: si llega repetido,
+        // se suma su cantidad al renglón que ya existe (se conservan la lista de
+        // precios, descripción y bonificación del primero).
+        Map<Long, FacturaVentaDetalle> detallesPorArticulo = new LinkedHashMap<>();
         for (FacturaVentaDetalleRequestDTO detalleDto : detallesDto) {
             ListaPrecioArticulo listaPrecioArticulo = resolverListaPrecioArticulo(detalleDto);
+            Long articuloId = listaPrecioArticulo.getArticulo() != null
+                    ? listaPrecioArticulo.getArticulo().getId()
+                    : null;
+
+            FacturaVentaDetalle existente = articuloId != null ? detallesPorArticulo.get(articuloId) : null;
+            if (existente != null) {
+                double cantidadExtra = detalleDto.getCantidad() > 0 ? detalleDto.getCantidad() : 1.0;
+                existente.setCantidad(existente.getCantidad() + cantidadExtra);
+                existente.calcularImportes();
+                continue;
+            }
+
             FacturaVentaDetalle detalle = FacturaVentaDetalle.crear(
                     listaPrecioArticulo,
                     detalleDto.getDescripcion(),
                     detalleDto.getCantidad(),
                     detalleDto.getPorcentajeBonificacion());
             factura.addDetalle(detalle);
+            if (articuloId != null) {
+                detallesPorArticulo.put(articuloId, detalle);
+            }
         }
     }
 
@@ -495,14 +529,17 @@ public class FacturaService {
     }
 
     private static String formatearNumeroComprobante(FacturaVenta factura) {
-        if (factura == null || factura.getNumero() == null) {
+        if (factura == null) {
             return null;
         }
         try {
             int ptoVta = (factura.getPuntoVenta() != null) ? factura.getPuntoVenta().getNumero() : 1;
-            return String.format("%04d-%08d", ptoVta, factura.getNumero());
+            if (factura.getNumero() == null) {
+                return String.format("%04d_", ptoVta);
+            }
+            return String.format("%04d_%08d", ptoVta, factura.getNumero());
         } catch (Exception e) {
-            return String.valueOf(factura.getNumero());
+            return factura.getNumero() != null ? String.valueOf(factura.getNumero()) : null;
         }
     }
 

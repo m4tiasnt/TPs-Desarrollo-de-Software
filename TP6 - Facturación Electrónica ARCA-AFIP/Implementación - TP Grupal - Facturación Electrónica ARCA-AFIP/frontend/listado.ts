@@ -298,13 +298,8 @@ function renderizarTabla(facturas: FacturaVentaListadoDTO[]): void {
         }
 
         const nroEl = fila.querySelector('[data-campo="numero"]') as HTMLElement;
-        if (f.numeroComprobante) {
-            nroEl.textContent = f.numeroComprobante;
-            nroEl.className = 'nro-factura';
-        } else {
-            nroEl.textContent = obtenerIdentificadorFactura(f);
-            nroEl.className = 'nro-factura--provisorio';
-        }
+        nroEl.textContent = obtenerIdentificadorFactura(f);
+        nroEl.className = f.numero != null ? 'nro-factura' : 'nro-factura--provisorio';
 
         const pvNumero = f.puntoVentaNumero != null ? String(f.puntoVentaNumero).padStart(4, '0') : '';
         const pvTexto = [pvNumero, f.puntoVentaDescripcion].filter(Boolean).join(' · ');
@@ -685,11 +680,12 @@ function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: R
     const f = facturasPorId.get(r.id);
     const nro = fila.querySelector('[data-campo="factura"]') as HTMLElement;
     if (nro) {
+        const ptoVta = String(f?.puntoVentaNumero ?? 1).padStart(4, '0');
         if (r.numero != null) {
-            nro.textContent = `#${r.numero}`;
+            nro.textContent = `${ptoVta}_${String(r.numero).padStart(8, '0')}`;
             nro.className = 'nro-factura';
         } else {
-            nro.textContent = f ? obtenerIdentificadorFactura(f) : `#${r.id}`;
+            nro.textContent = f ? obtenerIdentificadorFactura(f) : `${ptoVta}_`;
         }
     }
 

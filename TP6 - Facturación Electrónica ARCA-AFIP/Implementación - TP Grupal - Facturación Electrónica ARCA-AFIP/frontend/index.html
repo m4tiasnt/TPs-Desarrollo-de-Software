@@ -101,8 +101,8 @@
         <form class="card filters is-collapsed" id="form-filtros" aria-label="Filtros de búsqueda">
             <div class="card-body filters-grid">
                 <div class="form-group">
-                    <label for="filtro-busqueda">N° Factura o #ID</label>
-                    <input class="form-control" type="text" id="filtro-busqueda" name="busqueda" placeholder="Ej: 42 o #10">
+                    <label for="filtro-busqueda">N° Comprobante o #ID</label>
+                    <input class="form-control" type="text" id="filtro-busqueda" name="busqueda" placeholder="Ej: 0001_00000042, 42 o #10">
                 </div>
                 <div class="form-group">
                     <label for="filtro-cliente-nombre">Cliente</label>
@@ -161,7 +161,7 @@
                     <thead>
                         <tr>
                             <th class="col-select"><input type="checkbox" class="chk" id="chk-seleccionar-todos" aria-label="Seleccionar facturas pendientes de informar" title="Seleccionar facturas pendientes de informar"></th>
-                            <th class="col-numero">N° Factura</th>
+                            <th class="col-numero">N° Comprobante</th>
                             <th class="col-fecha">Fecha emisión</th>
                             <th class="col-cliente">Cliente</th>
                             <th class="col-total num">Total ($)</th>
@@ -239,7 +239,7 @@
     <template id="tpl-fila-factura">
         <tr>
             <td class="col-select"><input type="checkbox" class="chk" name="facturaIds"></td>
-            <td class="col-numero" data-label="N° Factura"><div class="celda-doble"><span class="nro-factura" data-campo="numero"></span><span class="celda-subtexto" data-campo="puntoVenta"></span></div></td>
+            <td class="col-numero" data-label="N° Comprobante"><div class="celda-doble"><span class="nro-factura" data-campo="numero"></span><span class="celda-subtexto" data-campo="puntoVenta"></span></div></td>
             <td class="col-fecha" data-label="Fecha emisión" data-campo="fechaEmision"></td>
             <td class="col-cliente" data-label="Cliente"><div class="celda-doble"><span class="truncate" data-campo="cliente"></span><span class="celda-subtexto" data-campo="condicionIva"></span></div></td>
             <td class="col-total num" data-label="Total ($)"><div class="celda-doble celda-doble--end"><strong data-campo="importeTotal"></strong><span class="celda-subtexto" data-campo="cantidadItems"></span></div></td>

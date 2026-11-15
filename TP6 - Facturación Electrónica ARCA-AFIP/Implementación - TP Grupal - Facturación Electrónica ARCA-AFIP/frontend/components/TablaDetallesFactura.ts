@@ -17,6 +17,14 @@ export interface FacturaDetalleUI {
 
 export type ModoFactura = 'nueva' | 'editar' | 'ver';
 
+export interface ResultadoAgregarDetalle {
+    /** true si el artículo ya estaba y se sumó a su renglón en vez de crear uno nuevo */
+    fusionado: boolean;
+    indice: number;
+    /** cantidad final del renglón */
+    cantidad: number;
+}
+
 export interface TablaDetallesOptions {
     tbody: HTMLTableSectionElement;
     wrapEl: HTMLElement;
@@ -26,6 +34,7 @@ export interface TablaDetallesOptions {
     tplVer: HTMLTemplateElement;
     onCambioTotales: (totales: TotalesFactura, cantidad: number) => void;
     onAbrirMenuDetalle?: (idx: number, anchorBtn: HTMLButtonElement) => void;
+    onMensajeFeedback?: (mensaje: string) => void;
 }
 
 /**
@@ -67,7 +76,9 @@ export class TablaDetallesFactura {
     }
 
     setDetalles(detalles: FacturaDetalleUI[]): void {
-        this.detalles = [...detalles];
+        // Si la factura guardada trae el mismo artículo en varios renglones, se unifican.
+        this.detalles = [];
+        detalles.forEach((d) => this.fusionarOAgregar({ ...d }));
         this.render();
     }
 
@@ -75,9 +86,36 @@ export class TablaDetallesFactura {
         return [...this.detalles];
     }
 
-    agregarDetalle(detalle: FacturaDetalleUI): void {
-        this.detalles.push(detalle);
+    /**
+     * Agrega un artículo a la factura. Si el artículo ya está cargado, no crea un
+     * renglón nuevo: le suma la cantidad al existente.
+     */
+    agregarDetalle(detalle: FacturaDetalleUI): ResultadoAgregarDetalle {
+        const resultado = this.fusionarOAgregar(detalle);
         this.render();
+        if (resultado.fusionado) this.resaltarFila(resultado.indice);
+        return resultado;
+    }
+
+    private fusionarOAgregar(detalle: FacturaDetalleUI): ResultadoAgregarDetalle {
+        const indice = (detalle.articuloId && detalle.articuloId > 0)
+            ? this.detalles.findIndex((d) => d.articuloId === detalle.articuloId)
+            : -1;
+        if (indice === -1) {
+            this.detalles.push(detalle);
+            return { fusionado: false, indice: this.detalles.length - 1, cantidad: detalle.cantidad };
+        }
+        const existente = this.detalles[indice];
+        existente.cantidad += detalle.cantidad > 0 ? detalle.cantidad : 1;
+        return { fusionado: true, indice, cantidad: existente.cantidad };
+    }
+
+    private resaltarFila(idx: number): void {
+        const fila = this.options.tbody.querySelectorAll('tr')[idx];
+        if (!fila) return;
+        fila.classList.add('fila-actualizada');
+        fila.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        window.setTimeout(() => fila.classList.remove('fila-actualizada'), 1200);
     }
 
     quitarDetalle(indice: number): void {
@@ -154,11 +192,54 @@ export class TablaDetallesFactura {
 
             const inpCant = tr.querySelector('input[name="cantidad"]') as HTMLInputElement;
             inpCant.value = String(d.cantidad);
+
+            const btnDecrementar = tr.querySelector('[data-accion="decrementar"]') as HTMLButtonElement | null;
+            const btnIncrementar = tr.querySelector('[data-accion="incrementar"]') as HTMLButtonElement | null;
+
+            const actualizarEstadoDecrementar = () => {
+                if (btnDecrementar) {
+                    btnDecrementar.disabled = this.detalles[idx].cantidad <= 1;
+                }
+            };
+
+            const modificarCantidad = (delta: number) => {
+                const actual = this.detalles[idx].cantidad || 1;
+                const nueva = Math.max(1, actual + delta);
+                this.detalles[idx].cantidad = nueva;
+                inpCant.value = String(nueva);
+                actualizarEstadoDecrementar();
+                this.actualizarFila(idx);
+                this.notificarTotales();
+                if (delta > 0) {
+                    this.options.onMensajeFeedback?.(
+                        `Se ha agregado una unidad del artículo seleccionado: "${this.detalles[idx].articuloDenominacion}".`
+                    );
+                }
+            };
+
+            btnDecrementar?.addEventListener('click', (e) => {
+                e.preventDefault();
+                modificarCantidad(-1);
+            });
+
+            btnIncrementar?.addEventListener('click', (e) => {
+                e.preventDefault();
+                modificarCantidad(1);
+            });
+
             inpCant.addEventListener('input', () => {
-                this.detalles[idx].cantidad = Math.max(1, parseFloat(inpCant.value) || 1);
+                const val = parseFloat(inpCant.value);
+                this.detalles[idx].cantidad = Math.max(1, val || 1);
+                actualizarEstadoDecrementar();
                 this.actualizarFila(idx);
                 this.notificarTotales();
             });
+
+            inpCant.addEventListener('blur', () => {
+                inpCant.value = String(this.detalles[idx].cantidad);
+            });
+
+            actualizarEstadoDecrementar();
 
             const inpBonif = tr.querySelector('input[name="porcentajeBonificacion"]') as HTMLInputElement;
             inpBonif.value = String(d.porcentajeBonificacion ?? 0);

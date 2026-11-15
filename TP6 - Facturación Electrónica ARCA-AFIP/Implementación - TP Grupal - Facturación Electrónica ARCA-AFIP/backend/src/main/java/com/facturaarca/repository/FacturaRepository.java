@@ -29,7 +29,7 @@ public class FacturaRepository {
         StringBuilder jpql = buildSelectReporteJpql();
         Map<String, Object> parametros = new HashMap<>();
         appendFiltros(jpql, parametros, fechaDesde, fechaHasta, estado, montoMinimo,
-                null, null, null, null);
+                null, null, null, null, false, null);
         appendGroupByOrderBy(jpql);
 
         TypedQuery<FacturaVentaReporteDTO> query = em.createQuery(jpql.toString(), FacturaVentaReporteDTO.class);
@@ -42,7 +42,8 @@ public class FacturaRepository {
      */
     public RespuestaPaginadaDTO<FacturaVentaListadoDTO> buscarFacturasPaginadas(
             Date fechaDesde, Date fechaHasta, EstadoFactura estado, Double montoMinimo,
-            Long clienteId, Long idBuscado, Long numeroBuscado, Boolean informadaArca,
+            Long clienteId, Long idBuscado, Integer puntoVentaBuscado, Long numeroBuscado,
+            boolean soloSinNumero, Boolean informadaArca,
             int pagina, int tamanio) {
 
         Map<String, Object> parametros = new HashMap<>();
@@ -50,7 +51,7 @@ public class FacturaRepository {
         StringBuilder countJpql = new StringBuilder(
                 "SELECT COUNT(f.id) FROM FacturaVenta f WHERE f.fechaBaja IS NULL ");
         appendFiltros(countJpql, parametros, fechaDesde, fechaHasta, estado, montoMinimo,
-                clienteId, idBuscado, numeroBuscado, informadaArca);
+                clienteId, idBuscado, puntoVentaBuscado, numeroBuscado, soloSinNumero, informadaArca);
 
         TypedQuery<Long> countQuery = em.createQuery(countJpql.toString(), Long.class);
         parametros.forEach(countQuery::setParameter);
@@ -59,7 +60,7 @@ public class FacturaRepository {
         parametros.clear();
         StringBuilder jpql = buildSelectListadoJpql();
         appendFiltros(jpql, parametros, fechaDesde, fechaHasta, estado, montoMinimo,
-                clienteId, idBuscado, numeroBuscado, informadaArca);
+                clienteId, idBuscado, puntoVentaBuscado, numeroBuscado, soloSinNumero, informadaArca);
         appendGroupByOrderBy(jpql);
 
         TypedQuery<FacturaVentaListadoDTO> query = em.createQuery(jpql.toString(), FacturaVentaListadoDTO.class);
@@ -113,7 +114,8 @@ public class FacturaRepository {
 
     private void appendFiltros(StringBuilder jpql, Map<String, Object> parametros,
                                Date fechaDesde, Date fechaHasta, EstadoFactura estado, Double montoMinimo,
-                               Long clienteId, Long idBuscado, Long numeroBuscado, Boolean informadaArca) {
+                               Long clienteId, Long idBuscado, Integer puntoVentaBuscado, Long numeroBuscado,
+                               boolean soloSinNumero, Boolean informadaArca) {
         if (fechaDesde != null) {
             jpql.append("AND f.fechaEmision >= :fechaDesde ");
             parametros.put("fechaDesde", fechaDesde);
@@ -138,9 +140,15 @@ public class FacturaRepository {
             jpql.append("AND f.id = :idBuscado ");
             parametros.put("idBuscado", idBuscado);
         }
+        if (puntoVentaBuscado != null) {
+            jpql.append("AND f.puntoVenta.numero = :puntoVentaBuscado ");
+            parametros.put("puntoVentaBuscado", puntoVentaBuscado);
+        }
         if (numeroBuscado != null) {
             jpql.append("AND f.numero = :numeroBuscado ");
             parametros.put("numeroBuscado", numeroBuscado);
+        } else if (soloSinNumero) {
+            jpql.append("AND f.numero IS NULL ");
         }
         if (informadaArca != null) {
             if (informadaArca) {
