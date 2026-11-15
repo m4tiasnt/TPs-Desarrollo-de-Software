@@ -153,10 +153,14 @@
                             aria-hidden="true">
                             <use href="#i-send" />
                         </svg> Informar a ARCA</button>
-                    <button type="button" class="btn btn-primary solo-ver" id="btn-editar"><svg class="icon"
+                    <button type="button" class="btn btn-secondary solo-ver" id="btn-editar"><svg class="icon"
                             aria-hidden="true">
                             <use href="#i-edit" />
                         </svg> Editar</button>
+                    <a href="index.html" class="btn btn-primary solo-ver" id="btn-continuar">Continuar <svg class="icon"
+                            aria-hidden="true">
+                            <use href="#i-next" />
+                        </svg></a>
                     <div class="menu-anchor solo-ver">
                         <button type="button" class="btn btn-secondary btn-icon" id="btn-mas-acciones"
                             aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones"><svg class="icon"
@@ -336,16 +340,18 @@
                                     <option value="">Seleccionar...</option>
                                 </select>
                             </div>
-                            <div class="combobox">
-                                <svg class="icon" aria-hidden="true">
-                                    <use href="#i-search" />
-                                </svg>
-                                <input class="form-control" type="text" id="buscador-articulo" role="combobox"
-                                    aria-expanded="false" aria-controls="lista-articulos" aria-autocomplete="list"
-                                    autocomplete="off" aria-label="Agregar artículo"
-                                    placeholder="Agregar artículo: buscar por código, nombre o marca">
-                                <ul class="combobox-list" id="lista-articulos" role="listbox" aria-label="Resultados"
-                                    hidden></ul>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="buscador-articulo">Agregar artículo</label>
+                                <div class="input-dialog-trigger">
+                                    <input class="form-control" type="text" id="buscador-articulo" readonly
+                                        placeholder="Buscar y seleccionar artículo del catálogo...">
+                                    <button type="button" class="btn btn-primary" id="btnAbrirModalArticulo"
+                                        aria-haspopup="dialog" aria-label="Buscar artículo" title="Buscar artículo">
+                                        <svg class="icon" aria-hidden="true">
+                                            <use href="#i-search" />
+                                        </svg> Buscar artículo
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <p class="field-error" id="error-detalles" hidden>Agregá al menos un artículo.</p>
@@ -400,17 +406,6 @@
 
         </main>
     </form>
-
-    <!-- Plantilla opción combobox artículos -->
-    <template id="tpl-opcion-articulo">
-        <li role="option">
-            <span>
-                <span class="option-name" data-campo="denominacion"></span>
-                <span class="option-meta" data-campo="detalle"></span>
-            </span>
-            <span data-campo="precio"></span>
-        </li>
-    </template>
 
     <!-- Plantilla detalle editable (modos nueva / editar) -->
     <template id="tpl-detalle">
@@ -755,6 +750,71 @@
                     </svg>
                 </button>
                 <button type="button" class="page-btn" id="btnPaginacionSiguiente" aria-label="Página siguiente"
+                    disabled>
+                    <svg class="icon" aria-hidden="true">
+                        <use href="#i-next" />
+                    </svg>
+                </button>
+            </nav>
+        </div>
+    </dialog>
+
+    <!-- Búsqueda de artículos: diálogo modal nativo con paginación integrada y unificada -->
+    <dialog id="modal-articulo-explorer" class="dialog-wide" aria-labelledby="titulo-modal-articulo">
+        <div class="dialog-head">
+            <h2 id="titulo-modal-articulo">Buscar artículo</h2>
+            <button type="button" id="btnCerrarModalArticulo" class="btn-icon" aria-label="Cerrar modal"><svg
+                    class="icon" aria-hidden="true">
+                    <use href="#i-close" />
+                </svg></button>
+        </div>
+
+        <div class="modal-cliente-search">
+            <div class="combobox" style="flex: 0.75;">
+                <svg class="icon" aria-hidden="true">
+                    <use href="#i-search" />
+                </svg>
+                <input type="text" id="inputBuscarArticuloCodigo" class="form-control"
+                    placeholder="Código..." aria-label="Buscar por código de artículo" autocomplete="off">
+            </div>
+            <div class="combobox" style="flex: 1.45;">
+                <svg class="icon" aria-hidden="true">
+                    <use href="#i-search" />
+                </svg>
+                <input type="text" id="inputBuscarArticuloDenominacion" class="form-control"
+                    placeholder="Nombre o marca del artículo..." aria-label="Buscar por nombre o marca" autocomplete="off">
+            </div>
+            <button type="button" id="btnBuscarArticulo" class="btn btn-primary"><svg class="icon" aria-hidden="true">
+                    <use href="#i-search" />
+                </svg> Buscar</button>
+        </div>
+
+        <div class="dialog-table">
+            <table class="table" style="table-layout: fixed; width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="width: 105px;">Código</th>
+                        <th>Artículo / Marca</th>
+                        <th class="num" style="width: 115px;">Precio</th>
+                        <th style="width: 130px; text-align: right;" aria-label="Acción"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-articulos-explorer">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-bar">
+            <div class="pagination-info-wrap">
+                <span id="infoPaginacionArticulo"></span>
+            </div>
+            <nav class="pagination-controls" aria-label="Páginas de artículos">
+                <button type="button" class="page-btn" id="btnPaginacionArticuloAnterior" aria-label="Página anterior" disabled>
+                    <svg class="icon" aria-hidden="true">
+                        <use href="#i-back" />
+                    </svg>
+                </button>
+                <button type="button" class="page-btn" id="btnPaginacionArticuloSiguiente" aria-label="Página siguiente"
                     disabled>
                     <svg class="icon" aria-hidden="true">
                         <use href="#i-next" />

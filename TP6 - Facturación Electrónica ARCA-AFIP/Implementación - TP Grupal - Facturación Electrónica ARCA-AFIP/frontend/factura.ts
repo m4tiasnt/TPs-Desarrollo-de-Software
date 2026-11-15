@@ -19,7 +19,7 @@ import {
 import { TotalesFactura } from './utils/calculos-factura';
 import { setTexto } from './utils/dom';
 import { BuscadorClienteModal } from './components/BuscadorClienteModal';
-import { BuscadorArticuloCombobox } from './components/BuscadorArticuloCombobox';
+import { BuscadorArticuloModal } from './components/BuscadorArticuloModal';
 import { Factura } from './models/Factura';
 import { FacturaDetalle } from './models/FacturaDetalle';
 import { ModoFactura, TablaDetallesFactura } from './components/TablaDetallesFactura';
@@ -72,8 +72,7 @@ const selectListaBase = document.getElementById('listaPrecioId') as HTMLSelectEl
 const textareaObservaciones = document.getElementById('observaciones') as HTMLTextAreaElement;
 
 const buscadorArticulo = document.getElementById('buscador-articulo') as HTMLInputElement;
-const listaArticulos = document.getElementById('lista-articulos') as HTMLUListElement;
-const tplOpcionArticulo = document.getElementById('tpl-opcion-articulo') as HTMLTemplateElement;
+const btnAbrirModalArticulo = document.getElementById('btnAbrirModalArticulo') as HTMLButtonElement | null;
 
 const detallesTbody = document.getElementById('detalles-tbody') as HTMLTableSectionElement;
 const detallesWrap = document.getElementById('detalles-wrap') as HTMLElement;
@@ -121,10 +120,7 @@ const tablaDetalles = new TablaDetallesFactura({
     }
 });
 
-const comboboxArticulos = new BuscadorArticuloCombobox({
-    inputEl: buscadorArticulo,
-    listaEl: listaArticulos,
-    tplOpcion: tplOpcionArticulo,
+const modalArticulo = new BuscadorArticuloModal({
     articuloService,
     getListaPrecioId: () => listaBaseId,
     onSeleccionarArticulo: (art) => {
@@ -327,6 +323,7 @@ async function cargarFacturaExistente(id: number): Promise<void> {
             if (selectListaBase) selectListaBase.disabled = true;
             if (textareaObservaciones) textareaObservaciones.disabled = true;
             if (buscadorArticulo) buscadorArticulo.disabled = true;
+            if (btnAbrirModalArticulo) btnAbrirModalArticulo.disabled = true;
             if (btnAbrirModalCliente) btnAbrirModalCliente.disabled = true;
             if (btnLimpiarCliente) btnLimpiarCliente.disabled = true;
             tablaDetalles.setModo('ver');
@@ -566,6 +563,11 @@ function configurarEventos(): void {
 
     selectListaBase?.addEventListener('change', () => {
         listaBaseId = selectListaBase.value ? parseInt(selectListaBase.value, 10) : null;
+    });
+
+    btnAbrirModalArticulo?.addEventListener('click', () => modalArticulo.abrir());
+    buscadorArticulo?.addEventListener('click', () => {
+        if (!buscadorArticulo.disabled) modalArticulo.abrir();
     });
 
     btnEditar?.addEventListener('click', (e) => {

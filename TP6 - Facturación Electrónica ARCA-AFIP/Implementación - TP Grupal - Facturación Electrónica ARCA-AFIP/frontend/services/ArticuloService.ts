@@ -1,5 +1,11 @@
-import { ArticuloPrecioDTO, ListaPrecioArticuloDTO } from '../models/api.dto';
+import { ArticuloPrecioDTO, ListaPrecioArticuloDTO, RespuestaPaginadaDTO } from '../models/api.dto';
 import { construirErrorApi } from './api-utils';
+
+export interface FiltrosArticulo {
+    listaPrecioId: number;
+    codigo?: string;
+    termino?: string;
+}
 
 /**
  * Servicio cliente para el dominio de Artículos (/api/articulos).
@@ -9,6 +15,26 @@ export class ArticuloService {
 
     constructor(baseUrl: string = 'http://localhost:8080/api/articulos') {
         this.baseUrl = baseUrl;
+    }
+
+    /** GET /api/articulos/buscar?listaPrecioId=&codigo=&termino=&page=&size= — búsqueda paginada. */
+    async buscarArticulosPaginados(
+        filtros: FiltrosArticulo,
+        pagina: number = 0,
+        tamanio: number = 5
+    ): Promise<RespuestaPaginadaDTO<ArticuloPrecioDTO>> {
+        const params = new URLSearchParams({
+            listaPrecioId: String(filtros.listaPrecioId),
+            codigo: (filtros.codigo ?? '').trim(),
+            termino: (filtros.termino ?? '').trim(),
+            page: String(pagina),
+            size: String(tamanio)
+        });
+        const response = await fetch(`${this.baseUrl}/buscar?${params.toString()}`, {
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw await construirErrorApi(response, 'Error al buscar artículos');
+        return await response.json();
     }
 
     /** GET /api/articulos?search=&listaPrecioId= — mínimo 3 caracteres. */

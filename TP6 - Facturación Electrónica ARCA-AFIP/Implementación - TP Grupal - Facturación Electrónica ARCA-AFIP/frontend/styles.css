@@ -2490,11 +2490,11 @@ tbody.is-loading {
 }
 
 /* ==========================================================================
-   19. DIÁLOGO EXPLORER DE CLIENTES (unificado con el sistema de diseño)
+   19. DIÁLOGOS EXPLORER DE CLIENTES Y ARTÍCULOS (unificado con el sistema de diseño)
    ========================================================================== */
-dialog#modal-cliente-explorer {
-  width: min(660px, calc(100% - 32px));
-  height: 480px;
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) {
+  width: min(680px, calc(100% - 32px));
+  height: 500px;
   max-height: 90vh;
   box-sizing: border-box;
   display: none;
@@ -2502,16 +2502,16 @@ dialog#modal-cliente-explorer {
   padding: 20px 24px;
 }
 
-dialog#modal-cliente-explorer[open] {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer)[open] {
   display: flex;
 }
 
-dialog#modal-cliente-explorer .dialog-head {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-head {
   flex: none;
   margin-bottom: var(--space-sm);
 }
 
-dialog#modal-cliente-explorer .modal-cliente-search {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-cliente-search {
   flex: none;
   margin-bottom: var(--space-md);
   display: flex;
@@ -2519,7 +2519,7 @@ dialog#modal-cliente-explorer .modal-cliente-search {
   align-items: center;
 }
 
-dialog#modal-cliente-explorer .dialog-table {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -2531,7 +2531,7 @@ dialog#modal-cliente-explorer .dialog-table {
   flex-direction: column;
 }
 
-dialog#modal-cliente-explorer .dialog-table table {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table table {
   width: 100%;
   height: 100%;
   display: flex;
@@ -2540,17 +2540,17 @@ dialog#modal-cliente-explorer .dialog-table table {
   border-collapse: collapse;
 }
 
-dialog#modal-cliente-explorer .dialog-table thead {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table thead {
   flex: none;
 }
 
-dialog#modal-cliente-explorer .dialog-table thead tr {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table thead tr {
   display: table;
   width: 100%;
   table-layout: fixed;
 }
 
-dialog#modal-cliente-explorer .dialog-table tbody {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2558,23 +2558,24 @@ dialog#modal-cliente-explorer .dialog-table tbody {
   height: 100%;
 }
 
-dialog#modal-cliente-explorer .dialog-table tbody tr.cliente-row,
-dialog#modal-cliente-explorer .dialog-table tbody tr.fila-skeleton {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody tr.cliente-row,
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody tr.articulo-row,
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody tr.fila-skeleton {
   display: table;
   width: 100%;
   table-layout: fixed;
   flex: none;
 }
 
-dialog#modal-cliente-explorer .dialog-table.is-empty thead,
-dialog#modal-cliente-explorer .dialog-table:has(.modal-empty-cell) thead {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table.is-empty thead,
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table:has(.modal-empty-cell) thead {
   display: none !important;
 }
 
-dialog#modal-cliente-explorer .dialog-table tbody tr:has(.modal-empty-cell),
-dialog#modal-cliente-explorer .dialog-table tbody tr:has(.modal-loading-cell),
-dialog#modal-cliente-explorer .dialog-table tbody tr:has(.modal-error-cell),
-dialog#modal-cliente-explorer .dialog-table tbody tr.fila-vacia {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody tr:has(.modal-empty-cell),
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody tr:has(.modal-loading-cell),
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody tr:has(.modal-error-cell),
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .dialog-table tbody tr.fila-vacia {
   display: flex !important;
   flex: 1 1 100% !important;
   height: 100% !important;
@@ -2582,9 +2583,9 @@ dialog#modal-cliente-explorer .dialog-table tbody tr.fila-vacia {
   width: 100% !important;
 }
 
-dialog#modal-cliente-explorer .modal-loading-cell,
-dialog#modal-cliente-explorer .modal-empty-cell,
-dialog#modal-cliente-explorer .modal-error-cell {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-loading-cell,
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-empty-cell,
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-error-cell {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -2598,7 +2599,7 @@ dialog#modal-cliente-explorer .modal-error-cell {
   box-sizing: border-box;
 }
 
-dialog#modal-cliente-explorer .modal-empty-content {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-empty-content {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2607,29 +2608,29 @@ dialog#modal-cliente-explorer .modal-empty-content {
   margin: auto;
 }
 
-dialog#modal-cliente-explorer .modal-empty-icon {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-empty-icon {
   width: 36px;
   height: 36px;
   color: #94a3b8;
   margin-bottom: 2px;
 }
 
-dialog#modal-cliente-explorer .modal-empty-title {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-empty-title {
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
 }
 
-dialog#modal-cliente-explorer .modal-empty-subtitle {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-empty-subtitle {
   font-size: 13px;
   color: var(--color-text-muted);
 }
 
-dialog#modal-cliente-explorer .modal-error-cell {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .modal-error-cell {
   color: var(--color-danger);
 }
 
-dialog#modal-cliente-explorer .pagination-bar {
+dialog:is(#modal-cliente-explorer, #modal-articulo-explorer) .pagination-bar {
   flex: none;
   display: flex;
   justify-content: space-between;
@@ -2639,26 +2640,43 @@ dialog#modal-cliente-explorer .pagination-bar {
   border-top: 1px solid var(--color-border);
 }
 
-.cliente-row {
+.cliente-row,
+.articulo-row {
   cursor: pointer;
   transition: background-color 120ms ease;
 }
 
-.cliente-row td {
-  padding: 10px 14px;
+.cliente-row td,
+.articulo-row td {
+  padding: 8px 14px;
   font-size: 13.5px;
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
-  height: 46px;
+  min-height: 46px;
   box-sizing: border-box;
 }
 
+.articulo-row-titulo {
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.25;
+}
+
+.articulo-row-sub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
 .cliente-row:hover td,
-.cliente-row:focus-visible td {
+.cliente-row:focus-visible td,
+.articulo-row:hover td,
+.articulo-row:focus-visible td {
   background-color: #f0f7ff;
 }
 
-.cliente-row .btn-elegir-cliente {
+.cliente-row .btn-elegir-cliente,
+.articulo-row .btn-elegir-articulo {
   pointer-events: none;
   font-size: 12.5px;
   padding: 4px 10px;
@@ -2670,7 +2688,9 @@ dialog#modal-cliente-explorer .pagination-bar {
 }
 
 .cliente-row:hover .btn-elegir-cliente,
-.cliente-row:focus-visible .btn-elegir-cliente {
+.cliente-row:focus-visible .btn-elegir-cliente,
+.articulo-row:hover .btn-elegir-articulo,
+.articulo-row:focus-visible .btn-elegir-articulo {
   background-color: var(--color-primary);
   color: #ffffff;
   border-color: var(--color-primary);
