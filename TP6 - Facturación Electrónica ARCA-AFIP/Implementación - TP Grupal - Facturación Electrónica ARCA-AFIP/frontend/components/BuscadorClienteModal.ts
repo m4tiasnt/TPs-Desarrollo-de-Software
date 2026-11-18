@@ -104,7 +104,23 @@ export class BuscadorClienteModal {
         if (this.inputCuit) this.inputCuit.value = '';
         if (this.inputRazonSocial) this.inputRazonSocial.value = '';
         this.inputCuit?.focus();
-        void this.buscar('', '', 0);
+        this.mostrarMensajeMinimoCaracteres();
+    }
+
+    private mostrarMensajeMinimoCaracteres(): void {
+        if (!this.tbody) return;
+        this.filtroCuit = '';
+        this.filtroRazonSocial = '';
+        this.tableWrap?.classList.add('is-empty');
+        this.tbody.innerHTML = `
+            <tr class="fila-vacia">
+                <td colspan="3" class="modal-empty-cell">
+                    <div class="modal-empty-content">
+                        <span class="modal-empty-title">Ingresá al menos 3 caracteres en CUIT/CUIL o Razón social para buscar clientes</span>
+                    </div>
+                </td>
+            </tr>`;
+        this.paginador.limpiar('');
     }
 
     cerrar(): void {
@@ -115,6 +131,13 @@ export class BuscadorClienteModal {
     async buscar(cuit: string = '', razonSocial: string = '', pagina: number = 0): Promise<void> {
         if (!this.tbody) return;
 
+        const cuitLimpio = cuit.trim();
+        const razonSocialLimpia = razonSocial.trim();
+        if (cuitLimpio.length < 3 && razonSocialLimpia.length < 3) {
+            this.mostrarMensajeMinimoCaracteres();
+            return;
+        }
+
         // Quitamos la clase de vacío para que el thead y los skeletons se alineen prolijamente
         this.tableWrap?.classList.remove('is-empty');
         this.renderSkeletons(5);
@@ -122,12 +145,16 @@ export class BuscadorClienteModal {
 
         try {
             const [data] = await Promise.all([
-                this.options.clienteService.buscarClientes({ cuit, razonSocial }, pagina, 5),
+                this.options.clienteService.buscarClientes(
+                    { cuit: cuitLimpio, razonSocial: razonSocialLimpia },
+                    pagina,
+                    5
+                ),
                 new Promise((resolve) => setTimeout(resolve, 180))
             ]);
             this.paginaActual = data.paginaActual;
-            this.filtroCuit = cuit;
-            this.filtroRazonSocial = razonSocial;
+            this.filtroCuit = cuitLimpio;
+            this.filtroRazonSocial = razonSocialLimpia;
 
             this.renderizarFilas(data.contenido);
 
