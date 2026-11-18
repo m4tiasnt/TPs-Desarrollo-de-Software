@@ -75,13 +75,14 @@ export class BuscadorArticuloCombobox {
 
     async buscar(termino: string): Promise<void> {
         const listaBaseId = this.options.getListaPrecioId();
-        if (termino.length < 3 || listaBaseId == null) {
+        const terminoLimpio = termino.trim();
+        if (terminoLimpio.length < 3 || listaBaseId == null) {
             this.cerrar();
             return;
         }
 
         try {
-            const todos = await this.options.articuloService.buscarArticulos(termino, listaBaseId);
+            const todos = await this.options.articuloService.buscarArticulos(terminoLimpio, listaBaseId);
             const resultados = todos.slice(0, 10);
             this.options.listaEl.replaceChildren();
             this.indiceActivo = -1;

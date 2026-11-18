@@ -108,7 +108,23 @@ export class BuscadorArticuloModal {
         if (this.inputCodigo) this.inputCodigo.value = '';
         if (this.inputDenominacion) this.inputDenominacion.value = '';
         this.inputDenominacion?.focus();
-        void this.buscar('', '', 0);
+        this.mostrarMensajeMinimoCaracteres();
+    }
+
+    private mostrarMensajeMinimoCaracteres(): void {
+        if (!this.tbody) return;
+        this.filtroCodigo = '';
+        this.filtroTermino = '';
+        this.tableWrap?.classList.add('is-empty');
+        this.tbody.innerHTML = `
+            <tr class="fila-vacia">
+                <td colspan="4" class="modal-empty-cell">
+                    <div class="modal-empty-content">
+                        <span class="modal-empty-title">Ingresá al menos 3 caracteres para buscar artículos</span>
+                    </div>
+                </td>
+            </tr>`;
+        this.paginador.limpiar('');
     }
 
     cerrar(): void {
@@ -127,6 +143,13 @@ export class BuscadorArticuloModal {
             return;
         }
 
+        const codigoLimpio = codigo.trim();
+        const terminoLimpio = termino.trim();
+        if (codigoLimpio.length < 3 && terminoLimpio.length < 3) {
+            this.mostrarMensajeMinimoCaracteres();
+            return;
+        }
+
         this.tableWrap?.classList.remove('is-empty');
         this.renderSkeletons(5);
         this.paginador.bloquear(true);
@@ -134,14 +157,14 @@ export class BuscadorArticuloModal {
         try {
             const [data] = await Promise.all([
                 this.options.articuloService.buscarArticulosPaginados(
-                    { listaPrecioId, codigo, termino },
+                    { listaPrecioId, codigo: codigoLimpio, termino: terminoLimpio },
                     pagina,
                     5
                 ),
                 new Promise((resolve) => setTimeout(resolve, 180))
             ]);
-            this.filtroCodigo = codigo;
-            this.filtroTermino = termino;
+            this.filtroCodigo = codigoLimpio;
+            this.filtroTermino = terminoLimpio;
 
             this.renderizarFilas(data.contenido);
 
