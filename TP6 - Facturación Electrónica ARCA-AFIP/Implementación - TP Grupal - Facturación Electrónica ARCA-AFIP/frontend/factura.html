@@ -157,10 +157,6 @@
                             aria-hidden="true">
                             <use href="#i-edit" />
                         </svg> Editar</button>
-                    <a href="index.html" class="btn btn-primary solo-ver" id="btn-continuar">Continuar <svg class="icon"
-                            aria-hidden="true">
-                            <use href="#i-next" />
-                        </svg></a>
                     <div class="menu-anchor solo-ver">
                         <button type="button" class="btn btn-secondary btn-icon" id="btn-mas-acciones"
                             aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones"><svg class="icon"
@@ -224,6 +220,15 @@
                         <use href="#i-info" />
                     </svg>
                     <p>Esta factura se está informando a ARCA. No se puede modificar hasta que el proceso termine.</p>
+                </div>
+                <div class="banner banner-warning solo-anulada" id="alerta-anulada" role="status">
+                    <svg class="icon" aria-hidden="true">
+                        <use href="#i-ban" />
+                    </svg>
+                    <div>
+                        <p><strong>Comprobante anulado.</strong> No se puede modificar ni volver a informar.</p>
+                        <p class="banner-meta">Fecha de anulación: <span data-campo="fechaAnulacion"></span></p>
+                    </div>
                 </div>
 
                 <!-- Datos de la factura -->

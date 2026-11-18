@@ -158,11 +158,49 @@ function actualizarBadgeFiltros(): void {
     }
 }
 
+function hoyIsoLocal(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function sincronizarLimitesFechas(): void {
+    const hoy = hoyIsoLocal();
+    const desde = inputFechaDesde?.value?.trim() || '';
+    const hasta = inputFechaHasta?.value?.trim() || '';
+    if (inputFechaDesde) {
+        inputFechaDesde.max = hasta && hasta < hoy ? hasta : hoy;
+    }
+    if (inputFechaHasta) {
+        inputFechaHasta.min = desde;
+        inputFechaHasta.max = hoy;
+    }
+}
+
+function validarRangoFechas(): boolean {
+    const hoy = hoyIsoLocal();
+    const desde = inputFechaDesde?.value?.trim() || '';
+    const hasta = inputFechaHasta?.value?.trim() || '';
+    if (desde && hasta && desde > hasta) {
+        toast.error('La fecha desde no puede ser posterior a la fecha hasta.');
+        inputFechaHasta?.focus();
+        return false;
+    }
+    if ((desde && desde > hoy) || (hasta && hasta > hoy)) {
+        toast.error('Las fechas de filtro no pueden ser posteriores a hoy.');
+        return false;
+    }
+    return true;
+}
+
 function limpiarFiltros(): void {
     formFiltros?.reset();
     if (inputClienteId) inputClienteId.value = '';
     if (inputClienteNombre) inputClienteNombre.value = '';
     if (btnLimpiarCliente) btnLimpiarCliente.hidden = true;
+    sincronizarLimitesFechas();
     actualizarBadgeFiltros();
     paginaActual = 0;
     void cargarFacturas();
@@ -298,8 +336,13 @@ function renderizarTabla(facturas: FacturaVentaListadoDTO[]): void {
         }
 
         const nroEl = fila.querySelector('[data-campo="numero"]') as HTMLElement;
-        nroEl.textContent = obtenerIdentificadorFactura(f);
-        nroEl.className = f.numero != null ? 'nro-factura' : 'nro-factura--provisorio';
+        if (f.numeroComprobante) {
+            nroEl.textContent = f.numeroComprobante;
+            nroEl.className = 'nro-factura';
+        } else {
+            nroEl.textContent = obtenerIdentificadorFactura(f);
+            nroEl.className = 'nro-factura--provisorio';
+        }
 
         const pvNumero = f.puntoVentaNumero != null ? String(f.puntoVentaNumero).padStart(4, '0') : '';
         const pvTexto = [pvNumero, f.puntoVentaDescripcion].filter(Boolean).join(' · ');
@@ -460,7 +503,7 @@ function abrirMenuFila(id: number, toggle: HTMLButtonElement): void {
 
     const puedeInformar = esFacturaInformable(factura.estado);
     const puedeEditar = factura.estado === 'BORRADOR' || factura.estado === 'RECHAZADA';
-    const puedeAnular = puedeEditar;
+    const puedeAnular = puedeEditar || factura.estado === 'AUTORIZADA';
     const puedeEliminar = factura.estado === 'BORRADOR';
 
     const btnInformarFila = menuFactura.querySelector('[data-menu="informar"]') as HTMLButtonElement | null;
@@ -680,12 +723,11 @@ function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: R
     const f = facturasPorId.get(r.id);
     const nro = fila.querySelector('[data-campo="factura"]') as HTMLElement;
     if (nro) {
-        const ptoVta = String(f?.puntoVentaNumero ?? 1).padStart(4, '0');
         if (r.numero != null) {
-            nro.textContent = `${ptoVta}_${String(r.numero).padStart(8, '0')}`;
+            nro.textContent = `#${r.numero}`;
             nro.className = 'nro-factura';
         } else {
-            nro.textContent = f ? obtenerIdentificadorFactura(f) : `${ptoVta}_`;
+            nro.textContent = f ? obtenerIdentificadorFactura(f) : `#${r.id}`;
         }
     }
 
@@ -757,10 +799,14 @@ btnFiltros?.addEventListener('click', () => {
 
 formFiltros?.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (!validarRangoFechas()) return;
     actualizarBadgeFiltros();
     paginaActual = 0;
     void cargarFacturas();
 });
+
+inputFechaDesde?.addEventListener('change', () => sincronizarLimitesFechas());
+inputFechaHasta?.addEventListener('change', () => sincronizarLimitesFechas());
 
 document.getElementById('btn-limpiar-filtros')?.addEventListener('click', () => limpiarFiltros());
 
@@ -928,5 +974,6 @@ btnExportarExcel?.addEventListener('click', () => void exportarFacturas('excel',
 btnExportarPdf?.addEventListener('click', () => void exportarFacturas('pdf', btnExportarPdf));
 
 // Inicio
+sincronizarLimitesFechas();
 actualizarBadgeFiltros();
 void cargarFacturas();

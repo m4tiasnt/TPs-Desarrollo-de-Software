@@ -34,7 +34,7 @@ public class FacturaVentaListadoDTO {
 
     /**
      * Constructor que usa la consulta JPQL del listado.
-     * Calcula el número de comprobante formateado (0001_00000042 o 0001_ si aún no tiene número).
+     * Calcula el número de comprobante formateado (0001-00000042).
      */
     public FacturaVentaListadoDTO(Long id, Long numero, Date fechaEmision,
                              String clienteDenominacion, String condicionIva,
@@ -54,10 +54,9 @@ public class FacturaVentaListadoDTO {
     }
 
     private static String formatearNumeroComprobante(Integer puntoVentaNumero, Long numero) {
-        int ptoVta = (puntoVentaNumero != null) ? puntoVentaNumero : 1;
-        if (numero == null) {
-            return String.format("%04d_", ptoVta);
+        if (puntoVentaNumero == null || numero == null) {
+            return null;
         }
-        return String.format("%04d_%08d", ptoVta, numero);
+        return String.format("%04d-%08d", puntoVentaNumero, numero);
     }
 }

@@ -27,23 +27,10 @@ export function formatearFecha(valor: string | null | undefined): string {
 }
 
 /**
- * Devuelve el número de comprobante en formato "puntoVenta_numeroComprobante" (ej. 0001_00000042)
- * o "puntoVenta_" (ej. 0001_) cuando todavía no tiene número asignado por ARCA.
+ * Devuelve el número formal de la factura o "Borrador #ID" si todavía no tiene número asignado.
  */
-export function obtenerIdentificadorFactura(factura: {
-    id: number;
-    numero?: number | null;
-    numeroComprobante?: string | null;
-    puntoVentaNumero?: number | null;
-}): string {
-    const ptoVta = String(factura.puntoVentaNumero ?? 1).padStart(4, '0');
-    if (factura.numero != null) {
-        return `${ptoVta}_${String(factura.numero).padStart(8, '0')}`;
-    }
-    if (factura.numeroComprobante) {
-        return factura.numeroComprobante;
-    }
-    return `${ptoVta}_`;
+export function obtenerIdentificadorFactura(factura: { id: number; numeroComprobante?: string | null }): string {
+    return factura.numeroComprobante || `Borrador #${factura.id}`;
 }
 
 /**

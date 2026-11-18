@@ -73,11 +73,16 @@ export class Factura {
 
     /**
      * Agrega un FacturaDetalle a la factura.
-     * Si ya existe un renglón con el mismo artículo, no agrega uno nuevo: incrementa su cantidad.
+     * Si ya existe un renglón con el mismo artículo y la misma lista de precios,
+     * no agrega uno nuevo: incrementa su cantidad.
      */
     agregarDetalle(detalle: FacturaDetalle): ResultadoAgregarDetalle {
         const indice = detalle.articuloId > 0
-            ? this._detalles.findIndex((d) => d.articuloId === detalle.articuloId)
+            ? this._detalles.findIndex(
+                (d) =>
+                    d.articuloId === detalle.articuloId &&
+                    d.listaPrecioArticuloId === detalle.listaPrecioArticuloId
+            )
             : -1;
 
         if (indice === -1) {

@@ -20,7 +20,7 @@ public enum EstadoFactura {
     }
 
     public boolean esAnulable() {
-        return this == BORRADOR || this == RECHAZADA;
+        return this == BORRADOR || this == RECHAZADA || this == AUTORIZADA;
     }
 
     public boolean esEliminable() {

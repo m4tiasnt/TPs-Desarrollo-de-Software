@@ -49,8 +49,7 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
                 "AND lp.id = :listaPrecioId " +
                 "AND (:codigo = '' OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :codigo, '%'))) " +
                 "AND (:termino = '' OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :termino, '%')) " +
-                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%')) " +
-                "     OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :termino, '%'))) " +
+                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%'))) " +
                 "ORDER BY a.denominacion ASC, a.id ASC",
         countQuery = "SELECT COUNT(lpa.id) " +
                 "FROM Articulo a " +
@@ -61,8 +60,7 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
                 "AND lp.id = :listaPrecioId " +
                 "AND (:codigo = '' OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :codigo, '%'))) " +
                 "AND (:termino = '' OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :termino, '%')) " +
-                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%')) " +
-                "     OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :termino, '%')))"
+                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%')))"
     )
     Page<ArticuloPrecioDTO> buscarPaginadoPorListaPrecio(
             @Param("codigo") String codigo,

@@ -71,6 +71,11 @@ public class FacturaService {
             Long clienteId, String busqueda, Boolean informadaArca,
             int pagina, int tamanio) {
 
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.after(fechaHasta)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La fecha desde no puede ser posterior a la fecha hasta");
+        }
+
         Long idBuscado = null;
         Integer puntoVentaBuscado = null;
         Long numeroBuscado = null;
@@ -96,7 +101,7 @@ public class FacturaService {
                 }
             } catch (NumberFormatException ex) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "La búsqueda debe ser un número de comprobante (ej: 0001_00000042 o 42) o un id precedido por #");
+                        "La búsqueda debe ser un número de comprobante (ej: 0001-00000042 o 42) o un id precedido por #");
             }
         }
 
@@ -529,17 +534,14 @@ public class FacturaService {
     }
 
     private static String formatearNumeroComprobante(FacturaVenta factura) {
-        if (factura == null) {
+        if (factura == null || factura.getNumero() == null) {
             return null;
         }
         try {
             int ptoVta = (factura.getPuntoVenta() != null) ? factura.getPuntoVenta().getNumero() : 1;
-            if (factura.getNumero() == null) {
-                return String.format("%04d_", ptoVta);
-            }
-            return String.format("%04d_%08d", ptoVta, factura.getNumero());
+            return String.format("%04d-%08d", ptoVta, factura.getNumero());
         } catch (Exception e) {
-            return factura.getNumero() != null ? String.valueOf(factura.getNumero()) : null;
+            return String.valueOf(factura.getNumero());
         }
     }
 

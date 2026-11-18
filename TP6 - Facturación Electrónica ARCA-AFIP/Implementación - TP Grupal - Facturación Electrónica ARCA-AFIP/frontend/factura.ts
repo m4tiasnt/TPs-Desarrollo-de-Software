@@ -145,7 +145,21 @@ const modalCliente = new BuscadorClienteModal({
     }
 });
 
-// ─── Helpers de Alertas ─────────────────────────────────────────────────────
+// ─── Helpers de Alertas y Estado de Buscador ────────────────────────────────
+function actualizarEstadoBuscadorArticulo(): void {
+    const puedeAgregar = listaBaseId != null && !selectListaBase?.disabled;
+    if (buscadorArticulo) {
+        buscadorArticulo.disabled = !puedeAgregar;
+        if (!puedeAgregar) buscadorArticulo.value = '';
+        buscadorArticulo.placeholder = puedeAgregar
+            ? 'Buscar y seleccionar artículo del catálogo...'
+            : 'Seleccioná una lista de precios primero...';
+    }
+    if (btnAbrirModalArticulo) {
+        btnAbrirModalArticulo.disabled = !puedeAgregar;
+    }
+}
+
 function mostrarAlertaError(mensaje: string): void {
     if (!alertaError) return;
     alertaErrorTexto.textContent = mensaje;
@@ -205,6 +219,7 @@ async function cargarCatalogos(): Promise<void> {
             selectListaBase.value = String(listas[0].id);
             listaBaseId = listas[0].id;
         }
+        actualizarEstadoBuscadorArticulo();
 
         selectPuntoVenta.replaceChildren(new Option('Seleccionar...', ''));
         puntosVenta.forEach((pv) => {
@@ -268,7 +283,7 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         setTexto(document.body, '[data-campo="observaciones"]', f.observaciones || '—');
 
         // Banners informativos según estado (ARCA)
-        const esAutorizada = f.estado === 'AUTORIZADA' || Boolean(f.cae);
+        const esAutorizada = f.estado === 'AUTORIZADA';
         if (esAutorizada) {
             setTexto(document.body, '[data-campo="bannerCae"]', f.cae || '—');
             setTexto(document.body, '[data-campo="bannerCaeVto"]', formatearFecha(f.caeFechaVencimiento));
@@ -279,6 +294,10 @@ async function cargarFacturaExistente(id: number): Promise<void> {
                 obsTexto = `· Obs: ${f.observaciones}`;
             }
             setTexto(document.body, '[data-campo="bannerAutorizadaObs"]', obsTexto);
+        }
+
+        if (f.estado === 'ANULADA') {
+            setTexto(document.body, '[data-campo="fechaAnulacion"]', formatearFecha(f.fechaAnulacion || f.fechaModificacion));
         }
 
         setTexto(document.body, '[data-campo="motivoRechazo"]', f.motivoRechazo || f.resultadoAfip || 'Factura rechazada por ARCA. Revisá los datos del cliente y los detalles antes de volver a informar.');
@@ -303,7 +322,7 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         // Bloqueo de seguridad AFIP y habilitación dinámica de acciones
         const puedeEditar = f.estado === 'BORRADOR' || f.estado === 'RECHAZADA';
         const puedeInformar = esFacturaInformable(f.estado);
-        const puedeAnular = f.estado === 'BORRADOR' || f.estado === 'RECHAZADA';
+        const puedeAnular = puedeEditar || f.estado === 'AUTORIZADA';
         const puedeEliminar = f.estado === 'BORRADOR';
 
         if (btnEditar) btnEditar.disabled = !puedeEditar;
@@ -314,16 +333,20 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         if (btnAnular) btnAnular.disabled = !puedeAnular;
         if (btnEliminar) btnEliminar.disabled = !puedeEliminar;
 
-        if (esAutorizada && modoActual === 'editar') {
-            mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada. Solo se permiten cambios en Borrador o Rechazada.');
+        if (!puedeEditar && modoActual === 'editar') {
+            const msgBloqueo = esAutorizada
+                ? 'Una factura autorizada por AFIP no puede ser modificada. Solo se permiten cambios en Borrador o Rechazada.'
+                : f.estado === 'ANULADA'
+                    ? 'Una factura anulada no puede ser modificada.'
+                    : 'No se puede modificar esta factura en su estado actual.';
+            mostrarAlertaError(msgBloqueo);
             btnGuardar.disabled = true;
             selectCondicionIva.disabled = true;
             selectPuntoVenta.disabled = true;
             selectTipoMoneda.disabled = true;
             if (selectListaBase) selectListaBase.disabled = true;
             if (textareaObservaciones) textareaObservaciones.disabled = true;
-            if (buscadorArticulo) buscadorArticulo.disabled = true;
-            if (btnAbrirModalArticulo) btnAbrirModalArticulo.disabled = true;
+            actualizarEstadoBuscadorArticulo();
             if (btnAbrirModalCliente) btnAbrirModalCliente.disabled = true;
             if (btnLimpiarCliente) btnLimpiarCliente.disabled = true;
             tablaDetalles.setModo('ver');
@@ -416,7 +439,7 @@ function hayCambios(): boolean {
 
 // ─── Guardar ────────────────────────────────────────────────────────────────
 async function guardar(): Promise<void> {
-    if (facturaActual && (facturaActual.estado === 'AUTORIZADA' || facturaActual.cae)) {
+    if (facturaActual && facturaActual.estado === 'AUTORIZADA') {
         mostrarAlertaError('Una factura autorizada por AFIP no puede ser modificada.');
         return;
     }
@@ -563,9 +586,12 @@ function configurarEventos(): void {
 
     selectListaBase?.addEventListener('change', () => {
         listaBaseId = selectListaBase.value ? parseInt(selectListaBase.value, 10) : null;
+        actualizarEstadoBuscadorArticulo();
     });
 
-    btnAbrirModalArticulo?.addEventListener('click', () => modalArticulo.abrir());
+    btnAbrirModalArticulo?.addEventListener('click', () => {
+        if (listaBaseId != null) modalArticulo.abrir();
+    });
     buscadorArticulo?.addEventListener('click', () => {
         if (!buscadorArticulo.disabled) modalArticulo.abrir();
     });
@@ -772,6 +798,7 @@ async function init(): Promise<void> {
         tituloPagina.textContent = 'Factura';
     }
 
+    actualizarEstadoBuscadorArticulo();
     configurarEventos();
     try {
         await cargarCatalogos();
