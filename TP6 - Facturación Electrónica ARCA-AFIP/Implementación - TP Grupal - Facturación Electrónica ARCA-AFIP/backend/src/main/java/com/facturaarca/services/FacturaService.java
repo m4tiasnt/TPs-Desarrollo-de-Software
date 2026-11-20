@@ -2,13 +2,13 @@ package com.facturaarca.services;
 
 import com.facturaarca.arca.ResultadoAutorizacionArca;
 import com.facturaarca.dto.FacturaVentaDTO;
-import com.facturaarca.dto.FacturaVentaRequestDTO;
 import com.facturaarca.dto.FacturaVentaDetalleDTO;
 import com.facturaarca.dto.FacturaVentaDetalleRequestDTO;
 import com.facturaarca.dto.FacturaVentaListadoDTO;
 import com.facturaarca.dto.FacturaVentaReporteDTO;
-import com.facturaarca.dto.ResultadoAutorizacionDTO;
+import com.facturaarca.dto.FacturaVentaRequestDTO;
 import com.facturaarca.dto.RespuestaPaginadaDTO;
+import com.facturaarca.dto.ResultadoAutorizacionDTO;
 import com.facturaarca.entities.Articulo;
 import com.facturaarca.entities.Cliente;
 import com.facturaarca.entities.CondicionIva;
@@ -28,6 +28,7 @@ import com.facturaarca.repository.ListaPrecioArticuloRepository;
 import com.facturaarca.repository.PuntoVentaRepository;
 import com.facturaarca.repository.TipoMonedaRepository;
 import com.facturaarca.repository.UsuarioRepository;
+import com.facturaarca.util.FormatoComprobante;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -37,11 +38,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Slf4j
@@ -60,54 +63,72 @@ public class FacturaService {
     private final ArcaService arcaService;
     private final PlatformTransactionManager transactionManager;
 
+    private record CriterioBusqueda(Long id, Integer puntoVenta, Long numero, boolean soloSinNumero) {}
+    private record ClaveDetalle(Long listaPrecioArticuloId, double bonificacion, String descripcion) {}
+
+    private static void validarFiltros(LocalDate fechaDesde, LocalDate fechaHasta, Double montoMinimo) {
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        if (montoMinimo != null && montoMinimo < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El monto mínimo no puede ser negativo");
+        }
+    }
+
+    private static CriterioBusqueda parsearCriterioBusqueda(String busqueda) {
+        if (busqueda == null || busqueda.isBlank()) {
+            return new CriterioBusqueda(null, null, null, false);
+        }
+        String limpio = busqueda.trim();
+        if (limpio.toLowerCase().startsWith("borrador")) {
+            limpio = limpio.replaceFirst("(?i)^borrador\\s*#?\\s*", "#");
+        }
+        try {
+            if (limpio.startsWith("#")) {
+                return new CriterioBusqueda(Long.parseLong(limpio.substring(1).trim()), null, null, false);
+            }
+            if (limpio.contains("-")) {
+                String[] partes = limpio.split("-", -1);
+                if (partes.length != 2 || partes[0].isBlank()) {
+                    throw new NumberFormatException("Formato de comprobante inválido");
+                }
+                Integer pv = Integer.parseInt(partes[0].trim());
+                if (!partes[1].isBlank()) {
+                    return new CriterioBusqueda(null, pv, Long.parseLong(partes[1].trim()), false);
+                }
+                return new CriterioBusqueda(null, pv, null, true);
+            }
+            return new CriterioBusqueda(null, null, Long.parseLong(limpio), false);
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La búsqueda debe ser un número de comprobante (ej: 00001-00000042 o 42) o un id precedido por #");
+        }
+    }
+
     @Transactional(readOnly = true)
-    public List<FacturaVentaReporteDTO> obtenerTodasLasFacturas() {
-        return facturaRepository.buscarFacturasFiltradas(null, null, null, null);
+    public List<FacturaVentaReporteDTO> buscarFacturasParaReporte(
+            LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado, Double montoMinimo,
+            Long clienteId, String busqueda, Boolean informadaArca) {
+        validarFiltros(fechaDesde, fechaHasta, montoMinimo);
+        CriterioBusqueda c = parsearCriterioBusqueda(busqueda);
+        return facturaRepository.buscarFacturasFiltradas(
+                fechaDesde, fechaHasta, estado, montoMinimo,
+                clienteId, c.id(), c.puntoVenta(), c.numero(), c.soloSinNumero(), informadaArca);
     }
 
     @Transactional(readOnly = true)
     public RespuestaPaginadaDTO<FacturaVentaListadoDTO> buscarFacturasPaginadas(
-            Date fechaDesde, Date fechaHasta, EstadoFactura estado, Double montoMinimo,
+            LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado, Double montoMinimo,
             Long clienteId, String busqueda, Boolean informadaArca,
             int pagina, int tamanio) {
-
-        if (fechaDesde != null && fechaHasta != null && fechaDesde.after(fechaHasta)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La fecha desde no puede ser posterior a la fecha hasta");
-        }
-
-        Long idBuscado = null;
-        Integer puntoVentaBuscado = null;
-        Long numeroBuscado = null;
-        boolean soloSinNumero = false;
-        if (busqueda != null && !busqueda.isBlank()) {
-            String limpio = busqueda.trim();
-            try {
-                if (limpio.startsWith("#")) {
-                    idBuscado = Long.parseLong(limpio.substring(1));
-                } else if (limpio.contains("_") || limpio.contains("-")) {
-                    String[] partes = limpio.split("[_-]", -1);
-                    if (partes.length != 2 || partes[0].isBlank()) {
-                        throw new NumberFormatException("Formato de comprobante inválido");
-                    }
-                    puntoVentaBuscado = Integer.parseInt(partes[0].trim());
-                    if (!partes[1].isBlank()) {
-                        numeroBuscado = Long.parseLong(partes[1].trim());
-                    } else {
-                        soloSinNumero = true;
-                    }
-                } else {
-                    numeroBuscado = Long.parseLong(limpio);
-                }
-            } catch (NumberFormatException ex) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "La búsqueda debe ser un número de comprobante (ej: 0001-00000042 o 42) o un id precedido por #");
-            }
-        }
+        validarFiltros(fechaDesde, fechaHasta, montoMinimo);
+        CriterioBusqueda c = parsearCriterioBusqueda(busqueda);
 
         return facturaRepository.buscarFacturasPaginadas(
                 fechaDesde, fechaHasta, estado, montoMinimo,
-                clienteId, idBuscado, puntoVentaBuscado, numeroBuscado, soloSinNumero, informadaArca,
+                clienteId, c.id(), c.puntoVenta(), c.numero(), c.soloSinNumero(), informadaArca,
                 pagina, tamanio);
     }
 
@@ -124,6 +145,7 @@ public class FacturaService {
         CondicionIva condicionIva = resolverCondicionIva(dto.getCondicionIvaId());
         TipoMoneda tipoMoneda = resolverTipoMoneda(dto.getTipoMonedaId());
         Cliente cliente = resolverCliente(dto.getClienteId());
+        validarClienteSegunCondicionIva(cliente, condicionIva);
         Usuario usuario = obtenerUsuarioParaAuditoria();
 
         FacturaVenta factura = new FacturaVenta();
@@ -132,7 +154,8 @@ public class FacturaService {
         factura.setTipoMoneda(tipoMoneda);
         factura.setCliente(cliente);
         factura.setEstado(EstadoFactura.BORRADOR);
-        factura.setObservaciones(dto.getObservaciones());
+        factura.setObservaciones(dto.getObservaciones() != null && !dto.getObservaciones().isBlank()
+                ? dto.getObservaciones().trim() : null);
         factura.setFechaAlta(new Date());
         factura.setFechaModificacion(new Date());
         if (usuario != null) {
@@ -142,6 +165,7 @@ public class FacturaService {
 
         agregarDetalles(factura, dto.getDetalles());
         factura.recalcularTotales();
+        validarImporteTotalPositivo(factura);
 
         FacturaVenta guardada = facturaVentaRepository.save(factura);
         return convertirAFacturaVentaDTO(guardada);
@@ -149,38 +173,28 @@ public class FacturaService {
 
     @Transactional
     public FacturaVentaDTO actualizarFactura(Long id, FacturaVentaRequestDTO dto) {
-        if (dto == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Los datos de la factura no pueden ser nulos");
-        }
-        if (dto.getDetalles() != null && dto.getDetalles().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La factura debe tener al menos un detalle");
-        }
+        validarDatosObligatorios(dto);
 
         FacturaVenta factura = buscarFacturaConDetalles(id);
         if (!factura.getEstado().esEditable()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Solo se pueden editar facturas en estado BORRADOR o RECHAZADA");
+                    "Solo se pueden editar facturas en estado Borrador o Rechazada");
         }
 
         Cliente cliente = resolverCliente(dto.getClienteId());
-        CondicionIva condicionIva = dto.getCondicionIvaId() != null
-                ? resolverCondicionIva(dto.getCondicionIvaId()) : null;
-        PuntoVenta puntoVenta = dto.getPuntoVentaId() != null
-                ? resolverPuntoVenta(dto.getPuntoVentaId()) : null;
-        TipoMoneda tipoMoneda = dto.getTipoMonedaId() != null
-                ? resolverTipoMoneda(dto.getTipoMonedaId()) : null;
+        CondicionIva condicionIva = resolverCondicionIva(dto.getCondicionIvaId());
+        validarClienteSegunCondicionIva(cliente, condicionIva);
+        PuntoVenta puntoVenta = resolverPuntoVenta(dto.getPuntoVentaId());
+        TipoMoneda tipoMoneda = resolverTipoMoneda(dto.getTipoMonedaId());
         Usuario usuario = obtenerUsuarioParaAuditoria();
 
         factura.actualizarDatos(dto.getObservaciones(), cliente, condicionIva,
                 puntoVenta, tipoMoneda, usuario);
 
-        if (dto.getDetalles() != null) {
-            factura.clearDetalles();
-            agregarDetalles(factura, dto.getDetalles());
-            factura.recalcularTotales();
-        }
+        factura.clearDetalles();
+        agregarDetalles(factura, dto.getDetalles());
+        factura.recalcularTotales();
+        validarImporteTotalPositivo(factura);
 
         FacturaVenta guardada = facturaVentaRepository.save(factura);
         return convertirAFacturaVentaDTO(guardada);
@@ -191,7 +205,7 @@ public class FacturaService {
         FacturaVenta factura = buscarFactura(id);
         if (!factura.getEstado().esEliminable()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Solo se pueden eliminar facturas en estado BORRADOR");
+                    "Solo se pueden eliminar facturas en estado Borrador");
         }
         factura.darDeBaja(obtenerUsuarioParaAuditoria());
         facturaVentaRepository.save(factura);
@@ -202,46 +216,124 @@ public class FacturaService {
         FacturaVenta factura = buscarFacturaConDetalles(id);
         if (!factura.getEstado().esAnulable()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "No se puede anular una factura en estado " + factura.getEstado());
+                    "No se puede anular una factura en su estado actual");
         }
         factura.anular(obtenerUsuarioParaAuditoria());
         FacturaVenta guardada = facturaVentaRepository.save(factura);
         return convertirAFacturaVentaDTO(guardada);
     }
 
-    @Transactional
+    /**
+     * Informa una factura individual ante ARCA usando transacciones cortas
+     * para confirmar EN_PROCESO antes de la llamada SOAP y persistir el resultado al volver.
+     */
     public ResultadoAutorizacionDTO informarArca(Long id) {
-        FacturaVenta factura = facturaVentaRepository.buscarConDetalles(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Factura no encontrada con id: " + id));
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        return ejecutarAutorizacionIndividual(id, false, transactionTemplate);
+    }
 
-        if (!factura.getEstado().esInformable() && factura.getEstado() != EstadoFactura.EN_PROCESO) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "No se puede informar una factura en estado " + factura.getEstado());
+    /**
+     * Informa un lote de facturas ante ARCA.
+     * Persiste primero el lote en estado EN_PROCESO para bloquear modificaciones concurrentes
+     * y luego autoriza cada comprobante en su propia transacción para aislar fallas.
+     */
+    public List<ResultadoAutorizacionDTO> informarArcaLote(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
         }
 
-        Usuario usuario = obtenerUsuarioParaAuditoria();
-
-        if (factura.getEstado() != EstadoFactura.EN_PROCESO) {
-            factura.marcarEnProceso(usuario);
+        List<Long> idsLimpios = ids.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (idsLimpios.isEmpty()) {
+            return List.of();
         }
 
-        // Delegación técnica al conector de ARCA
-        ResultadoAutorizacionArca resultadoArca = arcaService.solicitarAutorizacion(factura);
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        marcarLoteEnProceso(idsLimpios, transactionTemplate);
 
-        if (resultadoArca.isAutorizado()) {
-            factura.autorizar(
-                    resultadoArca.getNumeroComprobante(),
-                    resultadoArca.getFechaEmision(),
-                    resultadoArca.getCae(),
-                    resultadoArca.getCaeVencimiento(),
-                    usuario
-            );
-        } else {
-            factura.rechazar(resultadoArca.getMotivoRechazo(), usuario);
+        List<ResultadoAutorizacionDTO> resultados = new ArrayList<>();
+
+        for (Long id : idsLimpios) {
+            try {
+                resultados.add(ejecutarAutorizacionIndividual(id, true, transactionTemplate));
+            } catch (ResponseStatusException rse) {
+                log.warn("Factura ID {} no pudo ser autorizada en lote: {}", id, rse.getReason());
+                EstadoFactura estadoActual = obtenerEstadoActualSeguro(id, rse.getReason(), transactionTemplate);
+                resultados.add(ResultadoAutorizacionDTO.builder()
+                        .id(id)
+                        .estado(estadoActual)
+                        .motivoRechazo(rse.getReason())
+                        .mensaje(rse.getReason())
+                        .build());
+            } catch (Exception ex) {
+                log.error("Error al procesar factura ID {} en lote: {}", id, ex.getMessage(), ex);
+                String motivo = "No se pudo autorizar el comprobante por un error interno";
+                EstadoFactura estadoActual = obtenerEstadoActualSeguro(id, motivo, transactionTemplate);
+                resultados.add(ResultadoAutorizacionDTO.builder()
+                        .id(id)
+                        .estado(estadoActual)
+                        .motivoRechazo(motivo)
+                        .mensaje(motivo)
+                        .build());
+            }
         }
 
-        FacturaVenta guardada = facturaVentaRepository.save(factura);
+        return resultados;
+    }
+
+    private ResultadoAutorizacionDTO ejecutarAutorizacionIndividual(
+            Long id, boolean permitirEnProceso, TransactionTemplate transactionTemplate) {
+        FacturaVenta facturaPreparada = transactionTemplate.execute(status -> {
+            FacturaVenta factura = buscarFacturaConDetalles(id);
+            boolean estadoValido = factura.getEstado().esInformable()
+                    || (permitirEnProceso && factura.getEstado() == EstadoFactura.EN_PROCESO);
+            if (!estadoValido) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "La factura no puede informarse en su estado actual (" + factura.getEstado() + ")");
+            }
+            if (factura.getEstado() != EstadoFactura.EN_PROCESO) {
+                factura.marcarEnProceso(obtenerUsuarioParaAuditoria());
+                facturaVentaRepository.save(factura);
+            }
+            return factura;
+        });
+
+        if (facturaPreparada == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo preparar la factura");
+        }
+
+        ResultadoAutorizacionArca resultadoArca;
+        try {
+            resultadoArca = arcaService.solicitarAutorizacion(facturaPreparada);
+        } catch (Exception ex) {
+            log.error("Error inesperado al solicitar autorización ARCA para factura {}: {}", id, ex.getMessage(), ex);
+            String motivo = "No se pudo completar la comunicación con ARCA";
+            obtenerEstadoActualSeguro(id, motivo, transactionTemplate);
+            throw ex;
+        }
+
+        FacturaVenta guardada = transactionTemplate.execute(status -> {
+            FacturaVenta factura = buscarFacturaConDetalles(id);
+            Usuario usuario = obtenerUsuarioParaAuditoria();
+            if (resultadoArca.isAutorizado()) {
+                factura.autorizar(
+                        resultadoArca.getNumeroComprobante(),
+                        resultadoArca.getFechaEmision(),
+                        resultadoArca.getCae(),
+                        resultadoArca.getCaeVencimiento(),
+                        usuario
+                );
+            } else {
+                factura.rechazar(resultadoArca.getMotivoRechazo(), usuario);
+            }
+            return facturaVentaRepository.save(factura);
+        });
+
+        if (guardada == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar el resultado de ARCA");
+        }
 
         return ResultadoAutorizacionDTO.builder()
                 .id(guardada.getId())
@@ -255,50 +347,25 @@ public class FacturaService {
                 .build();
     }
 
-    /**
-     * Informa un lote de facturas ante ARCA.
-     * Persiste primero el lote en estado EN_PROCESO para bloquear modificaciones concurrentes
-     * y luego autoriza cada comprobante en su propia transacción para aislar fallas.
-     */
-    public List<ResultadoAutorizacionDTO> informarArcaLote(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return List.of();
-        }
-
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        marcarLoteEnProceso(ids, transactionTemplate);
-
-        List<ResultadoAutorizacionDTO> resultados = new ArrayList<>();
-
-        for (Long id : ids) {
-            try {
-                ResultadoAutorizacionDTO res = transactionTemplate.execute(status -> informarArca(id));
-                if (res != null) {
-                    resultados.add(res);
+    private EstadoFactura obtenerEstadoActualSeguro(Long id, String motivoFallo, TransactionTemplate transactionTemplate) {
+        try {
+            return transactionTemplate.execute(status -> {
+                Optional<FacturaVenta> opt = facturaVentaRepository.findById(id)
+                        .filter(f -> f.getFechaBaja() == null);
+                if (opt.isEmpty()) {
+                    return EstadoFactura.RECHAZADA;
                 }
-            } catch (ResponseStatusException rse) {
-                log.warn("Factura ID {} no pudo ser autorizada en lote: {}", id, rse.getReason());
-                resultados.add(ResultadoAutorizacionDTO.builder()
-                        .id(id)
-                        .estado(EstadoFactura.EN_PROCESO)
-                        .motivoRechazo(rse.getReason())
-                        .mensaje(rse.getReason())
-                        .build());
-            } catch (Exception ex) {
-                log.error("Error al procesar factura ID {} en lote: {}", id, ex.getMessage(), ex);
-                String motivo = ex.getMessage() != null && !ex.getMessage().isBlank()
-                        ? ex.getMessage()
-                        : "Error interno al procesar el comprobante";
-                resultados.add(ResultadoAutorizacionDTO.builder()
-                        .id(id)
-                        .estado(EstadoFactura.EN_PROCESO)
-                        .motivoRechazo(motivo)
-                        .mensaje("No se pudo autorizar el comprobante")
-                        .build());
-            }
+                FacturaVenta f = opt.get();
+                if (f.getEstado() == EstadoFactura.EN_PROCESO) {
+                    f.rechazar(motivoFallo != null ? motivoFallo : "Error al procesar envío a ARCA", obtenerUsuarioParaAuditoria());
+                    facturaVentaRepository.save(f);
+                }
+                return f.getEstado();
+            });
+        } catch (Exception e) {
+            log.warn("No se pudo actualizar el estado de fallback para la factura {}: {}", id, e.getMessage());
+            return EstadoFactura.RECHAZADA;
         }
-
-        return resultados;
     }
 
     private void marcarLoteEnProceso(List<Long> ids, TransactionTemplate transactionTemplate) {
@@ -307,7 +374,7 @@ public class FacturaService {
             Usuario usuario = obtenerUsuarioParaAuditoria();
             List<FacturaVenta> actualizadas = new ArrayList<>();
             for (FacturaVenta f : facturas) {
-                if (f.getEstado().esInformable()) {
+                if (f.getFechaBaja() == null && f.getEstado().esInformable()) {
                     f.marcarEnProceso(usuario);
                     actualizadas.add(f);
                 }
@@ -326,7 +393,7 @@ public class FacturaService {
         List<FacturaVentaDetalleDTO> detalles = factura.getDetalles() == null
                 ? List.of()
                 : factura.getDetalles().stream()
-                        .filter(d -> d != null)
+                        .filter(Objects::nonNull)
                         .map(this::convertirAFacturaVentaDetalleDTO)
                         .toList();
 
@@ -408,17 +475,18 @@ public class FacturaService {
         if (detallesDto == null || detallesDto.isEmpty()) {
             return;
         }
-        // Un mismo artículo no puede aparecer en dos renglones: si llega repetido,
-        // se suma su cantidad al renglón que ya existe (se conservan la lista de
-        // precios, descripción y bonificación del primero).
-        Map<Long, FacturaVentaDetalle> detallesPorArticulo = new LinkedHashMap<>();
+        Map<ClaveDetalle, FacturaVentaDetalle> detallesAgrupados = new LinkedHashMap<>();
         for (FacturaVentaDetalleRequestDTO detalleDto : detallesDto) {
             ListaPrecioArticulo listaPrecioArticulo = resolverListaPrecioArticulo(detalleDto);
-            Long articuloId = listaPrecioArticulo.getArticulo() != null
-                    ? listaPrecioArticulo.getArticulo().getId()
+            Long listaPrecioArticuloId = listaPrecioArticulo.getId();
+            double bonif = detalleDto.getPorcentajeBonificacion() != null ? detalleDto.getPorcentajeBonificacion() : 0.0;
+            String descNormalizada = detalleDto.getDescripcion() != null ? detalleDto.getDescripcion().trim() : "";
+
+            ClaveDetalle clave = listaPrecioArticuloId != null
+                    ? new ClaveDetalle(listaPrecioArticuloId, bonif, descNormalizada)
                     : null;
 
-            FacturaVentaDetalle existente = articuloId != null ? detallesPorArticulo.get(articuloId) : null;
+            FacturaVentaDetalle existente = clave != null ? detallesAgrupados.get(clave) : null;
             if (existente != null) {
                 double cantidadExtra = detalleDto.getCantidad() > 0 ? detalleDto.getCantidad() : 1.0;
                 existente.setCantidad(existente.getCantidad() + cantidadExtra);
@@ -428,12 +496,12 @@ public class FacturaService {
 
             FacturaVentaDetalle detalle = FacturaVentaDetalle.crear(
                     listaPrecioArticulo,
-                    detalleDto.getDescripcion(),
+                    descNormalizada.isEmpty() ? null : descNormalizada,
                     detalleDto.getCantidad(),
-                    detalleDto.getPorcentajeBonificacion());
+                    bonif);
             factura.addDetalle(detalle);
-            if (articuloId != null) {
-                detallesPorArticulo.put(articuloId, detalle);
+            if (clave != null) {
+                detallesAgrupados.put(clave, detalle);
             }
         }
     }
@@ -441,7 +509,7 @@ public class FacturaService {
     private void validarDatosObligatorios(FacturaVentaRequestDTO dto) {
         if (dto == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Los datos de la factura no pueden ser nulos");
+                    "Los datos de la factura son obligatorios");
         }
         if (dto.getPuntoVentaId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -449,46 +517,68 @@ public class FacturaService {
         }
         if (dto.getCondicionIvaId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La condición IVA es obligatoria");
+                    "La condición de IVA es obligatoria");
         }
         if (dto.getTipoMonedaId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "El tipo de moneda es obligatorio");
+                    "La moneda es obligatoria");
         }
         if (dto.getDetalles() == null || dto.getDetalles().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La factura debe tener al menos un detalle");
+                    "La factura debe tener al menos un artículo");
+        }
+    }
+
+    private void validarClienteSegunCondicionIva(Cliente cliente, CondicionIva condicionIva) {
+        if (cliente != null || condicionIva == null) {
+            return;
+        }
+        String denom = condicionIva.getDenominacion() != null ? condicionIva.getDenominacion().toLowerCase() : "";
+        if (!denom.contains("consumidor final")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El cliente es obligatorio para la condición de IVA seleccionada (" + condicionIva.getDenominacion() + ")");
+        }
+    }
+
+    private void validarImporteTotalPositivo(FacturaVenta factura) {
+        if (factura.getImporteTotal() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El importe total de la factura debe ser mayor a cero");
         }
     }
 
     private FacturaVenta buscarFactura(Long id) {
         return facturaVentaRepository.findById(id)
+                .filter(f -> f.getFechaBaja() == null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Factura no encontrada con id: " + id));
+                        "La factura solicitada no existe"));
     }
 
     private FacturaVenta buscarFacturaConDetalles(Long id) {
         return facturaVentaRepository.buscarConDetalles(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Factura no encontrada con id: " + id));
+                        "La factura solicitada no existe"));
     }
 
     private PuntoVenta resolverPuntoVenta(Long id) {
         return puntoVentaRepository.findById(id)
+                .filter(pv -> pv.getFechaBaja() == null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "El punto de venta indicado no existe (id: " + id + ")"));
+                        "El punto de venta seleccionado no existe"));
     }
 
     private CondicionIva resolverCondicionIva(Long id) {
         return condicionIvaRepository.findById(id)
+                .filter(ci -> ci.getFechaBaja() == null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "La condición IVA indicada no existe (id: " + id + ")"));
+                        "La condición de IVA seleccionada no existe"));
     }
 
     private TipoMoneda resolverTipoMoneda(Long id) {
         return tipoMonedaRepository.findById(id)
+                .filter(tm -> tm.getFechaBaja() == null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "El tipo de moneda indicado no existe (id: " + id + ")"));
+                        "La moneda seleccionada no existe"));
     }
 
     private Cliente resolverCliente(Long id) {
@@ -496,17 +586,18 @@ public class FacturaService {
             return null;
         }
         return clienteRepository.findById(id)
+                .filter(c -> c.getFechaBaja() == null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "El cliente indicado no existe (id: " + id + ")"));
+                        "El cliente seleccionado no existe"));
     }
 
     private ListaPrecioArticulo resolverListaPrecioArticulo(FacturaVentaDetalleRequestDTO detalleDto) {
         if (detalleDto.getListaPrecioArticuloId() != null) {
             ListaPrecioArticulo lista = listaPrecioArticuloRepository
                     .findById(detalleDto.getListaPrecioArticuloId())
+                    .filter(lpa -> lpa.getFechaBaja() == null)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "La lista de precios del artículo no existe (id: "
-                                     + detalleDto.getListaPrecioArticuloId() + ")"));
+                            "La lista de precios seleccionada para el artículo no existe"));
 
             if (detalleDto.getArticuloId() != null && lista.getArticulo() != null
                     && !lista.getArticulo().getId().equals(detalleDto.getArticuloId())) {
@@ -518,14 +609,13 @@ public class FacturaService {
 
         if (detalleDto.getArticuloId() != null) {
             return listaPrecioArticuloRepository
-                    .findFirstByArticuloIdOrderByIdAsc(detalleDto.getArticuloId())
+                    .findFirstByArticuloIdAndFechaBajaIsNullOrderByIdAsc(detalleDto.getArticuloId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "El artículo indicado no tiene una lista de precios asociada (id: "
-                                     + detalleDto.getArticuloId() + ")"));
+                            "El artículo seleccionado no tiene una lista de precios vigente"));
         }
 
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Debe especificar listaPrecioArticuloId o articuloId para cada detalle");
+                "Indicá un artículo y una lista de precios válida para cada detalle");
     }
 
     private Usuario obtenerUsuarioParaAuditoria() {
@@ -537,12 +627,8 @@ public class FacturaService {
         if (factura == null || factura.getNumero() == null) {
             return null;
         }
-        try {
-            int ptoVta = (factura.getPuntoVenta() != null) ? factura.getPuntoVenta().getNumero() : 1;
-            return String.format("%04d-%08d", ptoVta, factura.getNumero());
-        } catch (Exception e) {
-            return String.valueOf(factura.getNumero());
-        }
+        int ptoVta = (factura.getPuntoVenta() != null) ? factura.getPuntoVenta().getNumero() : 1;
+        return FormatoComprobante.formatearNumeroComprobante(ptoVta, factura.getNumero());
     }
 
     private static double redondear(double valor) {

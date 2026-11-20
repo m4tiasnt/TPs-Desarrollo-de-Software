@@ -113,9 +113,9 @@ public class FacturaVenta extends AuditoriaApp {
     public void actualizarDatos(String nuevasObservaciones, Cliente nuevoCliente,
                                 CondicionIva nuevaCondicionIva, PuntoVenta nuevoPuntoVenta,
                                 TipoMoneda nuevoTipoMoneda, Usuario usuarioModificacion) {
-        if (nuevasObservaciones != null) {
-            this.observaciones = nuevasObservaciones;
-        }
+        this.observaciones = (nuevasObservaciones != null && !nuevasObservaciones.isBlank())
+                ? nuevasObservaciones.trim()
+                : null;
         this.cliente = nuevoCliente;
         if (nuevaCondicionIva != null) {
             this.condicionIva = nuevaCondicionIva;

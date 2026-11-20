@@ -55,8 +55,9 @@ public class ManejadorErrores {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> manejarValidacion(MethodArgumentNotValidException ex) {
         String mensaje = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getDefaultMessage())
+                .filter(texto -> texto != null && !texto.isBlank())
                 .findFirst()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .orElse("Los datos enviados no son válidos");
         return ResponseEntity.badRequest().body(Map.of("mensaje", mensaje));
     }
@@ -83,8 +84,9 @@ public class ManejadorErrores {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Map<String, String>> manejarViolacionDeRestriccion(ConstraintViolationException ex) {
         String mensaje = ex.getConstraintViolations().stream()
+                .map(violacion -> violacion.getMessage())
+                .filter(texto -> texto != null && !texto.isBlank())
                 .findFirst()
-                .map(violacion -> violacion.getPropertyPath() + ": " + violacion.getMessage())
                 .orElse("Los datos enviados no son válidos");
         return ResponseEntity.badRequest().body(Map.of("mensaje", mensaje));
     }
@@ -94,7 +96,7 @@ public class ManejadorErrores {
             HttpMediaTypeNotSupportedException ex) {
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
                 .body(Map.of("mensaje",
-                        "El tipo de contenido de la petición no está soportado. Utilice application/json"));
+                        "El tipo de contenido de la petición no está soportado. Usá application/json"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
