@@ -13,13 +13,14 @@ import java.util.Optional;
 @Repository
 public interface ListaPrecioArticuloRepository extends JpaRepository<ListaPrecioArticulo, Long> {
 
-    Optional<ListaPrecioArticulo> findFirstByArticuloIdOrderByIdAsc(Long articuloId);
+    Optional<ListaPrecioArticulo> findFirstByArticuloIdAndFechaBajaIsNullOrderByIdAsc(Long articuloId);
 
     @Query("SELECT new com.facturaarca.dto.ListaPrecioArticuloDTO(" +
            "   lpa.id, lp.id, lp.denominacion, lpa.precioVenta) " +
            "FROM ListaPrecioArticulo lpa " +
            "JOIN lpa.listaPrecio lp " +
            "WHERE lpa.articulo.id = :articuloId " +
+           "AND lpa.fechaBaja IS NULL AND lp.fechaBaja IS NULL " +
            "ORDER BY lpa.id")
     List<ListaPrecioArticuloDTO> buscarListasPrecioPorArticulo(@Param("articuloId") Long articuloId);
 }

@@ -14,24 +14,28 @@ import java.util.List;
 @Repository
 public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
 
+    boolean existsByIdAndFechaBajaIsNull(Long id);
+
     /**
-     * Busca artículos por código, denominación o marca, pero solo devuelve
-     * aquellos que tengan precio en la lista indicada.
+     * Busca artículos activos por código, denominación o marca, devolviendo
+     * aquellos que tengan precio vigente en la lista indicada.
      */
     @Query("SELECT DISTINCT new com.facturaarca.dto.ArticuloPrecioDTO(" +
-            "a.id, a.codigo, a.denominacion, m.denominacion, " +
+            "a.id, a.codigo, a.denominacion, COALESCE(m.denominacion, ''), " +
             "lpa.precioVenta, lpa.id, lp.id, lp.denominacion) " +
             "FROM Articulo a " +
             "LEFT JOIN a.marca m " +
             "JOIN ListaPrecioArticulo lpa ON lpa.articulo.id = a.id " +
             "JOIN lpa.listaPrecio lp " +
-            "WHERE lp.id = :listaPrecioId " +
-            "AND (LOWER(a.codigo) LIKE LOWER(CONCAT('%', :q, '%')) " +
-            "   OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :q, '%')) " +
-            "   OR LOWER(m.denominacion) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+            "WHERE a.fechaBaja IS NULL AND lpa.fechaBaja IS NULL AND lp.fechaBaja IS NULL " +
+            "AND lp.id = :listaPrecioId " +
+            "AND (LOWER(a.codigo) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '!' " +
+            "   OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '!' " +
+            "   OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '!') " +
             "ORDER BY a.denominacion")
     List<ArticuloPrecioDTO> buscarPorTermino(@Param("q") String q,
-                                               @Param("listaPrecioId") Long listaPrecioId);
+                                               @Param("listaPrecioId") Long listaPrecioId,
+                                               Pageable pageable);
 
     /**
      * Búsqueda paginada (LIMIT/OFFSET) de artículos para el Explorer modal.
@@ -47,9 +51,9 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
                 "JOIN lpa.listaPrecio lp " +
                 "WHERE a.fechaBaja IS NULL AND lpa.fechaBaja IS NULL " +
                 "AND lp.id = :listaPrecioId " +
-                "AND (:codigo = '' OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :codigo, '%'))) " +
-                "AND (:termino = '' OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :termino, '%')) " +
-                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%'))) " +
+                "AND (:codigo = '' OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :codigo, '%')) ESCAPE '!') " +
+                "AND (:termino = '' OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :termino, '%')) ESCAPE '!' " +
+                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%')) ESCAPE '!') " +
                 "ORDER BY a.denominacion ASC, a.id ASC",
         countQuery = "SELECT COUNT(lpa.id) " +
                 "FROM Articulo a " +
@@ -58,9 +62,9 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
                 "JOIN lpa.listaPrecio lp " +
                 "WHERE a.fechaBaja IS NULL AND lpa.fechaBaja IS NULL " +
                 "AND lp.id = :listaPrecioId " +
-                "AND (:codigo = '' OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :codigo, '%'))) " +
-                "AND (:termino = '' OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :termino, '%')) " +
-                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%')))"
+                "AND (:codigo = '' OR LOWER(a.codigo) LIKE LOWER(CONCAT('%', :codigo, '%')) ESCAPE '!') " +
+                "AND (:termino = '' OR LOWER(a.denominacion) LIKE LOWER(CONCAT('%', :termino, '%')) ESCAPE '!' " +
+                "     OR LOWER(COALESCE(m.denominacion, '')) LIKE LOWER(CONCAT('%', :termino, '%')) ESCAPE '!')"
     )
     Page<ArticuloPrecioDTO> buscarPaginadoPorListaPrecio(
             @Param("codigo") String codigo,
