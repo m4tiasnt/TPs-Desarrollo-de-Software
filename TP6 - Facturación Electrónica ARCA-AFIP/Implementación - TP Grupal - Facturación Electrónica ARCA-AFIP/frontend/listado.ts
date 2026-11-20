@@ -34,6 +34,7 @@ let modoSeleccion = false;
 let tokenCarga = 0;
 
 const seleccionados = new Set<number>();
+const seleccionadasData = new Map<number, FacturaVentaListadoDTO>();
 const facturasPorId = new Map<number, FacturaVentaListadoDTO>();
 
 // ─── Referencias DOM ────────────────────────────────────────────────────────
@@ -73,6 +74,8 @@ let menuToggle: HTMLButtonElement | null = null;
 
 const dlgInformar = document.getElementById('dlg-informar-arca') as HTMLDialogElement | null;
 let informandoEnCurso = false;
+let idsParaInformar: number[] = [];
+let envioDesdeSeleccion = false;
 
 // ─── Modal de clientes ──────────────────────────────────────────────────────
 const modalCliente = new BuscadorClienteModal({
@@ -181,7 +184,7 @@ function sincronizarLimitesFechas(): void {
     }
 }
 
-function validarRangoFechas(): boolean {
+function validarFiltros(): boolean {
     const busqueda = inputBusqueda?.value?.trim() || '';
     if (busqueda) {
         const esId = /^(borrador\s*#?\s*\d+|#\d+)$/i.test(busqueda);
@@ -227,6 +230,7 @@ function limpiarFiltros(): void {
 // ─── Carga de datos ─────────────────────────────────────────────────────────
 async function cargarFacturas(): Promise<void> {
     if (!tbody) return;
+    if (!validarFiltros()) return;
     cerrarMenuFila();
     const token = ++tokenCarga;
     mostrarCargando();
@@ -343,6 +347,14 @@ function renderizarTabla(facturas: FacturaVentaListadoDTO[]): void {
 
     for (const f of facturas) {
         facturasPorId.set(f.id, f);
+        if (seleccionados.has(f.id)) {
+            if (esFacturaInformable(f.estado)) {
+                seleccionadasData.set(f.id, f);
+            } else {
+                seleccionados.delete(f.id);
+                seleccionadasData.delete(f.id);
+            }
+        }
         const clone = tplFila.content.cloneNode(true) as DocumentFragment;
         const fila = clone.querySelector('tr') as HTMLTableRowElement;
         fila.dataset.id = String(f.id);
@@ -430,8 +442,11 @@ function setTextoCelda(fila: HTMLElement, campo: string, texto: string): void {
 function toggleSeleccionItem(id: number, seleccionada: boolean, fila: HTMLElement): void {
     if (seleccionada) {
         seleccionados.add(id);
+        const factura = facturasPorId.get(id);
+        if (factura) seleccionadasData.set(id, factura);
     } else {
         seleccionados.delete(id);
+        seleccionadasData.delete(id);
     }
     fila.classList.toggle('is-selected', seleccionada);
     actualizarSeleccion();
@@ -466,6 +481,7 @@ function salirModoSeleccion(): void {
 
 function limpiarSeleccion(): void {
     seleccionados.clear();
+    seleccionadasData.clear();
     tbody?.querySelectorAll<HTMLTableRowElement>('tr').forEach((tr) => {
         tr.classList.remove('is-selected');
         const chk = tr.querySelector<HTMLInputElement>('input[name="facturaIds"]');
@@ -476,6 +492,12 @@ function limpiarSeleccion(): void {
 }
 
 function actualizarSeleccion(): void {
+    if (chkSeleccionarTodos && tbody) {
+        const habilitados = tbody.querySelectorAll<HTMLInputElement>('input[name="facturaIds"]:not(:disabled)');
+        const marcados = tbody.querySelectorAll<HTMLInputElement>('input[name="facturaIds"]:checked');
+        chkSeleccionarTodos.checked = habilitados.length > 0 && habilitados.length === marcados.length;
+    }
+
     if (!seleccionInfo) return;
     const n = seleccionados.size;
 
@@ -487,7 +509,7 @@ function actualizarSeleccion(): void {
 
     let sumaTotal = 0;
     for (const id of seleccionados) {
-        const f = facturasPorId.get(id);
+        const f = seleccionadasData.get(id) ?? facturasPorId.get(id);
         if (f) sumaTotal += f.importeTotal;
     }
 
@@ -495,13 +517,6 @@ function actualizarSeleccion(): void {
     seleccionInfo.innerHTML = `<strong>${n}</strong> ${plural} · Total: <span class="barra-seleccion-monto">${formatearMoneda(sumaTotal)}</span>`;
 
     if (btnInformar) btnInformar.disabled = false;
-
-    // Actualizar checkbox de "seleccionar todos"
-    if (chkSeleccionarTodos && tbody) {
-        const habilitados = tbody.querySelectorAll<HTMLInputElement>('input[name="facturaIds"]:not(:disabled)');
-        const marcados = tbody.querySelectorAll<HTMLInputElement>('input[name="facturaIds"]:checked');
-        chkSeleccionarTodos.checked = habilitados.length > 0 && habilitados.length === marcados.length;
-    }
 }
 
 // ─── Menú de acciones por fila ──────────────────────────────────────────────
@@ -644,13 +659,17 @@ function mostrarFaseArca(fase: string): void {
 
 function abrirInformarArca(idEspecifico?: number): void {
     if (idEspecifico != null) {
-        seleccionados.clear();
-        seleccionados.add(idEspecifico);
-        actualizarSeleccion();
+        idsParaInformar = [idEspecifico];
+        envioDesdeSeleccion = false;
+    } else {
+        idsParaInformar = [...seleccionados];
+        envioDesdeSeleccion = true;
     }
-    if (!dlgInformar || seleccionados.size === 0) return;
-    const ids = [...seleccionados];
-    const facturas = ids.map((id) => facturasPorId.get(id)).filter((f): f is FacturaVentaListadoDTO => Boolean(f));
+    if (!dlgInformar || idsParaInformar.length === 0) return;
+    const ids = [...idsParaInformar];
+    const facturas = ids
+        .map((id) => seleccionadasData.get(id) ?? facturasPorId.get(id))
+        .filter((f): f is FacturaVentaListadoDTO => Boolean(f));
     const tbodyConfirmar = dlgInformar.querySelector('#informar-confirmar-body');
     const totalConfirmar = dlgInformar.querySelector('#informar-confirmar-total');
     if (tbodyConfirmar) {
@@ -701,12 +720,14 @@ function abrirInformarArca(idEspecifico?: number): void {
 
 async function ejecutarInformarArca(): Promise<void> {
     if (!dlgInformar || informandoEnCurso) return;
-    const ids = [...seleccionados];
+    const ids = [...idsParaInformar];
     if (ids.length === 0) return;
 
     informandoEnCurso = true;
-    // Apenas se confirma el envío, quitamos la barra inferior de selección
-    salirModoSeleccion();
+    // Apenas se confirma el envío desde la barra de selección, quitamos la barra inferior
+    if (envioDesdeSeleccion) {
+        salirModoSeleccion();
+    }
 
     // Marcamos visualmente en la tabla de fondo las facturas como EN_PROCESO
     for (const id of ids) {
@@ -736,12 +757,18 @@ async function ejecutarInformarArca(): Promise<void> {
         const autorizadas = resultados.filter((r) => r.estado === 'AUTORIZADA').length;
         const rechazadas = resultados.filter((r) => r.estado === 'RECHAZADA').length;
 
-        if (rechazadas === 0) {
+        if (autorizadas > 0 && rechazadas === 0) {
             toast.exito(autorizadas === 1
                 ? 'Factura informada correctamente a ARCA.'
                 : `Se informaron correctamente ${autorizadas} facturas a ARCA.`);
-        } else {
+        } else if (autorizadas === 0 && rechazadas > 0) {
+            toast.error(rechazadas === 1
+                ? 'La factura fue rechazada por ARCA.'
+                : `Se rechazaron ${rechazadas} facturas en ARCA.`);
+        } else if (autorizadas > 0 && rechazadas > 0) {
             toast.info(`Envío completado: ${autorizadas} informada(s) y ${rechazadas} rechazada(s).`);
+        } else {
+            toast.info('No se pudo autorizar ninguna de las facturas seleccionadas.');
         }
     } catch (err: unknown) {
         const mensajeError = err instanceof Error ? err.message : 'Error al comunicar con el servidor';
@@ -761,9 +788,9 @@ async function ejecutarInformarArca(): Promise<void> {
     }
 }
 
-function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: ResultadoAutorizacionDTO, _animar: boolean = false): void {
+function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: ResultadoAutorizacionDTO): void {
     if (!fila) return;
-    const f = facturasPorId.get(r.id);
+    const f = seleccionadasData.get(r.id) ?? facturasPorId.get(r.id);
     const nro = fila.querySelector('[data-campo="factura"]') as HTMLElement;
     if (nro) {
         if (r.numero != null) {
@@ -839,7 +866,7 @@ btnFiltros?.addEventListener('click', () => {
 
 formFiltros?.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!validarRangoFechas()) return;
+    if (!validarFiltros()) return;
     actualizarBadgeFiltros();
     paginaActual = 0;
     void cargarFacturas();
@@ -875,7 +902,14 @@ chkSeleccionarTodos?.addEventListener('change', () => {
         const chk = tr.querySelector<HTMLInputElement>('input[name="facturaIds"]');
         if (chk && !chk.disabled) {
             chk.checked = marcar;
-            if (marcar) seleccionados.add(id); else seleccionados.delete(id);
+            if (marcar) {
+                seleccionados.add(id);
+                const factura = facturasPorId.get(id);
+                if (factura) seleccionadasData.set(id, factura);
+            } else {
+                seleccionados.delete(id);
+                seleccionadasData.delete(id);
+            }
             tr.classList.toggle('is-selected', marcar);
         }
     });
@@ -950,7 +984,7 @@ dlgInformar?.addEventListener('submit', (e) => {
 
 const btnCerrarInformando = document.getElementById('btn-cerrar-informando') as HTMLButtonElement | null;
 btnCerrarInformando?.addEventListener('click', () => {
-    salirModoSeleccion();
+    if (envioDesdeSeleccion) salirModoSeleccion();
     if (dlgInformar?.open) {
         dlgInformar.close();
     }
@@ -959,7 +993,9 @@ btnCerrarInformando?.addEventListener('click', () => {
 
 dlgInformar?.addEventListener('close', () => {
     bloquearScrollBody(false);
-    salirModoSeleccion();
+    if (envioDesdeSeleccion) {
+        salirModoSeleccion();
+    }
 });
 
 dlgInformar?.addEventListener('cancel', () => {
@@ -989,7 +1025,7 @@ function cerrarMenuExportar(): void {
 
 async function exportarFacturas(tipo: 'excel' | 'pdf', btn?: HTMLButtonElement | null): Promise<void> {
     cerrarMenuExportar();
-    if (!validarRangoFechas()) return;
+    if (!validarFiltros()) return;
     const textoOriginal = btn?.innerHTML;
     try {
         if (btn) {

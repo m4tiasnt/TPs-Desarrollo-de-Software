@@ -18,11 +18,11 @@
         #mensaje-feedback        avisos (clases: exito | error | info)
         #form-filtros            filtros → campos name: busqueda, clienteId, fechaDesde, fechaHasta,
                                  estado, montoMinimo, informadaArca
-        #btn-abrir-dialogo-cliente / #btn-limpiar-cliente   búsqueda de cliente (reusa el explorer actual)
+        #btn-abrir-dialogo-cliente / #btn-limpiar-cliente   búsqueda de cliente
         #tabla-facturas(-body)   listado; la clase .is-selecting en la tabla muestra la columna de selección
         #btn-modo-informar       entra al modo selección (además poner .is-selecting en <body>)
         #barra-seleccion         barra flotante; #btn-informar-arca abre #dlg-informar-arca
-        #menu-factura            menú ⋮ de fila (data-menu: editar | anular | eliminar)
+        #menu-factura            menú ⋮ de fila (data-menu: pdf | informar | editar | anular | eliminar)
         #listado-mensaje         estados vacío / error / cargando (plantillas #tpl-*)
         #dlg-anular, #dlg-eliminar, #dlg-informar-arca (fases con [data-fase])
     -->
@@ -263,11 +263,6 @@
     <template id="tpl-error-carga">
         <div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><strong>No se pudieron cargar las facturas</strong><span class="muted" data-campo="detalle">Error de conexión con la API.</span>
             <button type="button" class="btn btn-secondary" data-accion="reintentar"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Reintentar</button></div>
-    </template>
-    <template id="tpl-cargando">
-        <div><div class="skeleton-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
-        <div class="skeleton-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
-        <div class="skeleton-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div></div>
     </template>
 
     <!-- Informar a ARCA: un solo diálogo, con las fases confirmar → informando → resultado | error. -->

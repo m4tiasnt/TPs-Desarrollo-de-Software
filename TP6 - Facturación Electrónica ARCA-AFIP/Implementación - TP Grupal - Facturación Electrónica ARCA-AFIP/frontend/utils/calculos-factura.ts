@@ -46,8 +46,7 @@ export interface TotalesFactura {
 }
 
 /**
- * Calcula los totales agregados de la factura: neto gravado, IVA y total.
- * En la versión actual de la API se asume alícuota estándar 21% para el desglose.
+ * Calcula los totales agregados de la factura: neto gravado, IVA (21% incluido) y total.
  */
 export function calcularTotalesFactura(detalles: DetalleCalculable[]): TotalesFactura {
     let acumuladorNeto = 0;

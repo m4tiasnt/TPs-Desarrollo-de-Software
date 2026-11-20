@@ -27,6 +27,7 @@ export class BuscadorArticuloModal {
 
     private filtroCodigo = '';
     private filtroTermino = '';
+    private tokenBusqueda = 0;
 
     constructor(private readonly options: BuscadorArticuloModalOptions) {
         this.dialog = document.getElementById('modal-articulo-explorer') as HTMLDialogElement | null;
@@ -113,6 +114,7 @@ export class BuscadorArticuloModal {
 
     private mostrarMensajeMinimoCaracteres(): void {
         if (!this.tbody) return;
+        this.tokenBusqueda++;
         this.filtroCodigo = '';
         this.filtroTermino = '';
         this.tableWrap?.classList.add('is-empty');
@@ -150,6 +152,7 @@ export class BuscadorArticuloModal {
             return;
         }
 
+        const token = ++this.tokenBusqueda;
         this.tableWrap?.classList.remove('is-empty');
         this.renderSkeletons(5);
         this.paginador.bloquear(true);
@@ -160,6 +163,7 @@ export class BuscadorArticuloModal {
                 pagina,
                 5
             );
+            if (token !== this.tokenBusqueda) return;
             this.filtroCodigo = codigoLimpio;
             this.filtroTermino = terminoLimpio;
 
@@ -171,6 +175,7 @@ export class BuscadorArticuloModal {
                 this.paginador.actualizar(data);
             }
         } catch (err) {
+            if (token !== this.tokenBusqueda) return;
             const mensaje = err instanceof Error ? err.message : 'Error al obtener artículos del servidor.';
             this.tableWrap?.classList.add('is-empty');
             const tr = document.createElement('tr');
@@ -183,8 +188,10 @@ export class BuscadorArticuloModal {
             this.tbody.replaceChildren(tr);
             this.paginador.limpiar('');
         } finally {
-            this.tbody.classList.remove('is-loading');
-            this.paginador.bloquear(false);
+            if (token === this.tokenBusqueda) {
+                this.tbody.classList.remove('is-loading');
+                this.paginador.bloquear(false);
+            }
         }
     }
 

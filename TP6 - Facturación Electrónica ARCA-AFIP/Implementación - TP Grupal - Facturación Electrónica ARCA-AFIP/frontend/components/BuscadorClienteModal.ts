@@ -23,6 +23,7 @@ export class BuscadorClienteModal {
 
     private filtroCuit = '';
     private filtroRazonSocial = '';
+    private tokenBusqueda = 0;
 
     constructor(private readonly options: BuscadorClienteOptions) {
         this.dialog = document.getElementById('modal-cliente-explorer') as HTMLDialogElement | null;
@@ -106,6 +107,7 @@ export class BuscadorClienteModal {
 
     private mostrarMensajeMinimoCaracteres(): void {
         if (!this.tbody) return;
+        this.tokenBusqueda++;
         this.filtroCuit = '';
         this.filtroRazonSocial = '';
         this.tableWrap?.classList.add('is-empty');
@@ -136,6 +138,7 @@ export class BuscadorClienteModal {
         }
 
         // Quitamos la clase de vacío para que el thead y los skeletons se alineen prolijamente
+        const token = ++this.tokenBusqueda;
         this.tableWrap?.classList.remove('is-empty');
         this.renderSkeletons(5);
         this.paginador.bloquear(true);
@@ -146,6 +149,7 @@ export class BuscadorClienteModal {
                 pagina,
                 5
             );
+            if (token !== this.tokenBusqueda) return;
             this.filtroCuit = cuitLimpio;
             this.filtroRazonSocial = razonSocialLimpia;
 
@@ -157,6 +161,7 @@ export class BuscadorClienteModal {
                 this.paginador.actualizar(data);
             }
         } catch (err) {
+            if (token !== this.tokenBusqueda) return;
             const mensaje = err instanceof Error ? err.message : 'Error al obtener clientes del servidor.';
             this.tableWrap?.classList.add('is-empty');
             const tr = document.createElement('tr');
@@ -169,8 +174,10 @@ export class BuscadorClienteModal {
             this.tbody.replaceChildren(tr);
             this.paginador.limpiar('');
         } finally {
-            this.tbody.classList.remove('is-loading');
-            this.paginador.bloquear(false);
+            if (token === this.tokenBusqueda) {
+                this.tbody.classList.remove('is-loading');
+                this.paginador.bloquear(false);
+            }
         }
     }
 

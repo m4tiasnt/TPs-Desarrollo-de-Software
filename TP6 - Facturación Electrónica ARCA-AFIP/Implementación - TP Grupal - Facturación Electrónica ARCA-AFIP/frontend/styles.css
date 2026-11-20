@@ -13,7 +13,7 @@
   --color-primary-hover: #1e3a8a;
   --color-primary-light: #dbeafe;
 
-  /* Textos de estado: más oscuros que en la especificación para cumplir contraste AA */
+  /* Textos de estado con contraste accesible (AA) */
   --color-success-bg: #d1fae5;
   --color-success-text: #047857;
   --color-warning-bg: #fef3c7;
@@ -2402,10 +2402,6 @@ html.pagina-cargando .pantalla-carga-global {
 
 .lines tbody tr:last-child td {
   border-bottom: 0;
-}
-
-.lines .line-warning {
-  color: #b45309;
 }
 
 /* Pie de la tarjeta de detalles: cantidad + neto + IVA a la izquierda, total a la derecha */
