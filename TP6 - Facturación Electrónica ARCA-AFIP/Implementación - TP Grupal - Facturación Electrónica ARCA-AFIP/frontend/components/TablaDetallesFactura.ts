@@ -4,7 +4,6 @@ import { setTexto } from '../utils/dom';
 import { Factura, ResultadoAgregarDetalle } from '../models/Factura';
 import { FacturaDetalle, FacturaDetalleProps } from '../models/FacturaDetalle';
 
-export type FacturaDetalleUI = FacturaDetalle;
 export type { ResultadoAgregarDetalle, FacturaDetalleProps };
 
 export type ModoFactura = 'nueva' | 'editar' | 'ver';
@@ -19,7 +18,6 @@ export interface TablaDetallesOptions {
     tplVer: HTMLTemplateElement;
     onCambioTotales: (totales: TotalesFactura, cantidad: number) => void;
     onAbrirMenuDetalle?: (idx: number, anchorBtn: HTMLButtonElement) => void;
-    onMensajeFeedback?: (mensaje: string) => void;
 }
 
 /**
@@ -35,7 +33,9 @@ export class TablaDetallesFactura {
     }
 
     setModo(modo: ModoFactura): void {
+        if (this.modo === modo) return;
         this.modo = modo;
+        this.render();
     }
 
     setFactura(factura: Factura): void {
@@ -63,6 +63,7 @@ export class TablaDetallesFactura {
                 <td class="num"><span class="skeleton" style="width:30px;height:14px;margin-left:auto;display:block;"></span></td>
                 <td class="num"><span class="skeleton" style="width:70px;height:14px;margin-left:auto;display:block;"></span></td>
                 <td class="num"><span class="skeleton" style="width:30px;height:14px;margin-left:auto;display:block;"></span></td>
+                <td class="num"><span class="skeleton" style="width:65px;height:14px;margin-left:auto;display:block;"></span></td>
                 <td class="num"><span class="skeleton" style="width:75px;height:14px;margin-left:auto;display:block;"></span></td>
                 ${esVer ? '' : '<td><span class="skeleton" style="width:60px;height:24px;margin-left:auto;display:block;"></span></td>'}
             `;
@@ -110,11 +111,14 @@ export class TablaDetallesFactura {
         }
     }
 
-    actualizarDetalle(indice: number, cambios: Partial<FacturaDetalleProps>): void {
+    actualizarDetalle(indice: number, cambios: Partial<FacturaDetalleProps>): ResultadoAgregarDetalle | null {
         if (indice >= 0 && indice < this.factura.detalles.length) {
-            this.factura.actualizarDetalle(indice, cambios);
+            const resultado = this.factura.actualizarDetalle(indice, cambios);
             this.render();
+            if (resultado?.fusionado) this.resaltarFila(resultado.indice);
+            return resultado;
         }
+        return null;
     }
 
     render(): void {
@@ -156,6 +160,7 @@ export class TablaDetallesFactura {
                 }
             }
 
+            setTexto(tr, '[data-campo="importeIva"]', formatearMoneda(d.calcularIva()));
             setTexto(tr, '[data-campo="importeSubtotal"]', formatearMoneda(d.calcularSubtotal()));
 
             if (this.modo === 'ver') {
@@ -198,11 +203,6 @@ export class TablaDetallesFactura {
                 actualizarEstadoDecrementar();
                 this.actualizarFila(idx);
                 this.notificarTotales();
-                if (delta > 0) {
-                    this.options.onMensajeFeedback?.(
-                        `Se ha agregado una unidad del artículo seleccionado: "${actual.articuloDenominacion}".`
-                    );
-                }
             };
 
             btnDecrementar?.addEventListener('click', (e) => {
@@ -243,6 +243,11 @@ export class TablaDetallesFactura {
                 this.notificarTotales();
             });
 
+            inpBonif.addEventListener('blur', () => {
+                const actual = this.factura.detalles[idx];
+                if (actual) inpBonif.value = String(actual.porcentajeBonificacion);
+            });
+
             const btnMenu = tr.querySelector('[data-accion="menu"]') as HTMLButtonElement | null;
             btnMenu?.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -264,6 +269,10 @@ export class TablaDetallesFactura {
         const fila = this.options.tbody.querySelectorAll('tr')[idx];
         const detalle = this.factura.detalles[idx];
         if (!fila || !detalle) return;
+        const celdaIva = fila.querySelector('[data-campo="importeIva"]');
+        if (celdaIva) {
+            celdaIva.textContent = formatearMoneda(detalle.calcularIva());
+        }
         const celdaSubtotal = fila.querySelector('[data-campo="importeSubtotal"]');
         if (celdaSubtotal) {
             celdaSubtotal.textContent = formatearMoneda(detalle.calcularSubtotal());

@@ -18,11 +18,9 @@ export class BuscadorClienteModal {
     private readonly inputRazonSocial: HTMLInputElement | null;
     private readonly btnBuscar: HTMLButtonElement | null;
     private readonly tbody: HTMLTableSectionElement | null;
-    private readonly barraPaginacion: HTMLElement | null;
     private readonly tableWrap: HTMLElement | null;
     private readonly paginador: PaginadorControl;
 
-    private paginaActual = 0;
     private filtroCuit = '';
     private filtroRazonSocial = '';
 
@@ -33,7 +31,6 @@ export class BuscadorClienteModal {
         this.inputRazonSocial = document.getElementById('inputBuscarClienteRazonSocial') as HTMLInputElement | null;
         this.btnBuscar = document.getElementById('btnBuscarCliente') as HTMLButtonElement | null;
         this.tbody = document.getElementById('tbody-clientes-explorer') as HTMLTableSectionElement | null;
-        this.barraPaginacion = this.dialog?.querySelector('.pagination-bar') as HTMLElement | null;
         this.tableWrap = this.dialog?.querySelector('.dialog-table') as HTMLElement | null;
 
         this.paginador = new PaginadorControl({
@@ -116,7 +113,7 @@ export class BuscadorClienteModal {
             <tr class="fila-vacia">
                 <td colspan="3" class="modal-empty-cell">
                     <div class="modal-empty-content">
-                        <span class="modal-empty-title">Ingresá al menos 3 caracteres en CUIT/CUIL o Razón social para buscar clientes</span>
+                        <span class="modal-empty-title">Ingresá al menos 3 caracteres para buscar clientes</span>
                     </div>
                 </td>
             </tr>`;
@@ -144,15 +141,11 @@ export class BuscadorClienteModal {
         this.paginador.bloquear(true);
 
         try {
-            const [data] = await Promise.all([
-                this.options.clienteService.buscarClientes(
-                    { cuit: cuitLimpio, razonSocial: razonSocialLimpia },
-                    pagina,
-                    5
-                ),
-                new Promise((resolve) => setTimeout(resolve, 180))
-            ]);
-            this.paginaActual = data.paginaActual;
+            const data = await this.options.clienteService.buscarClientes(
+                { cuit: cuitLimpio, razonSocial: razonSocialLimpia },
+                pagina,
+                5
+            );
             this.filtroCuit = cuitLimpio;
             this.filtroRazonSocial = razonSocialLimpia;
 
@@ -166,7 +159,14 @@ export class BuscadorClienteModal {
         } catch (err) {
             const mensaje = err instanceof Error ? err.message : 'Error al obtener clientes del servidor.';
             this.tableWrap?.classList.add('is-empty');
-            this.tbody.innerHTML = `<tr class="fila-vacia"><td colspan="3" class="modal-error-cell">${mensaje}</td></tr>`;
+            const tr = document.createElement('tr');
+            tr.className = 'fila-vacia';
+            const td = document.createElement('td');
+            td.colSpan = 3;
+            td.className = 'modal-error-cell';
+            td.textContent = mensaje;
+            tr.appendChild(td);
+            this.tbody.replaceChildren(tr);
             this.paginador.limpiar('');
         } finally {
             this.tbody.classList.remove('is-loading');

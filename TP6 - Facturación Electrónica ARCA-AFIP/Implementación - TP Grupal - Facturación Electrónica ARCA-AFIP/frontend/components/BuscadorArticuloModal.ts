@@ -155,14 +155,11 @@ export class BuscadorArticuloModal {
         this.paginador.bloquear(true);
 
         try {
-            const [data] = await Promise.all([
-                this.options.articuloService.buscarArticulosPaginados(
-                    { listaPrecioId, codigo: codigoLimpio, termino: terminoLimpio },
-                    pagina,
-                    5
-                ),
-                new Promise((resolve) => setTimeout(resolve, 180))
-            ]);
+            const data = await this.options.articuloService.buscarArticulosPaginados(
+                { listaPrecioId, codigo: codigoLimpio, termino: terminoLimpio },
+                pagina,
+                5
+            );
             this.filtroCodigo = codigoLimpio;
             this.filtroTermino = terminoLimpio;
 
@@ -176,7 +173,14 @@ export class BuscadorArticuloModal {
         } catch (err) {
             const mensaje = err instanceof Error ? err.message : 'Error al obtener artículos del servidor.';
             this.tableWrap?.classList.add('is-empty');
-            this.tbody.innerHTML = `<tr class="fila-vacia"><td colspan="4" class="modal-error-cell">${mensaje}</td></tr>`;
+            const tr = document.createElement('tr');
+            tr.className = 'fila-vacia';
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            td.className = 'modal-error-cell';
+            td.textContent = mensaje;
+            tr.appendChild(td);
+            this.tbody.replaceChildren(tr);
             this.paginador.limpiar('');
         } finally {
             this.tbody.classList.remove('is-loading');
