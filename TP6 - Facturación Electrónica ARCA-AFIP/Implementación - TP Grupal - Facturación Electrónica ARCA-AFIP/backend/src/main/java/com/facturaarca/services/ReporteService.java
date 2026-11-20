@@ -1,31 +1,32 @@
 package com.facturaarca.services;
 
 import com.facturaarca.dto.FacturaVentaReporteDTO;
+import com.facturaarca.enums.EstadoFactura;
+import com.facturaarca.util.FormatoComprobante;
 import com.itextpdf.io.font.constants.StandardFonts;
-import com.itextpdf.kernel.colors.DeviceGray;
+import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
+import com.itextpdf.layout.properties.VerticalAlignment;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -34,12 +35,7 @@ import java.util.Locale;
 @Service
 public class ReporteService {
 
-    private static final Logger log = LoggerFactory.getLogger(ReporteService.class);
-
     private final FacturaService facturaService;
-
-    @Value("${app.reportes.dir:reportes}")
-    private String reportesDir;
 
     public ReporteService(FacturaService facturaService) {
         this.facturaService = facturaService;
@@ -48,13 +44,15 @@ public class ReporteService {
     /**
      * Genera el reporte Excel en memoria retornando los bytes listos para descarga HTTP.
      */
-    public byte[] generarReporteExcelBytes() throws IOException {
-        List<FacturaVentaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
+    public byte[] generarReporteExcelBytes(
+            LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado, Double montoMinimo,
+            Long clienteId, String busqueda, Boolean informadaArca) throws IOException {
+        List<FacturaVentaReporteDTO> facturas = facturaService.buscarFacturasParaReporte(
+                fechaDesde, fechaHasta, estado, montoMinimo, clienteId, busqueda, informadaArca);
 
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Facturas");
 
-            // Estilo para la cabecera (Negrita y fondo gris)
             CellStyle headerStyle = workbook.createCellStyle();
             Font headerFont = workbook.createFont();
             headerFont.setBold(true);
@@ -62,16 +60,13 @@ public class ReporteService {
             headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-            // Estilo para moneda ($)
             CellStyle currencyStyle = workbook.createCellStyle();
             DataFormat format = workbook.createDataFormat();
             currencyStyle.setDataFormat(format.getFormat("$#,##0.00"));
 
-            // Estilo para fecha
             CellStyle dateStyle = workbook.createCellStyle();
             dateStyle.setDataFormat(format.getFormat("dd/MM/yyyy"));
 
-            // Crear fila de cabecera
             Row headerRow = sheet.createRow(0);
             String[] columnas = {"Número", "Fecha", "Cliente", "Cond. IVA", "Pto. Venta", "Total", "Ítems", "Estado"};
             for (int i = 0; i < columnas.length; i++) {
@@ -80,17 +75,11 @@ public class ReporteService {
                 cell.setCellStyle(headerStyle);
             }
 
-            // Llenar datos de facturas
             int rowNum = 1;
             for (FacturaVentaReporteDTO f : facturas) {
                 Row row = sheet.createRow(rowNum++);
 
-                Cell numCell = row.createCell(0);
-                if (f.getNumeroFactura() != null) {
-                    numCell.setCellValue(f.getNumeroFactura());
-                } else {
-                    numCell.setCellValue("—");
-                }
+                row.createCell(0).setCellValue(formatearIdentificador(f));
 
                 Cell dateCell = row.createCell(1);
                 if (f.getFechaEmision() != null) {
@@ -100,7 +89,7 @@ public class ReporteService {
 
                 row.createCell(2).setCellValue(limpiar(f.getClienteDenominacion()));
                 row.createCell(3).setCellValue(limpiar(f.getCondicionIva()));
-                row.createCell(4).setCellValue(limpiar(f.getPuntoVentaDescripcion()));
+                row.createCell(4).setCellValue(limpiar(formatearPuntoVenta(f)));
 
                 Cell totalCell = row.createCell(5);
                 totalCell.setCellValue(f.getImporteTotal());
@@ -110,7 +99,6 @@ public class ReporteService {
                 row.createCell(7).setCellValue(f.getEstado() != null ? f.getEstado().name() : "");
             }
 
-            // Autoajustar el ancho de las columnas
             for (int i = 0; i < columnas.length; i++) {
                 sheet.autoSizeColumn(i);
             }
@@ -122,89 +110,86 @@ public class ReporteService {
     }
 
     /**
-     * Genera el reporte Excel y lo guarda en disco (útil para auditoría o procesos batch).
-     */
-    public Path generarReporteExcel() throws IOException {
-        byte[] bytes = generarReporteExcelBytes();
-        Path dir = Paths.get(reportesDir);
-        Files.createDirectories(dir);
-
-        String fechaHora = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        Path destino = dir.resolve("reporte_facturas_" + fechaHora + ".xlsx");
-        Files.write(destino, bytes);
-
-        log.info("Excel (.xlsx) generado exitosamente en: {}.", destino);
-        return destino;
-    }
-
-    private static String limpiar(String texto) {
-        return texto == null ? "" : texto.replaceAll("[\\t\\r\\n]+", " ").trim();
-    }
-
-    /**
      * Genera el reporte PDF en memoria retornando los bytes listos para descarga HTTP.
      */
-    public byte[] generarReportePdfBytes() throws IOException {
-        List<FacturaVentaReporteDTO> facturas = facturaService.obtenerTodasLasFacturas();
+    public byte[] generarReportePdfBytes(
+            LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado, Double montoMinimo,
+            Long clienteId, String busqueda, Boolean informadaArca) throws IOException {
+        List<FacturaVentaReporteDTO> facturas = facturaService.buscarFacturasParaReporte(
+                fechaDesde, fechaHasta, estado, montoMinimo, clienteId, busqueda, informadaArca);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfWriter writer = new PdfWriter(baos);
         PdfDocument pdf = new PdfDocument(writer);
-        Document document = new Document(pdf, PageSize.A4.rotate()); // apaisado
+        Document document = new Document(pdf, PageSize.A4.rotate());
+        document.setMargins(28, 28, 28, 28);
+        PdfFont regular = PdfFontFactory.createFont(StandardFonts.HELVETICA);
         PdfFont negrita = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD);
+
+        DeviceRgb colorHeader = new DeviceRgb(30, 41, 59);
+        DeviceRgb colorZebra = new DeviceRgb(248, 250, 252);
+        DeviceRgb colorBorde = new DeviceRgb(226, 232, 240);
+        DeviceRgb colorSubtitulo = new DeviceRgb(100, 116, 139);
+        Border bordeFila = new SolidBorder(colorBorde, 0.6f);
 
         try {
             document.add(new Paragraph("Reporte de Facturas")
                     .setFont(negrita).setFontSize(16)
-                    .setTextAlignment(TextAlignment.CENTER));
+                    .setFontColor(colorHeader)
+                    .setMarginBottom(2));
+
+            String subtitulo = "Generado el "
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                    + " · " + facturas.size() + (facturas.size() == 1 ? " comprobante" : " comprobantes");
+            document.add(new Paragraph(subtitulo)
+                    .setFont(regular).setFontSize(9.5f)
+                    .setFontColor(colorSubtitulo)
+                    .setMarginBottom(12));
 
             if (facturas.isEmpty()) {
                 document.add(new Paragraph("No hay facturas para mostrar.")
-                        .setTextAlignment(TextAlignment.CENTER));
+                        .setFont(regular).setFontSize(10.5f)
+                        .setFontColor(colorSubtitulo)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setMarginTop(24));
             } else {
-                float[] columnWidths = {45F, 75F, 95F, 105F, 90F, 75F, 45F, 70F};
-                Table table = new Table(columnWidths);
+                Table table = new Table(UnitValue.createPercentArray(new float[]{11, 10, 21, 16, 13, 12, 5, 12}));
                 table.setWidth(UnitValue.createPercentValue(100));
 
-                table.addHeaderCell(headerCell("Número", negrita).setTextAlignment(TextAlignment.RIGHT));
-                table.addHeaderCell(headerCell("Fecha", negrita));
-                table.addHeaderCell(headerCell("Cliente", negrita));
-                table.addHeaderCell(headerCell("Cond. IVA", negrita));
-                table.addHeaderCell(headerCell("Pto. Venta", negrita));
-                table.addHeaderCell(headerCell("Total", negrita).setTextAlignment(TextAlignment.RIGHT));
-                table.addHeaderCell(headerCell("Ítems", negrita).setTextAlignment(TextAlignment.RIGHT));
-                table.addHeaderCell(headerCell("Estado", negrita));
+                table.addHeaderCell(headerCell("Número", negrita, colorHeader, TextAlignment.RIGHT));
+                table.addHeaderCell(headerCell("Fecha", negrita, colorHeader, TextAlignment.CENTER));
+                table.addHeaderCell(headerCell("Cliente", negrita, colorHeader, TextAlignment.LEFT));
+                table.addHeaderCell(headerCell("Cond. IVA", negrita, colorHeader, TextAlignment.LEFT));
+                table.addHeaderCell(headerCell("Pto. Venta", negrita, colorHeader, TextAlignment.LEFT));
+                table.addHeaderCell(headerCell("Total", negrita, colorHeader, TextAlignment.RIGHT));
+                table.addHeaderCell(headerCell("Ítems", negrita, colorHeader, TextAlignment.RIGHT));
+                table.addHeaderCell(headerCell("Estado", negrita, colorHeader, TextAlignment.CENTER));
 
                 SimpleDateFormat formatoFecha = new SimpleDateFormat("dd/MM/yyyy");
                 Locale formatoArgentino = Locale.forLanguageTag("es-AR");
+                int idx = 0;
                 for (FacturaVentaReporteDTO factura : facturas) {
-                    table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
-                            factura.getNumeroFactura() != null ? factura.getNumeroFactura().toString() : "")
-                            .setTextAlignment(TextAlignment.RIGHT)));
-                    table.addCell(factura.getFechaEmision() != null ? formatoFecha.format(factura.getFechaEmision()) : "");
-                    table.addCell(factura.getClienteDenominacion() != null ? factura.getClienteDenominacion() : "Consumidor Final");
-                    table.addCell(factura.getCondicionIva());
-                    table.addCell(factura.getPuntoVentaDescripcion() != null ? factura.getPuntoVentaDescripcion() : "");
-                    table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph("$ " + String.format(formatoArgentino, "%,.2f", factura.getImporteTotal()))
-                            .setTextAlignment(TextAlignment.RIGHT)));
-                    table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
-                            factura.getCantidadItems() != null ? factura.getCantidadItems().toString() : "0")
-                            .setTextAlignment(TextAlignment.RIGHT)));
-                    table.addCell(new com.itextpdf.layout.element.Cell().add(new Paragraph(
-                            factura.getEstado() != null ? factura.getEstado().name() : ""))
-                            .setTextAlignment(TextAlignment.CENTER));
+                    DeviceRgb fondo = (idx++ % 2 == 1) ? colorZebra : null;
+                    String numeroTxt = formatearIdentificador(factura);
+                    String fechaTxt = factura.getFechaEmision() != null ? formatoFecha.format(factura.getFechaEmision()) : "—";
+                    String clienteTxt = factura.getClienteDenominacion() != null ? factura.getClienteDenominacion() : "Consumidor Final";
+                    String condIvaTxt = factura.getCondicionIva() != null ? factura.getCondicionIva() : "—";
+                    String ptoVtaTxt = formatearPuntoVenta(factura);
+                    String totalTxt = "$ " + String.format(formatoArgentino, "%,.2f", factura.getImporteTotal());
+                    String itemsTxt = factura.getCantidadItems() != null ? factura.getCantidadItems().toString() : "0";
+                    String estadoTxt = factura.getEstado() != null ? factura.getEstado().name() : "";
+
+                    table.addCell(bodyCell(numeroTxt, regular, TextAlignment.RIGHT, bordeFila, fondo));
+                    table.addCell(bodyCell(fechaTxt, regular, TextAlignment.CENTER, bordeFila, fondo));
+                    table.addCell(bodyCell(clienteTxt, regular, TextAlignment.LEFT, bordeFila, fondo));
+                    table.addCell(bodyCell(condIvaTxt, regular, TextAlignment.LEFT, bordeFila, fondo));
+                    table.addCell(bodyCell(ptoVtaTxt, regular, TextAlignment.LEFT, bordeFila, fondo));
+                    table.addCell(bodyCell(totalTxt, negrita, TextAlignment.RIGHT, bordeFila, fondo));
+                    table.addCell(bodyCell(itemsTxt, regular, TextAlignment.RIGHT, bordeFila, fondo));
+                    table.addCell(bodyCell(estadoTxt, regular, TextAlignment.CENTER, bordeFila, fondo));
                 }
 
                 document.add(table);
-
-                String generadoEl = "Generado el "
-                        + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-                float anchoPie = 250F;
-                float paginaAncho = pdf.getPage(pdf.getNumberOfPages()).getPageSize().getWidth();
-                document.add(new Paragraph(generadoEl)
-                        .setFontSize(10)
-                        .setFixedPosition(pdf.getNumberOfPages(), paginaAncho - 36 - anchoPie, 30, anchoPie)
-                        .setTextAlignment(TextAlignment.RIGHT));
             }
         } finally {
             document.close();
@@ -213,26 +198,55 @@ public class ReporteService {
         return baos.toByteArray();
     }
 
-    /**
-     * Genera el reporte PDF y lo guarda en disco (útil para auditoría o procesos batch).
-     */
-    public Path generarReportePdf() throws IOException {
-        byte[] bytes = generarReportePdfBytes();
-        Path dir = Paths.get(reportesDir);
-        Files.createDirectories(dir);
-
-        String fechaHoraActual = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        Path destino = dir.resolve("reporte_facturas_" + fechaHoraActual + ".pdf");
-        Files.write(destino, bytes);
-
-        log.info("PDF generado exitosamente en: {}.", destino);
-        return destino;
+    private static String formatearIdentificador(FacturaVentaReporteDTO f) {
+        if (f.getNumeroFactura() != null) {
+            return FormatoComprobante.formatearNumeroComprobante(f.getPuntoVentaNumero(), f.getNumeroFactura());
+        }
+        return f.getId() != null ? "Borrador #" + f.getId() : "—";
     }
 
-    private static com.itextpdf.layout.element.Cell headerCell(String texto, PdfFont negrita) {
+    private static String formatearPuntoVenta(FacturaVentaReporteDTO f) {
+        String desc = f.getPuntoVentaDescripcion() != null ? f.getPuntoVentaDescripcion().trim() : "";
+        if (f.getPuntoVentaNumero() != null) {
+            String num = FormatoComprobante.formatearPuntoVenta(f.getPuntoVentaNumero());
+            return desc.isEmpty() ? num : num + " · " + desc;
+        }
+        return desc.isEmpty() ? "—" : desc;
+    }
+
+    private static String limpiar(String texto) {
+        return texto == null ? "" : texto.replaceAll("[\\t\\r\\n]+", " ").trim();
+    }
+
+    private static com.itextpdf.layout.element.Cell headerCell(
+            String texto, PdfFont negrita, DeviceRgb fondo, TextAlignment alineacion) {
         return new com.itextpdf.layout.element.Cell()
-                .add(new Paragraph(texto).setFont(negrita))
-                .setBackgroundColor(new DeviceGray(0.85f))
-                .setTextAlignment(TextAlignment.CENTER);
+                .add(new Paragraph(texto).setFont(negrita).setFontSize(9.5f).setFontColor(ColorConstants.WHITE))
+                .setBackgroundColor(fondo)
+                .setBorder(Border.NO_BORDER)
+                .setPaddingTop(6f)
+                .setPaddingBottom(6f)
+                .setPaddingLeft(6f)
+                .setPaddingRight(6f)
+                .setVerticalAlignment(VerticalAlignment.MIDDLE)
+                .setTextAlignment(alineacion);
+    }
+
+    private static com.itextpdf.layout.element.Cell bodyCell(
+            String texto, PdfFont font, TextAlignment alineacion, Border bordeInferior, DeviceRgb fondo) {
+        com.itextpdf.layout.element.Cell cell = new com.itextpdf.layout.element.Cell()
+                .add(new Paragraph(texto).setFont(font).setFontSize(9f))
+                .setBorder(Border.NO_BORDER)
+                .setBorderBottom(bordeInferior)
+                .setPaddingTop(5f)
+                .setPaddingBottom(5f)
+                .setPaddingLeft(6f)
+                .setPaddingRight(6f)
+                .setVerticalAlignment(VerticalAlignment.MIDDLE)
+                .setTextAlignment(alineacion);
+        if (fondo != null) {
+            cell.setBackgroundColor(fondo);
+        }
+        return cell;
     }
 }

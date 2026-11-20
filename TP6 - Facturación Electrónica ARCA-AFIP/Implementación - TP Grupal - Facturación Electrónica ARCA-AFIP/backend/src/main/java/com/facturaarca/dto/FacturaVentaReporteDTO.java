@@ -25,6 +25,7 @@ public class FacturaVentaReporteDTO {
     private Date fechaEmision;
     private String clienteDenominacion;
     private String condicionIva;
+    private Integer puntoVentaNumero;
     private String puntoVentaDescripcion;
     private double importeTotal;
     private Long cantidadItems;

@@ -1,6 +1,7 @@
 package com.facturaarca.dto;
 
 import com.facturaarca.enums.EstadoFactura;
+import com.facturaarca.util.FormatoComprobante;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,7 +35,7 @@ public class FacturaVentaListadoDTO {
 
     /**
      * Constructor que usa la consulta JPQL del listado.
-     * Calcula el número de comprobante formateado (0001-00000042).
+     * Calcula el número de comprobante formateado (00001-00000042).
      */
     public FacturaVentaListadoDTO(Long id, Long numero, Date fechaEmision,
                              String clienteDenominacion, String condicionIva,
@@ -50,13 +51,8 @@ public class FacturaVentaListadoDTO {
         this.importeTotal = importeTotal;
         this.cantidadItems = cantidadItems;
         this.estado = estado;
-        this.numeroComprobante = formatearNumeroComprobante(puntoVentaNumero, numero);
-    }
-
-    private static String formatearNumeroComprobante(Integer puntoVentaNumero, Long numero) {
-        if (puntoVentaNumero == null || numero == null) {
-            return null;
-        }
-        return String.format("%04d-%08d", puntoVentaNumero, numero);
+        this.numeroComprobante = (puntoVentaNumero != null && numero != null)
+                ? FormatoComprobante.formatearNumeroComprobante(puntoVentaNumero, numero)
+                : null;
     }
 }

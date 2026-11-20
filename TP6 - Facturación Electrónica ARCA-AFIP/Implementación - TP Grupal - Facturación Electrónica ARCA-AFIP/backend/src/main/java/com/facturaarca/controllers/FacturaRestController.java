@@ -6,35 +6,41 @@ import com.facturaarca.dto.FacturaVentaListadoDTO;
 import com.facturaarca.dto.ResultadoAutorizacionDTO;
 import com.facturaarca.dto.RespuestaPaginadaDTO;
 import com.facturaarca.enums.EstadoFactura;
+import com.facturaarca.services.FacturaPdfService;
 import com.facturaarca.services.FacturaService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
+import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 
 @Validated
 @RestController
 @RequestMapping("/api/facturas")
-@CrossOrigin(origins = "*")
 public class FacturaRestController {
 
     private final FacturaService facturaService;
+    private final FacturaPdfService facturaPdfService;
 
-    public FacturaRestController(FacturaService facturaService) {
+    public FacturaRestController(FacturaService facturaService, FacturaPdfService facturaPdfService) {
         this.facturaService = facturaService;
+        this.facturaPdfService = facturaPdfService;
     }
 
     @GetMapping
     public RespuestaPaginadaDTO<FacturaVentaListadoDTO> getFacturas(
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date fechaHasta,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
             @RequestParam(required = false) EstadoFactura estado,
             @RequestParam(required = false) Double montoMinimo,
             @RequestParam(required = false) Long clienteId,
@@ -54,6 +60,19 @@ public class FacturaRestController {
     @GetMapping("/{id}")
     public FacturaVentaDTO getFactura(@PathVariable Long id) {
         return facturaService.obtenerDetalle(id);
+    }
+
+    /**
+     * Descarga el comprobante individual en formato PDF (A4 vertical con diseño fiscal ARCA y QR).
+     */
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> descargarFacturaPdf(@PathVariable Long id) throws IOException {
+        FacturaPdfService.PdfComprobante pdf = facturaPdfService.generarFacturaPdf(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + pdf.filename() + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(pdf.bytes().length)
+                .body(pdf.bytes());
     }
 
     /**
@@ -96,7 +115,8 @@ public class FacturaRestController {
      * Informa un lote de facturas ante ARCA para obtener CAE.
      */
     @PostMapping("/informar-arca-lote")
-    public ResponseEntity<List<ResultadoAutorizacionDTO>> informarArcaLote(@RequestBody List<Long> ids) {
+    public ResponseEntity<List<ResultadoAutorizacionDTO>> informarArcaLote(
+            @NotEmpty(message = "Indicá al menos una factura para informar a ARCA") @RequestBody List<Long> ids) {
         return ResponseEntity.ok(facturaService.informarArcaLote(ids));
     }
 }

@@ -9,7 +9,8 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
-import java.util.Calendar;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -24,12 +25,14 @@ public class FacturaRepository {
     /**
      * Versión sin paginación para los reportes PDF/Excel.
      */
-    public List<FacturaVentaReporteDTO> buscarFacturasFiltradas(Date fechaDesde, Date fechaHasta,
-                                                           EstadoFactura estado, Double montoMinimo) {
-        StringBuilder jpql = buildSelectReporteJpql();
+    public List<FacturaVentaReporteDTO> buscarFacturasFiltradas(
+            LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado, Double montoMinimo,
+            Long clienteId, Long idBuscado, Integer puntoVentaBuscado, Long numeroBuscado,
+            boolean soloSinNumero, Boolean informadaArca) {
+        StringBuilder jpql = buildSelectJpql(FacturaVentaReporteDTO.class.getName());
         Map<String, Object> parametros = new HashMap<>();
         appendFiltros(jpql, parametros, fechaDesde, fechaHasta, estado, montoMinimo,
-                null, null, null, null, false, null);
+                clienteId, idBuscado, puntoVentaBuscado, numeroBuscado, soloSinNumero, informadaArca);
         appendGroupByOrderBy(jpql);
 
         TypedQuery<FacturaVentaReporteDTO> query = em.createQuery(jpql.toString(), FacturaVentaReporteDTO.class);
@@ -41,11 +44,13 @@ public class FacturaRepository {
      * Versión paginada para el listado de la UI.
      */
     public RespuestaPaginadaDTO<FacturaVentaListadoDTO> buscarFacturasPaginadas(
-            Date fechaDesde, Date fechaHasta, EstadoFactura estado, Double montoMinimo,
+            LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado, Double montoMinimo,
             Long clienteId, Long idBuscado, Integer puntoVentaBuscado, Long numeroBuscado,
             boolean soloSinNumero, Boolean informadaArca,
             int pagina, int tamanio) {
 
+        int paginaSegura = Math.max(0, pagina);
+        int tamanioSeguro = Math.max(1, tamanio);
         Map<String, Object> parametros = new HashMap<>();
 
         StringBuilder countJpql = new StringBuilder(
@@ -58,31 +63,31 @@ public class FacturaRepository {
         long totalElementos = countQuery.getSingleResult();
 
         parametros.clear();
-        StringBuilder jpql = buildSelectListadoJpql();
+        StringBuilder jpql = buildSelectJpql(FacturaVentaListadoDTO.class.getName());
         appendFiltros(jpql, parametros, fechaDesde, fechaHasta, estado, montoMinimo,
                 clienteId, idBuscado, puntoVentaBuscado, numeroBuscado, soloSinNumero, informadaArca);
         appendGroupByOrderBy(jpql);
 
         TypedQuery<FacturaVentaListadoDTO> query = em.createQuery(jpql.toString(), FacturaVentaListadoDTO.class);
         parametros.forEach(query::setParameter);
-        query.setFirstResult(pagina * tamanio);
-        query.setMaxResults(tamanio);
+        query.setFirstResult(paginaSegura * tamanioSeguro);
+        query.setMaxResults(tamanioSeguro);
 
         List<FacturaVentaListadoDTO> contenido = query.getResultList();
-        int totalPaginas = (int) Math.ceil((double) totalElementos / tamanio);
+        int totalPaginas = (int) Math.ceil((double) totalElementos / tamanioSeguro);
 
         return RespuestaPaginadaDTO.<FacturaVentaListadoDTO>builder()
                 .contenido(contenido)
-                .paginaActual(pagina)
-                .tamanioPagina(tamanio)
+                .paginaActual(paginaSegura)
+                .tamanioPagina(tamanioSeguro)
                 .totalElementos(totalElementos)
                 .totalPaginas(totalPaginas)
                 .build();
     }
 
-    private StringBuilder buildSelectListadoJpql() {
+    private StringBuilder buildSelectJpql(String dtoClassName) {
         return new StringBuilder(
-                "SELECT new com.facturaarca.dto.FacturaVentaListadoDTO(" +
+                "SELECT new " + dtoClassName + "(" +
                 "   f.id, f.numero, f.fechaEmision," +
                 "   COALESCE(c.denominacion, 'Consumidor Final')," +
                 "   ci.denominacion, pv.numero, pv.descripcion, f.importeTotal, COUNT(d), f.estado" +
@@ -96,33 +101,18 @@ public class FacturaRepository {
         );
     }
 
-    private StringBuilder buildSelectReporteJpql() {
-        return new StringBuilder(
-                "SELECT new com.facturaarca.dto.FacturaVentaReporteDTO(" +
-                "   f.id, f.numero, f.fechaEmision," +
-                "   COALESCE(c.denominacion, 'Consumidor Final')," +
-                "   ci.denominacion, pv.descripcion, f.importeTotal, COUNT(d), f.estado" +
-                ") " +
-                "FROM FacturaVenta f " +
-                "LEFT JOIN f.cliente c " +
-                "JOIN f.condicionIva ci " +
-                "JOIN f.puntoVenta pv " +
-                "LEFT JOIN f.detalles d " +
-                "WHERE f.fechaBaja IS NULL "
-        );
-    }
-
     private void appendFiltros(StringBuilder jpql, Map<String, Object> parametros,
-                               Date fechaDesde, Date fechaHasta, EstadoFactura estado, Double montoMinimo,
+                               LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado, Double montoMinimo,
                                Long clienteId, Long idBuscado, Integer puntoVentaBuscado, Long numeroBuscado,
                                boolean soloSinNumero, Boolean informadaArca) {
+        ZoneId zona = ZoneId.systemDefault();
         if (fechaDesde != null) {
             jpql.append("AND f.fechaEmision >= :fechaDesde ");
-            parametros.put("fechaDesde", fechaDesde);
+            parametros.put("fechaDesde", Date.from(fechaDesde.atStartOfDay(zona).toInstant()));
         }
         if (fechaHasta != null) {
-            jpql.append("AND f.fechaEmision <= :fechaHasta ");
-            parametros.put("fechaHasta", finDelDia(fechaHasta));
+            jpql.append("AND f.fechaEmision < :fechaHastaExclusiva ");
+            parametros.put("fechaHastaExclusiva", Date.from(fechaHasta.plusDays(1).atStartOfDay(zona).toInstant()));
         }
         if (estado != null) {
             jpql.append("AND f.estado = :estado ");
@@ -164,15 +154,5 @@ public class FacturaRepository {
         jpql.append("GROUP BY f.id, f.numero, f.fechaEmision, c.denominacion, " +
                 "ci.denominacion, pv.numero, pv.descripcion, f.importeTotal, f.estado " +
                 "ORDER BY f.id DESC");
-    }
-
-    private static Date finDelDia(Date fecha) {
-        Calendar calendario = Calendar.getInstance();
-        calendario.setTime(fecha);
-        calendario.set(Calendar.HOUR_OF_DAY, 23);
-        calendario.set(Calendar.MINUTE, 59);
-        calendario.set(Calendar.SECOND, 59);
-        calendario.set(Calendar.MILLISECOND, 999);
-        return calendario.getTime();
     }
 }

@@ -12,15 +12,13 @@ import java.util.Optional;
 @Repository
 public interface FacturaVentaRepository extends JpaRepository<FacturaVenta, Long> {
 
-    @Query("SELECT COALESCE(MAX(f.numero), 0) FROM FacturaVenta f WHERE f.puntoVenta.id = :puntoVentaId")
-    Long obtenerMaxNumeroPorPuntoVenta(@Param("puntoVentaId") Long puntoVentaId);
-
     /**
      * Trae la factura con todas sus relaciones para armar el DTO de detalle
      * sin caer en LazyInitializationException.
      */
     @EntityGraph(attributePaths = {
             "cliente",
+            "cliente.domicilio",
             "condicionIva",
             "puntoVenta",
             "tipoMoneda",
@@ -29,6 +27,6 @@ public interface FacturaVentaRepository extends JpaRepository<FacturaVenta, Long
             "detalles.listaPrecioArticulo.articulo",
             "detalles.listaPrecioArticulo.listaPrecio"
     })
-    @Query("SELECT f FROM FacturaVenta f WHERE f.id = :id")
+    @Query("SELECT f FROM FacturaVenta f WHERE f.id = :id AND f.fechaBaja IS NULL")
     Optional<FacturaVenta> buscarConDetalles(@Param("id") Long id);
 }
