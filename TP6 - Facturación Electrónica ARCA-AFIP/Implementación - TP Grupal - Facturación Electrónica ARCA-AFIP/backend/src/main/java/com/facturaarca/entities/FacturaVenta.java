@@ -67,6 +67,7 @@ public class FacturaVenta extends AuditoriaApp {
     private String observaciones;
 
     @OneToMany(mappedBy = "factura", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
     @ToString.Exclude
     @Builder.Default
     private List<FacturaVentaDetalle> detalles = new ArrayList<>();
