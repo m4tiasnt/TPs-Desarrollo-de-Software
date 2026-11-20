@@ -10,11 +10,18 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.*;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
+import java.net.URI;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -40,10 +47,11 @@ public class ArcaWsaaClient {
     private static final String URL_WSAA_HOMO = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms";
     private static final String CACHE_FILE_NAME = "ta_wsfe_cache.xml";
 
-    // Caché en memoria de credenciales WSAA
     private static String cachedToken = null;
     private static String cachedSign = null;
     private static ZonedDateTime cachedExpirationTime = null;
+
+    private record TicketAcceso(String token, String sign, ZonedDateTime expiration, String xmlTicket) {}
 
     private static File resolverArchivoCache() {
         if (new File("backend").isDirectory()) {
@@ -54,30 +62,26 @@ public class ArcaWsaaClient {
 
     public static synchronized String[] obtenerTokenYSign(String keyPath, String certPath, String service) throws Exception {
         ZonedDateTime now = ZonedDateTime.now();
-        // 1. Si existe un Token en memoria y no expiró, reutilizarlo directamente
+
         if (cachedToken != null && cachedSign != null && cachedExpirationTime != null
                 && now.isBefore(cachedExpirationTime.minusMinutes(2))) {
             return new String[]{cachedToken, cachedSign};
         }
 
-        // 2. Si existe un archivo de ticket en disco y no expiró, reutilizarlo (persistencia en disco)
         File cacheFile = resolverArchivoCache();
         if (cacheFile.exists()) {
             try {
                 String contenidoCache = Files.readString(cacheFile.toPath(), StandardCharsets.UTF_8);
-                if (contenidoCache.contains("<token>") && contenidoCache.contains("<sign>") && contenidoCache.contains("<expirationTime>")) {
-                    String token = contenidoCache.substring(contenidoCache.indexOf("<token>") + 7, contenidoCache.indexOf("</token>"));
-                    String sign = contenidoCache.substring(contenidoCache.indexOf("<sign>") + 6, contenidoCache.indexOf("</sign>"));
-                    String expStr = contenidoCache.substring(contenidoCache.indexOf("<expirationTime>") + 16, contenidoCache.indexOf("</expirationTime>"));
-                    ZonedDateTime expiration = ZonedDateTime.parse(expStr, DateTimeFormatter.ISO_DATE_TIME);
-                    if (now.isBefore(expiration.minusMinutes(2))) {
-                        cachedToken = token;
-                        cachedSign = sign;
-                        cachedExpirationTime = expiration;
-                        return new String[]{token, sign};
-                    }
+                TicketAcceso cacheado = parsearTicketAcceso(contenidoCache, now);
+                if (cacheado != null && cacheado.expiration() != null
+                        && now.isBefore(cacheado.expiration().minusMinutes(2))) {
+                    cachedToken = cacheado.token();
+                    cachedSign = cacheado.sign();
+                    cachedExpirationTime = cacheado.expiration();
+                    return new String[]{cacheado.token(), cacheado.sign()};
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("No se pudo reutilizar el ticket WSAA cacheado en {}: {}", cacheFile.getPath(), e.getMessage());
             }
         }
 
@@ -124,34 +128,22 @@ public class ArcaWsaaClient {
                 "</nso:in0></nso:loginCms></soapenv:Body></soapenv:Envelope>";
 
         String xmlResponse = enviarSoap(URL_WSAA_HOMO, soapEnvelope);
-
-        String xmlLimpio = xmlResponse.replace("&lt;", "<").replace("&gt;", ">");
-        String token = xmlLimpio.substring(xmlLimpio.indexOf("<token>") + 7, xmlLimpio.indexOf("</token>"));
-        String sign = xmlLimpio.substring(xmlLimpio.indexOf("<sign>") + 6, xmlLimpio.indexOf("</sign>"));
-
-        ZonedDateTime expiration = null;
-        if (xmlLimpio.contains("<expirationTime>") && xmlLimpio.contains("</expirationTime>")) {
-            try {
-                String expStr = xmlLimpio.substring(xmlLimpio.indexOf("<expirationTime>") + 16, xmlLimpio.indexOf("</expirationTime>"));
-                expiration = ZonedDateTime.parse(expStr, DateTimeFormatter.ISO_DATE_TIME);
-            } catch (Exception ignored) {
-                expiration = now.plusHours(11);
-            }
-        } else {
-            expiration = now.plusHours(11);
+        TicketAcceso ticket = parsearTicketAcceso(xmlResponse, now);
+        if (ticket == null) {
+            throw new IllegalStateException("La respuesta de WSAA no contiene las credenciales esperadas.");
         }
 
-        cachedToken = token;
-        cachedSign = sign;
-        cachedExpirationTime = expiration;
+        cachedToken = ticket.token();
+        cachedSign = ticket.sign();
+        cachedExpirationTime = ticket.expiration();
 
-        // Persistir en disco para compartir entre procesos
         try {
-            Files.writeString(cacheFile.toPath(), xmlLimpio, StandardCharsets.UTF_8);
-        } catch (Exception ignored) {
+            Files.writeString(cacheFile.toPath(), ticket.xmlTicket(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("No se pudo guardar la caché de ticket WSAA en {}: {}", cacheFile.getPath(), e.getMessage());
         }
 
-        return new String[]{token, sign};
+        return new String[]{ticket.token(), ticket.sign()};
     }
 
     public static synchronized void invalidarCache() {
@@ -160,15 +152,70 @@ public class ArcaWsaaClient {
         cachedExpirationTime = null;
         try {
             File cacheFile = resolverArchivoCache();
-            if (cacheFile.exists()) {
-                cacheFile.delete();
+            if (cacheFile.exists() && !cacheFile.delete()) {
+                log.debug("No se pudo eliminar el archivo de caché WSAA: {}", cacheFile.getPath());
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.debug("Error al invalidar caché WSAA: {}", e.getMessage());
         }
     }
 
+    private static TicketAcceso parsearTicketAcceso(String xml, ZonedDateTime fallbackBase) throws Exception {
+        if (xml == null || xml.isBlank()) {
+            return null;
+        }
+        Document doc = parsearXmlSeguro(xml);
+
+        // En respuestas SOAP de WSAA, el ticket viene escapado dentro de <loginCmsReturn>
+        String ticketXml = xml;
+        NodeList cmsReturnNodes = doc.getElementsByTagName("loginCmsReturn");
+        if (cmsReturnNodes.getLength() > 0) {
+            String inner = cmsReturnNodes.item(0).getTextContent();
+            if (inner != null && !inner.isBlank()) {
+                ticketXml = inner;
+                doc = parsearXmlSeguro(inner);
+            }
+        }
+
+        String token = extraerTextoTag(doc, "token");
+        String sign = extraerTextoTag(doc, "sign");
+        if (token == null || token.isBlank() || sign == null || sign.isBlank()) {
+            return null;
+        }
+
+        ZonedDateTime expiration = fallbackBase.plusHours(11);
+        String expStr = extraerTextoTag(doc, "expirationTime");
+        if (expStr != null && !expStr.isBlank()) {
+            try {
+                expiration = ZonedDateTime.parse(expStr.trim(), DateTimeFormatter.ISO_DATE_TIME);
+            } catch (Exception e) {
+                log.warn("No se pudo parsear expirationTime '{}' de WSAA: {}", expStr, e.getMessage());
+            }
+        }
+
+        return new TicketAcceso(token, sign, expiration, ticketXml);
+    }
+
+    private static Document parsearXmlSeguro(String xml) throws Exception {
+        String xmlLimpio = xml.replace("\uFEFF", "").trim();
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        dbf.setExpandEntityReferences(false);
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+        return builder.parse(new InputSource(new StringReader(xmlLimpio)));
+    }
+
+    private static String extraerTextoTag(Document doc, String tagName) {
+        NodeList nodes = doc.getElementsByTagName(tagName);
+        if (nodes.getLength() == 0) {
+            return null;
+        }
+        return nodes.item(0).getTextContent();
+    }
+
     private static PrivateKey cargarClavePrivada(String path) throws Exception {
-        String content = new String(Files.readAllBytes(Paths.get(path)));
+        String content = Files.readString(Paths.get(path), StandardCharsets.UTF_8);
         content = content.replace("-----BEGIN PRIVATE KEY-----", "")
                          .replace("-----END PRIVATE KEY-----", "")
                          .replace("-----BEGIN RSA PRIVATE KEY-----", "")
@@ -186,7 +233,7 @@ public class ArcaWsaaClient {
 
     private static String enviarSoap(String urlStr, String soapXml) throws Exception {
         try {
-            URL url = new URL(urlStr);
+            URL url = URI.create(urlStr).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "text/xml; charset=utf-8");
@@ -205,7 +252,7 @@ public class ArcaWsaaClient {
                     : conn.getErrorStream();
 
             if (is == null) {
-                throw new RuntimeException("Respuesta HTTP " + responseCode + " de AFIP sin contenido.");
+                throw new IllegalStateException("Respuesta HTTP " + responseCode + " de ARCA sin contenido.");
             }
 
             StringBuilder sb = new StringBuilder();
@@ -221,9 +268,10 @@ public class ArcaWsaaClient {
             if (responseCode != HttpURLConnection.HTTP_OK) {
                 log.error("Error en respuesta HTTP {} de WSAA: {}", responseCode, respuesta);
                 if (respuesta.contains("coe.alreadyAuthenticated")) {
-                    throw new RuntimeException("El CEE ya posee un Ticket de Acceso (TA) válido en AFIP. Aguarde unos instantes mientras expira la ventana de bloqueo de homologación (~10 min).");
+                    throw new IllegalStateException(
+                            "El certificado ya posee un Ticket de Acceso válido en ARCA. Esperá unos minutos mientras expira la ventana de bloqueo de homologación.");
                 }
-                throw new RuntimeException("Error en WSAA (HTTP " + responseCode + "): " + respuesta);
+                throw new IllegalStateException("No se pudo autenticar contra WSAA de ARCA (HTTP " + responseCode + ").");
             }
 
             return respuesta;
@@ -231,7 +279,7 @@ public class ArcaWsaaClient {
         } catch (UnknownHostException | ConnectException | SocketTimeoutException e) {
             String mensaje = "El servicio de homologación de ARCA/AFIP se encuentra temporalmente inaccesible o no hay conexión de red.";
             log.error("{}: {} ({})", mensaje, e.getMessage(), e.getClass().getSimpleName());
-            throw new RuntimeException(mensaje, e);
+            throw new IllegalStateException(mensaje, e);
         }
     }
 }

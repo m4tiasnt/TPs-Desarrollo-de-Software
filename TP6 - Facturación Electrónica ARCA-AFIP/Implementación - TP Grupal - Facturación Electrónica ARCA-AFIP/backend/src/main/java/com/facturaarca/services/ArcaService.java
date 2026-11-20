@@ -5,7 +5,6 @@ import com.facturaarca.arca.ArcaWsfeClient;
 import com.facturaarca.arca.ResultadoAutorizacionArca;
 import com.facturaarca.entities.Cliente;
 import com.facturaarca.entities.FacturaVenta;
-import com.facturaarca.entities.FacturaVentaDetalle;
 import com.facturaarca.wsfe.Err;
 import com.facturaarca.wsfe.FECAEDetResponse;
 import com.facturaarca.wsfe.FECAEResponse;
@@ -13,10 +12,9 @@ import com.facturaarca.wsfe.Obs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import java.util.concurrent.CompletableFuture;
+import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.net.ConnectException;
@@ -26,15 +24,21 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Servicio de infraestructura e integración con ARCA / AFIP (WSAA + WSFEv1).
- * Es un adaptador técnico sin dependencias con repositorios JPA de PostgreSQL.
+ * Emite comprobantes tipo Factura C (código AFIP 11) en Pesos Argentinos.
  */
 @Service
 public class ArcaService {
 
     private static final Logger log = LoggerFactory.getLogger(ArcaService.class);
+    private static final int CBTE_TIPO_FACTURA_C = 11;
+    private static final DateTimeFormatter FORMATO_FECHA_ARCA = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    private final ConcurrentHashMap<Integer, Object> locksPorPuntoVenta = new ConcurrentHashMap<>();
 
     @Value("${arca.cuit}")
     private Long arcaCuit;
@@ -46,7 +50,7 @@ public class ArcaService {
     private String certPathConfig;
 
     /**
-     * AutenticaciÃ³n preventiva contra WSAA al arrancar la aplicaciÃ³n para que la primera
+     * Autenticación preventiva contra WSAA al arrancar la aplicación para que la primera
      * factura emitida no sufra demoras ni bloquee el hilo principal.
      */
     @EventListener(ApplicationReadyEvent.class)
@@ -55,29 +59,30 @@ public class ArcaService {
             String rutaKey = resolverRuta(keyPathConfig, "backend/afip_private.key", "afip_private.key");
             String rutaCert = resolverRuta(certPathConfig, "backend/afip_certificado.crt", "afip_certificado.crt");
             if (new File(rutaKey).exists() && new File(rutaCert).exists()) {
-                log.info("ARCA: Autenticando preventivamente contra WSAA al iniciar la aplicaciÃ³n...");
+                log.info("ARCA: Autenticando preventivamente contra WSAA al iniciar la aplicación...");
                 try {
-                    String[] auth = ArcaWsaaClient.obtenerTokenYSign(rutaKey, rutaCert, "wsfe");
-                    log.info("ARCA: AutenticaciÃ³n inicial con WSAA exitosa. Token y Sign cacheados para 'wsfe'.");
+                    ArcaWsaaClient.obtenerTokenYSign(rutaKey, rutaCert, "wsfe");
+                    log.info("ARCA: Autenticación inicial con WSAA exitosa. Token y Sign cacheados para 'wsfe'.");
                 } catch (Exception e) {
-                    log.warn("ARCA: Aviso al iniciar en conexiÃ³n WSAA: {}", e.getMessage());
+                    log.warn("ARCA: Aviso al iniciar en conexión WSAA: {}", e.getMessage());
                 }
             } else {
-                log.info("ARCA: No se encontraron certificados locales ({}, {}). Se omitiÃ³ la autenticaciÃ³n inicial.", rutaKey, rutaCert);
+                log.info("ARCA: No se encontraron certificados locales ({}, {}). Se omitió la autenticación inicial.", rutaKey, rutaCert);
             }
         });
     }
 
     /**
-     * Solicita la autorizaciÃ³n fiscal de un comprobante ante ARCA.
+     * Solicita la autorización fiscal de una Factura C ante ARCA.
+     * Sincroniza por punto de venta para evitar colisiones de numeración correlativa.
      */
     public ResultadoAutorizacionArca solicitarAutorizacion(FacturaVenta factura) {
         String rutaKey = resolverRuta(keyPathConfig, "backend/afip_private.key", "afip_private.key");
         String rutaCert = resolverRuta(certPathConfig, "backend/afip_certificado.crt", "afip_certificado.crt");
 
         if (!new File(rutaKey).exists() || !new File(rutaCert).exists()) {
-            String msg = "No se encontraron las credenciales de ARCA (clave privada / certificado) en el servidor. Verifique la configuraciÃ³n de arca.key.path y arca.cert.path.";
-            log.error(msg + " [Key: '{}', Cert: '{}']", rutaKey, rutaCert);
+            String msg = "No se encontraron las credenciales de ARCA (clave privada / certificado) en el servidor. Verificá la configuración.";
+            log.error("{} [Key: '{}', Cert: '{}']", msg, rutaKey, rutaCert);
             return ResultadoAutorizacionArca.builder()
                     .autorizado(false)
                     .motivoRechazo(msg)
@@ -88,10 +93,6 @@ public class ArcaService {
         int ptoVta = (factura.getPuntoVenta() != null && factura.getPuntoVenta().getNumero() > 0)
                 ? factura.getPuntoVenta().getNumero() : 1;
 
-        // Tipo de comprobante (por defecto 11 = Factura C de monotributo / homologaciÃ³n estÃ¡ndar)
-        int cbteTipo = 11;
-
-        // Receptor
         int docTipo = 99; // 99 = Consumidor Final
         long docNro = 0L;
         int condicionIvaReceptor = 5; // 5 = Consumidor Final
@@ -99,69 +100,56 @@ public class ArcaService {
         Cliente cliente = factura.getCliente();
         if (cliente != null && cliente.getCuitCuil() != null && !cliente.getCuitCuil().isBlank()) {
             String docLimpio = cliente.getCuitCuil().replaceAll("\\D", "");
-            if (!docLimpio.isEmpty() && esCuitValido(docLimpio)) {
+            if (!docLimpio.isEmpty()) {
                 docNro = Long.parseLong(docLimpio);
                 docTipo = docLimpio.length() == 11 ? 80 : 96;
-                if (factura.getCondicionIva() != null && factura.getCondicionIva().getId() != null) {
-                    long cIvaId = factura.getCondicionIva().getId();
-                    if (cIvaId == 1) condicionIvaReceptor = 1;
-                    else if (cIvaId == 6) condicionIvaReceptor = 6;
+                if (factura.getCondicionIva() != null && factura.getCondicionIva().getCodigoAfip() > 0) {
+                    condicionIvaReceptor = factura.getCondicionIva().getCodigoAfip();
                 }
-            } else {
-                // Si el CUIT no es matemÃ¡ticamente vÃ¡lido segÃºn algoritmo MÃ³dulo 11, emitir como Consumidor Final
-                log.warn("El CUIT del cliente ('{}') no es vÃ¡lido segÃºn algoritmo MÃ³dulo 11. Se emite como Consumidor Final.", cliente.getCuitCuil());
-                docTipo = 99;
-                docNro = 0L;
-                condicionIvaReceptor = 5;
             }
         }
 
-        double total = factura.getImporteTotal();
-        double neto = 0.0;
-        double iva = 0.0;
-        if (factura.getDetalles() != null) {
-            neto = factura.getDetalles().stream().mapToDouble(FacturaVentaDetalle::getImporteNeto).sum();
-            iva = factura.getDetalles().stream().mapToDouble(FacturaVentaDetalle::getImporteIva).sum();
-        }
-        neto = Math.round(neto * 100.0) / 100.0;
-        iva = Math.round(iva * 100.0) / 100.0;
+        double total = Math.round(factura.getImporteTotal() * 100.0) / 100.0;
+        // Factura C no discrimina IVA ante AFIP: ImpNeto = ImpTotal e ImpIVA = 0
+        double neto = total;
+        double iva = 0.00;
 
-        if (cbteTipo == 11) {
-            neto = total;
-            iva = 0.00;
-        }
+        Object lock = locksPorPuntoVenta.computeIfAbsent(ptoVta, k -> new Object());
+        synchronized (lock) {
+            try {
+                log.info("1. Obteniendo Token y Sign desde WSAA para CUIT: {}", arcaCuit);
+                String[] auth = ArcaWsaaClient.obtenerTokenYSign(rutaKey, rutaCert, "wsfe");
+                String token = auth[0];
+                String sign = auth[1];
 
-        try {
-            log.info("1. Obteniendo Token y Sign desde WSAA para CUIT: {}", arcaCuit);
-            String[] auth = ArcaWsaaClient.obtenerTokenYSign(rutaKey, rutaCert, "wsfe");
-            String token = auth[0];
-            String sign = auth[1];
+                log.info("2. Consultando último comprobante autorizado en WSFEv1 (PtoVta: {}, CbteTipo: {})",
+                        ptoVta, CBTE_TIPO_FACTURA_C);
+                int ultimoNro = ArcaWsfeClient.obtenerUltimoComprobante(
+                        token, sign, arcaCuit, ptoVta, CBTE_TIPO_FACTURA_C);
+                long nuevoNro = ultimoNro + 1;
+                log.info("   Último comprobante registrado: {} -> Próximo número a emitir: {}", ultimoNro, nuevoNro);
 
-            log.info("2. Consultando Ãºltimo comprobante autorizado en WSFEv1 (PtoVta: {}, CbteTipo: {})", ptoVta, cbteTipo);
-            int ultimoNro = ArcaWsfeClient.obtenerUltimoComprobante(token, sign, arcaCuit, ptoVta, cbteTipo);
-            long nuevoNro = ultimoNro + 1;
-            log.info("   Último comprobante registrado: {} -> Próximo número a emitir: {}", ultimoNro, nuevoNro);
+                log.info("3. Solicitando CAE a WSFEv1 por importe total: ${}", total);
+                FECAEResponse resp = ArcaWsfeClient.solicitarCae(
+                        token, sign, arcaCuit, ptoVta, CBTE_TIPO_FACTURA_C, nuevoNro,
+                        docTipo, docNro, condicionIvaReceptor, total, neto, iva);
 
-            log.info("3. Solicitando CAE a WSFEv1 por importe total: ${}", total);
-            FECAEResponse resp = ArcaWsfeClient.solicitarCae(
-                    token, sign, arcaCuit, ptoVta, cbteTipo, nuevoNro,
-                    docTipo, docNro, condicionIvaReceptor, total, neto, iva);
+                if (resp.getFeCabResp() != null && "A".equals(resp.getFeCabResp().getResultado())) {
+                    FECAEDetResponse detResp = resp.getFeDetResp().getFECAEDetResponse().get(0);
+                    String cae = detResp.getCAE();
+                    Date vtoDate = parsearFechaAfip(detResp.getCAEFchVto());
 
-            if (resp.getFeCabResp() != null && "A".equals(resp.getFeCabResp().getResultado())) {
-                FECAEDetResponse detResp = resp.getFeDetResp().getFECAEDetResponse().get(0);
-                String cae = detResp.getCAE();
-                Date vtoDate = parsearFechaAfip(detResp.getCAEFchVto());
+                    log.info("¡Comprobante Nro {} autorizado con éxito! CAE: {}", nuevoNro, cae);
+                    return ResultadoAutorizacionArca.builder()
+                            .autorizado(true)
+                            .numeroComprobante(nuevoNro)
+                            .fechaEmision(new Date())
+                            .cae(cae)
+                            .caeVencimiento(vtoDate)
+                            .mensaje("Autorizada por ARCA. CAE: " + cae)
+                            .build();
+                }
 
-                log.info("¡Comprobante Nro {} autorizado con éxito! CAE: {}", nuevoNro, cae);
-                return ResultadoAutorizacionArca.builder()
-                        .autorizado(true)
-                        .numeroComprobante(nuevoNro)
-                        .fechaEmision(new Date())
-                        .cae(cae)
-                        .caeVencimiento(vtoDate)
-                        .mensaje("Autorizada por ARCA. CAE: " + cae)
-                        .build();
-            } else {
                 String motivoRechazo = extraerMotivoRechazo(resp);
                 log.error("Factura rechazada por ARCA: {}", motivoRechazo);
                 return ResultadoAutorizacionArca.builder()
@@ -169,28 +157,33 @@ public class ArcaService {
                         .motivoRechazo(motivoRechazo)
                         .mensaje(motivoRechazo)
                         .build();
-            }
 
-        } catch (UnknownHostException | ConnectException | SocketTimeoutException ex) {
-            String mensaje = "El servicio de ARCA/AFIP se encuentra temporalmente inaccesible o no hay conexiÃ³n de red.";
-            log.error("{}: {}", mensaje, ex.getMessage());
-            return ResultadoAutorizacionArca.builder()
-                    .autorizado(false)
-                    .motivoRechazo(mensaje)
-                    .mensaje(mensaje)
-                    .build();
-        } catch (Exception ex) {
-            String mensaje = "Error de comunicaciÃ³n con ARCA: " + ex.getMessage();
-            log.error(mensaje, ex);
-            return ResultadoAutorizacionArca.builder()
-                    .autorizado(false)
-                    .motivoRechazo(mensaje)
-                    .mensaje(mensaje)
-                    .build();
+            } catch (UnknownHostException | ConnectException | SocketTimeoutException ex) {
+                String mensaje = "El servicio de ARCA/AFIP se encuentra temporalmente inaccesible o no hay conexión de red.";
+                log.error("{}: {}", mensaje, ex.getMessage());
+                return ResultadoAutorizacionArca.builder()
+                        .autorizado(false)
+                        .motivoRechazo(mensaje)
+                        .mensaje(mensaje)
+                        .build();
+            } catch (IllegalStateException ex) {
+                log.error("Error controlado al comunicar con ARCA: {}", ex.getMessage());
+                return ResultadoAutorizacionArca.builder()
+                        .autorizado(false)
+                        .motivoRechazo(ex.getMessage())
+                        .mensaje(ex.getMessage())
+                        .build();
+            } catch (Exception ex) {
+                log.error("Error de comunicación con ARCA", ex);
+                String mensaje = "No se pudo completar la comunicación con ARCA. Intentá nuevamente en unos instantes.";
+                return ResultadoAutorizacionArca.builder()
+                        .autorizado(false)
+                        .motivoRechazo(mensaje)
+                        .mensaje(mensaje)
+                        .build();
+            }
         }
     }
-
-    private static final DateTimeFormatter FORMATO_FECHA_ARCA = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private Date parsearFechaAfip(String fechaStr) {
         if (fechaStr == null || fechaStr.isBlank()) {
@@ -234,17 +227,5 @@ public class ArcaService {
             return opcion2;
         }
         return opcion1;
-    }
-
-    private static boolean esCuitValido(String cuit) {
-        if (cuit == null || cuit.length() != 11) return false;
-        int[] mult = {5, 4, 3, 2, 7, 6, 5, 4, 3, 2};
-        int total = 0;
-        for (int i = 0; i < 10; i++) {
-            total += Character.getNumericValue(cuit.charAt(i)) * mult[i];
-        }
-        int resto = total % 11;
-        int digitoEsperado = (resto == 0) ? 0 : (resto == 1) ? 9 : 11 - resto;
-        return digitoEsperado == Character.getNumericValue(cuit.charAt(10));
     }
 }
