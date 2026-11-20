@@ -1,10 +1,14 @@
 package com.facturaarca.arca;
 
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
@@ -216,12 +220,25 @@ public class ArcaWsaaClient {
 
     private static PrivateKey cargarClavePrivada(String path) throws Exception {
         String content = Files.readString(Paths.get(path), StandardCharsets.UTF_8);
-        content = content.replace("-----BEGIN PRIVATE KEY-----", "")
-                         .replace("-----END PRIVATE KEY-----", "")
-                         .replace("-----BEGIN RSA PRIVATE KEY-----", "")
-                         .replace("-----END RSA PRIVATE KEY-----", "")
-                         .replaceAll("\\s", "");
-        byte[] keyBytes = Base64.getDecoder().decode(content);
+        try (PEMParser pemParser = new PEMParser(new StringReader(content))) {
+            Object obj = pemParser.readObject();
+            if (obj != null) {
+                JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+                if (obj instanceof PEMKeyPair keyPair) {
+                    return converter.getKeyPair(keyPair).getPrivate();
+                }
+                if (obj instanceof PrivateKeyInfo keyInfo) {
+                    return converter.getPrivateKey(keyInfo);
+                }
+            }
+        }
+        String base64Limpio = content
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                .replace("-----END RSA PRIVATE KEY-----", "")
+                .replaceAll("\\s", "");
+        byte[] keyBytes = Base64.getDecoder().decode(base64Limpio);
         return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
     }
 

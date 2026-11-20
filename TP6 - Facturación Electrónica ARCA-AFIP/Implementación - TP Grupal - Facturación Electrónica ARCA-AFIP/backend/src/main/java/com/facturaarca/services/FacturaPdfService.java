@@ -485,7 +485,7 @@ public class FacturaPdfService {
         Cliente cliente = factura.getCliente();
         if (cliente != null && cliente.getCuitCuil() != null && !cliente.getCuitCuil().isBlank()) {
             String docLimpio = cliente.getCuitCuil().replaceAll("\\D", "");
-            if (!docLimpio.isEmpty()) {
+            if (!docLimpio.isEmpty() && docLimpio.length() <= 18) {
                 nroDocRec = Long.parseLong(docLimpio);
                 tipoDocRec = docLimpio.length() == 11 ? 80 : 96;
             }
@@ -525,6 +525,9 @@ public class FacturaPdfService {
             return "No configurado";
         }
         String raw = String.format("%011d", arcaCuit);
+        if (raw.length() != 11) {
+            return raw;
+        }
         return raw.substring(0, 2) + "-" + raw.substring(2, 10) + "-" + raw.substring(10);
     }
 

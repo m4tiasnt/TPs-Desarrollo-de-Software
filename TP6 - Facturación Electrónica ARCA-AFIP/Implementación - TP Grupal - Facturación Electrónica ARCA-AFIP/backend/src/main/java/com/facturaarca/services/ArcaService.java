@@ -100,7 +100,7 @@ public class ArcaService {
         Cliente cliente = factura.getCliente();
         if (cliente != null && cliente.getCuitCuil() != null && !cliente.getCuitCuil().isBlank()) {
             String docLimpio = cliente.getCuitCuil().replaceAll("\\D", "");
-            if (!docLimpio.isEmpty()) {
+            if (!docLimpio.isEmpty() && docLimpio.length() <= 18) {
                 docNro = Long.parseLong(docLimpio);
                 docTipo = docLimpio.length() == 11 ? 80 : 96;
                 if (factura.getCondicionIva() != null && factura.getCondicionIva().getCodigoAfip() > 0) {
@@ -116,6 +116,16 @@ public class ArcaService {
 
         Object lock = locksPorPuntoVenta.computeIfAbsent(ptoVta, k -> new Object());
         synchronized (lock) {
+            return ejecutarAutorizacionConReintentoToken(
+                    rutaKey, rutaCert, ptoVta, docTipo, docNro, condicionIvaReceptor, total, neto, iva);
+        }
+    }
+
+    private ResultadoAutorizacionArca ejecutarAutorizacionConReintentoToken(
+            String rutaKey, String rutaCert, int ptoVta,
+            int docTipo, long docNro, int condicionIvaReceptor,
+            double total, double neto, double iva) {
+        for (int intento = 0; intento < 2; intento++) {
             try {
                 log.info("1. Obteniendo Token y Sign desde WSAA para CUIT: {}", arcaCuit);
                 String[] auth = ArcaWsaaClient.obtenerTokenYSign(rutaKey, rutaCert, "wsfe");
@@ -134,7 +144,8 @@ public class ArcaService {
                         token, sign, arcaCuit, ptoVta, CBTE_TIPO_FACTURA_C, nuevoNro,
                         docTipo, docNro, condicionIvaReceptor, total, neto, iva);
 
-                if (resp.getFeCabResp() != null && "A".equals(resp.getFeCabResp().getResultado())) {
+                if (resp != null && resp.getFeCabResp() != null && "A".equals(resp.getFeCabResp().getResultado())
+                        && resp.getFeDetResp() != null && !resp.getFeDetResp().getFECAEDetResponse().isEmpty()) {
                     FECAEDetResponse detResp = resp.getFeDetResp().getFECAEDetResponse().get(0);
                     String cae = detResp.getCAE();
                     Date vtoDate = parsearFechaAfip(detResp.getCAEFchVto());
@@ -150,6 +161,12 @@ public class ArcaService {
                             .build();
                 }
 
+                if (intento == 0 && esErrorTokenInvalido(resp)) {
+                    log.warn("Token WSAA rechazado por WSFEv1; invalidando caché y reintentando...");
+                    ArcaWsaaClient.invalidarCache();
+                    continue;
+                }
+
                 String motivoRechazo = extraerMotivoRechazo(resp);
                 log.error("Factura rechazada por ARCA: {}", motivoRechazo);
                 return ResultadoAutorizacionArca.builder()
@@ -158,15 +175,12 @@ public class ArcaService {
                         .mensaje(motivoRechazo)
                         .build();
 
-            } catch (UnknownHostException | ConnectException | SocketTimeoutException ex) {
-                String mensaje = "El servicio de ARCA/AFIP se encuentra temporalmente inaccesible o no hay conexión de red.";
-                log.error("{}: {}", mensaje, ex.getMessage());
-                return ResultadoAutorizacionArca.builder()
-                        .autorizado(false)
-                        .motivoRechazo(mensaje)
-                        .mensaje(mensaje)
-                        .build();
             } catch (IllegalStateException ex) {
+                if (intento == 0 && contieneCodigoErrorToken(ex.getMessage())) {
+                    log.warn("Token WSAA rechazado en consulta previa ({}); invalidando caché y reintentando...", ex.getMessage());
+                    ArcaWsaaClient.invalidarCache();
+                    continue;
+                }
                 log.error("Error controlado al comunicar con ARCA: {}", ex.getMessage());
                 return ResultadoAutorizacionArca.builder()
                         .autorizado(false)
@@ -174,6 +188,15 @@ public class ArcaService {
                         .mensaje(ex.getMessage())
                         .build();
             } catch (Exception ex) {
+                if (esErrorDeRed(ex)) {
+                    String mensaje = "El servicio de ARCA/AFIP se encuentra temporalmente inaccesible o no hay conexión de red.";
+                    log.error("{}: {}", mensaje, ex.getMessage());
+                    return ResultadoAutorizacionArca.builder()
+                            .autorizado(false)
+                            .motivoRechazo(mensaje)
+                            .mensaje(mensaje)
+                            .build();
+                }
                 log.error("Error de comunicación con ARCA", ex);
                 String mensaje = "No se pudo completar la comunicación con ARCA. Intentá nuevamente en unos instantes.";
                 return ResultadoAutorizacionArca.builder()
@@ -183,6 +206,40 @@ public class ArcaService {
                         .build();
             }
         }
+        String fallback = "No se pudo completar la autenticación con ARCA.";
+        return ResultadoAutorizacionArca.builder()
+                .autorizado(false)
+                .motivoRechazo(fallback)
+                .mensaje(fallback)
+                .build();
+    }
+
+    private static boolean esErrorTokenInvalido(FECAEResponse resp) {
+        if (resp == null || resp.getErrors() == null) {
+            return false;
+        }
+        return resp.getErrors().getErr().stream()
+                .anyMatch(err -> err.getCode() == 600 || err.getCode() == 601 || err.getCode() == 602);
+    }
+
+    private static boolean contieneCodigoErrorToken(String mensaje) {
+        if (mensaje == null) {
+            return false;
+        }
+        return mensaje.contains("[600]") || mensaje.contains("[601]") || mensaje.contains("[602]");
+    }
+
+    private static boolean esErrorDeRed(Throwable ex) {
+        Throwable actual = ex;
+        while (actual != null) {
+            if (actual instanceof UnknownHostException
+                    || actual instanceof ConnectException
+                    || actual instanceof SocketTimeoutException) {
+                return true;
+            }
+            actual = actual.getCause();
+        }
+        return false;
     }
 
     private Date parsearFechaAfip(String fechaStr) {
@@ -199,6 +256,9 @@ public class ArcaService {
     }
 
     private String extraerMotivoRechazo(FECAEResponse resp) {
+        if (resp == null) {
+            return "ARCA no devolvió respuesta para la solicitud.";
+        }
         StringBuilder sb = new StringBuilder();
         if (resp.getErrors() != null && !resp.getErrors().getErr().isEmpty()) {
             for (Err err : resp.getErrors().getErr()) {

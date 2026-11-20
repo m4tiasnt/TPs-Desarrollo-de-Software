@@ -12,13 +12,27 @@ import java.time.format.DateTimeFormatter;
 public class ArcaWsfeClient {
 
     private static final String URL_WSFE_HOMO = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
+    private static volatile Service cachedService;
+
+    private static Service obtenerServicio() {
+        Service service = cachedService;
+        if (service == null) {
+            synchronized (ArcaWsfeClient.class) {
+                service = cachedService;
+                if (service == null) {
+                    service = new Service();
+                    cachedService = service;
+                }
+            }
+        }
+        return service;
+    }
 
     /**
      * Obtiene el puerto SOAP configurado con el endpoint de homologación y timeouts.
      */
     private static ServiceSoap obtenerPuertoSoap() {
-        Service service = new Service();
-        ServiceSoap serviceSoap = service.getServiceSoap();
+        ServiceSoap serviceSoap = obtenerServicio().getServiceSoap();
 
         BindingProvider bp = (BindingProvider) serviceSoap;
         bp.getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, URL_WSFE_HOMO);
@@ -46,7 +60,7 @@ public class ArcaWsfeClient {
             for (Err err : resp.getErrors().getErr()) {
                 sb.append("[").append(err.getCode()).append("] ").append(err.getMsg()).append(" ");
             }
-            throw new RuntimeException("Error en FECompUltimoAutorizado: " + sb.toString());
+            throw new IllegalStateException("Error en FECompUltimoAutorizado: " + sb.toString().trim());
         }
 
         return resp != null ? resp.getCbteNro() : 0;
