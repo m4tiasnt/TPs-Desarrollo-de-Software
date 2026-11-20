@@ -251,6 +251,11 @@ h2 {
   border-color: var(--color-danger);
 }
 
+.form-control.is-invalid:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
+}
+
 /* se agrega junto con .field-error visible */
 .field-error {
   margin-top: 4px;
@@ -868,7 +873,9 @@ dialog p {
 .combobox>.icon {
   position: absolute;
   left: 12px;
-  top: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
   color: var(--color-text-muted);
 }
 
@@ -935,6 +942,7 @@ dialog p {
 .lines {
   margin-top: 0;
   width: 100%;
+  min-width: 860px;
   table-layout: fixed;
 }
 
@@ -1185,7 +1193,7 @@ input.form-control--sm[type='number']::-webkit-inner-spin-button {
   color: var(--color-primary);
 }
 
-/* Anchos de columnas para la tabla de detalles (6 columnas en edición, 5 en lectura) */
+/* Anchos de columnas para la tabla de detalles (7 columnas en edición, 6 en lectura) */
 .lines th:nth-child(1),
 .lines td:nth-child(1) {
   width: auto;
@@ -1197,32 +1205,40 @@ input.form-control--sm[type='number']::-webkit-inner-spin-button {
   width: 108px;
 }
 
-/* Precio unit. (espacio holgado para montos grandes sin corte) */
+/* Precio unit. */
 .lines th:nth-child(3),
 .lines td:nth-child(3) {
-  width: 140px;
+  width: 125px;
 }
 
 /* % Bonif. */
 .lines th:nth-child(4),
 .lines td:nth-child(4) {
-  width: 85px;
+  width: 82px;
+}
+
+/* IVA */
+.lines th:nth-child(5),
+.lines td:nth-child(5) {
+  width: 115px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* Subtotal */
-.lines th:nth-child(5),
-.lines td:nth-child(5) {
-  width: 140px;
+.lines th:nth-child(6),
+.lines td:nth-child(6) {
+  width: 125px;
 }
 
 /* Acciones */
-.lines th:nth-child(6),
-.lines td:nth-child(6) {
-  width: 92px;
+.lines th:nth-child(7),
+.lines td:nth-child(7) {
+  width: 88px;
 }
 
 .lines td.actions-cell {
-  width: 92px;
+  width: 88px;
   padding-left: 4px !important;
   padding-right: 12px !important;
 }

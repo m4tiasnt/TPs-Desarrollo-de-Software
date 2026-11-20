@@ -25,7 +25,6 @@
         #menu-factura            menú ⋮ de fila (data-menu: editar | anular | eliminar)
         #listado-mensaje         estados vacío / error / cargando (plantillas #tpl-*)
         #dlg-anular, #dlg-eliminar, #dlg-informar-arca (fases con [data-fase])
-      Matriz de estados (qué se puede hacer en cada uno): ver PLAN_BACKEND.md.
     -->
     <!-- Sprite de íconos: <svg class="icon" aria-hidden="true"><use href="#i-nombre"/></svg> -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -102,7 +101,7 @@
             <div class="card-body filters-grid">
                 <div class="form-group">
                     <label for="filtro-busqueda">N° Comprobante o #ID</label>
-                    <input class="form-control" type="text" id="filtro-busqueda" name="busqueda" placeholder="Ej: 0001-00000042, 42 o #10">
+                    <input class="form-control" type="text" id="filtro-busqueda" name="busqueda" placeholder="Ej: 00001-00000042, 42 o #10">
                 </div>
                 <div class="form-group">
                     <label for="filtro-cliente-nombre">Cliente</label>
@@ -229,6 +228,7 @@
 
     <!-- Menú de acciones de fila (único; JS lo posiciona y deshabilita lo que el estado no permite) -->
     <ul class="dropdown-menu" id="menu-factura" role="menu" aria-label="Acciones de la factura" hidden>
+        <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="pdf"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Descargar PDF</button></li>
         <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="informar"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg> Informar a ARCA</button></li>
         <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="editar"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg> Editar</button></li>
         <li role="none"><button type="button" class="dropdown-item" role="menuitem" data-menu="anular"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg> Anular</button></li>
@@ -397,7 +397,7 @@
                     <tr class="fila-vacia">
                         <td colspan="3" class="modal-empty-cell">
                             <div class="modal-empty-content">
-                                <span class="modal-empty-title">Ingresá al menos 3 caracteres en CUIT/CUIL o Razón social para buscar clientes</span>
+                                <span class="modal-empty-title">Ingresá al menos 3 caracteres para buscar clientes</span>
                             </div>
                         </td>
                     </tr>

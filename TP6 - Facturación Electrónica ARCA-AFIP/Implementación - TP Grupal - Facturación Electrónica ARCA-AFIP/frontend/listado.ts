@@ -13,6 +13,8 @@ import {
     esFacturaInformable,
     formatearFecha,
     formatearMoneda,
+    formatearNumeroComprobante,
+    formatearPuntoVenta,
     obtenerIdentificadorFactura
 } from './utils/formatters';
 import { PaginadorControl } from './components/PaginadorControl';
@@ -20,9 +22,9 @@ import { NotificadorToast } from './components/NotificadorToast';
 import { BuscadorClienteModal } from './components/BuscadorClienteModal';
 
 // ─── Servicios e instancias compartidas ─────────────────────────────────────
-const facturaService = new FacturaService('http://localhost:8080/api/facturas');
-const clienteService = new ClienteService('http://localhost:8080/api/clientes');
-const reporteService = new ReporteService('http://localhost:8080/api/reportes');
+const facturaService = new FacturaService();
+const clienteService = new ClienteService();
+const reporteService = new ReporteService();
 const toast = new NotificadorToast('mensaje-feedback');
 
 // ─── Estado de la vista ─────────────────────────────────────────────────────
@@ -70,7 +72,7 @@ let menuFacturaId: number | null = null;
 let menuToggle: HTMLButtonElement | null = null;
 
 const dlgInformar = document.getElementById('dlg-informar-arca') as HTMLDialogElement | null;
-let informeEjecutado = false;
+let informandoEnCurso = false;
 
 // ─── Modal de clientes ──────────────────────────────────────────────────────
 const modalCliente = new BuscadorClienteModal({
@@ -180,6 +182,22 @@ function sincronizarLimitesFechas(): void {
 }
 
 function validarRangoFechas(): boolean {
+    const busqueda = inputBusqueda?.value?.trim() || '';
+    if (busqueda) {
+        const esId = /^(borrador\s*#?\s*\d+|#\d+)$/i.test(busqueda);
+        const esComp = /^\d+(-\d*)?$/.test(busqueda);
+        if (!esId && !esComp) {
+            toast.error('La búsqueda debe ser un N° de comprobante (ej: 00001-00000042 o 42) o un #ID (ej: #10).');
+            inputBusqueda?.focus();
+            return false;
+        }
+    }
+    const montoVal = inputMontoMinimo?.value?.trim() || '';
+    if (montoVal && (isNaN(Number(montoVal)) || Number(montoVal) < 0)) {
+        toast.error('El monto mínimo no puede ser negativo.');
+        inputMontoMinimo?.focus();
+        return false;
+    }
     const hoy = hoyIsoLocal();
     const desde = inputFechaDesde?.value?.trim() || '';
     const hasta = inputFechaHasta?.value?.trim() || '';
@@ -344,7 +362,7 @@ function renderizarTabla(facturas: FacturaVentaListadoDTO[]): void {
             nroEl.className = 'nro-factura--provisorio';
         }
 
-        const pvNumero = f.puntoVentaNumero != null ? String(f.puntoVentaNumero).padStart(4, '0') : '';
+        const pvNumero = f.puntoVentaNumero != null ? formatearPuntoVenta(f.puntoVentaNumero) : '';
         const pvTexto = [pvNumero, f.puntoVentaDescripcion].filter(Boolean).join(' · ');
         setTextoCelda(fila, 'puntoVenta', pvTexto);
         setTextoCelda(fila, 'fechaEmision', formatearFecha(f.fechaEmision));
@@ -521,7 +539,7 @@ function posicionarMenu(toggle: HTMLButtonElement): void {
     if (!menuFactura) return;
     const btn = toggle.getBoundingClientRect();
     const ancho = 190;
-    const alto = 165;
+    const alto = 205;
     const izquierda = Math.max(8, Math.min(btn.right - ancho, window.innerWidth - ancho - 8));
     let arriba = btn.bottom + 4;
     if (arriba + alto > window.innerHeight - 8) {
@@ -571,6 +589,19 @@ function abrirConfirmacion(dlg: HTMLDialogElement, identificadorTexto: string): 
         bloquearScrollBody(true);
         dlg.showModal();
     });
+}
+
+async function descargarFacturaPdf(id: number): Promise<void> {
+    const f = facturasPorId.get(id);
+    const identificador = f ? obtenerIdentificadorFactura(f) : `#${id}`;
+    try {
+        toast.info(`Generando PDF de ${identificador}...`);
+        await facturaService.descargarPdf(id);
+        toast.exito(`PDF de ${identificador} descargado correctamente.`);
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Error al generar el PDF.';
+        toast.error(`No se pudo descargar el PDF: ${msg}`);
+    }
 }
 
 async function anularFactura(id: number): Promise<void> {
@@ -623,20 +654,31 @@ function abrirInformarArca(idEspecifico?: number): void {
     const tbodyConfirmar = dlgInformar.querySelector('#informar-confirmar-body');
     const totalConfirmar = dlgInformar.querySelector('#informar-confirmar-total');
     if (tbodyConfirmar) {
-        tbodyConfirmar.innerHTML = '';
+        tbodyConfirmar.replaceChildren();
         let suma = 0;
         for (const f of facturas) {
             suma += f.importeTotal;
             const tr = document.createElement('tr');
             const identificador = obtenerIdentificadorFactura(f);
-            const ptoVta = `${String(f.puntoVentaNumero || 1).padStart(4, '0')}${f.puntoVentaDescripcion ? ' - ' + f.puntoVentaDescripcion : ''}`;
+            const ptoVta = `${formatearPuntoVenta(f.puntoVentaNumero)}${f.puntoVentaDescripcion ? ' - ' + f.puntoVentaDescripcion : ''}`;
             const cliente = f.clienteDenominacion || 'Consumidor Final';
-            tr.innerHTML = `
-                <td><strong>${identificador}</strong></td>
-                <td>${ptoVta}</td>
-                <td><span>${cliente}</span></td>
-                <td class="num">${formatearMoneda(f.importeTotal)}</td>
-            `;
+
+            const tdId = document.createElement('td');
+            const strongId = document.createElement('strong');
+            strongId.textContent = identificador;
+            tdId.appendChild(strongId);
+
+            const tdPv = document.createElement('td');
+            tdPv.textContent = ptoVta;
+
+            const tdCliente = document.createElement('td');
+            tdCliente.textContent = cliente;
+
+            const tdTotal = document.createElement('td');
+            tdTotal.className = 'num';
+            tdTotal.textContent = formatearMoneda(f.importeTotal);
+
+            tr.append(tdId, tdPv, tdCliente, tdTotal);
             tbodyConfirmar.appendChild(tr);
         }
         if (totalConfirmar) {
@@ -652,17 +694,17 @@ function abrirInformarArca(idEspecifico?: number): void {
         el.textContent = detalle;
     });
 
-    informeEjecutado = false;
     mostrarFaseArca('confirmar');
     bloquearScrollBody(true);
     dlgInformar.showModal();
 }
 
 async function ejecutarInformarArca(): Promise<void> {
-    if (!dlgInformar) return;
+    if (!dlgInformar || informandoEnCurso) return;
     const ids = [...seleccionados];
     if (ids.length === 0) return;
 
+    informandoEnCurso = true;
     // Apenas se confirma el envío, quitamos la barra inferior de selección
     salirModoSeleccion();
 
@@ -681,7 +723,6 @@ async function ejecutarInformarArca(): Promise<void> {
 
     try {
         const resultados = await facturaService.informarArcaLote(ids);
-        informeEjecutado = true;
 
         // Si el usuario mantiene el diálogo abierto, mostramos el desglose detallado
         if (dlgInformar.open) {
@@ -715,6 +756,8 @@ async function ejecutarInformarArca(): Promise<void> {
         } else {
             toast.error(mensajeError);
         }
+    } finally {
+        informandoEnCurso = false;
     }
 }
 
@@ -724,7 +767,7 @@ function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: R
     const nro = fila.querySelector('[data-campo="factura"]') as HTMLElement;
     if (nro) {
         if (r.numero != null) {
-            nro.textContent = `#${r.numero}`;
+            nro.textContent = formatearNumeroComprobante(f?.puntoVentaNumero, r.numero);
             nro.className = 'nro-factura';
         } else {
             nro.textContent = f ? obtenerIdentificadorFactura(f) : `#${r.id}`;
@@ -742,7 +785,10 @@ function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: R
     const detalleEl = fila.querySelector('[data-campo="detalle"]') as HTMLElement;
     if (detalleEl) {
         const texto = r.mensaje || (r.estado === 'AUTORIZADA' ? 'Factura informada a ARCA' : 'Rechazada');
-        detalleEl.innerHTML = `<span class="anim-text-in">${texto}</span>`;
+        const span = document.createElement('span');
+        span.className = 'anim-text-in';
+        span.textContent = texto;
+        detalleEl.replaceChildren(span);
     }
 
     const enlace = fila.querySelector('[data-campo="enlace"]') as HTMLAnchorElement;
@@ -753,7 +799,7 @@ function actualizarFilaResultadoArca(fila: HTMLTableRowElement | undefined, r: R
     }
 }
 
-function renderizarChipsResumen(chips: HTMLElement, resultados: ResultadoAutorizacionDTO[], erroresConexion: number = 0): void {
+function renderizarChipsResumen(chips: HTMLElement, resultados: ResultadoAutorizacionDTO[]): void {
     const conteo = new Map<EstadoFactura, number>();
     for (const r of resultados) {
         conteo.set(r.estado, (conteo.get(r.estado) ?? 0) + 1);
@@ -764,12 +810,6 @@ function renderizarChipsResumen(chips: HTMLElement, resultados: ResultadoAutoriz
         aplicarBadgeEstado(span, estado);
         span.textContent = `${span.textContent}: ${count}`;
         chips.appendChild(span);
-    }
-    if (erroresConexion > 0) {
-        const spanErr = document.createElement('span');
-        spanErr.className = 'badge badge-rechazada';
-        spanErr.textContent = `Sin conexión: ${erroresConexion}`;
-        chips.appendChild(spanErr);
     }
 }
 
@@ -857,7 +897,9 @@ menuFactura?.addEventListener('click', (e) => {
     const id = menuFacturaId;
     cerrarMenuFila();
 
-    if (accion === 'informar') {
+    if (accion === 'pdf') {
+        void descargarFacturaPdf(id);
+    } else if (accion === 'informar') {
         abrirInformarArca(id);
     } else if (accion === 'editar') {
         window.location.href = `factura.html?id=${id}&modo=editar`;
@@ -918,9 +960,6 @@ btnCerrarInformando?.addEventListener('click', () => {
 dlgInformar?.addEventListener('close', () => {
     bloquearScrollBody(false);
     salirModoSeleccion();
-    if (informeEjecutado) {
-        void cargarFacturas();
-    }
 });
 
 dlgInformar?.addEventListener('cancel', () => {
@@ -950,6 +989,7 @@ function cerrarMenuExportar(): void {
 
 async function exportarFacturas(tipo: 'excel' | 'pdf', btn?: HTMLButtonElement | null): Promise<void> {
     cerrarMenuExportar();
+    if (!validarRangoFechas()) return;
     const textoOriginal = btn?.innerHTML;
     try {
         if (btn) {
@@ -957,7 +997,7 @@ async function exportarFacturas(tipo: 'excel' | 'pdf', btn?: HTMLButtonElement |
             btn.innerHTML = `<span class="spinner" aria-hidden="true"></span> Descargando...`;
         }
         toast.info(`Generando archivo ${tipo.toUpperCase()}...`);
-        await reporteService.descargarReporte(tipo);
+        await reporteService.descargarReporte(tipo, filtrosActuales());
         toast.exito(`Reporte ${tipo.toUpperCase()} descargado exitosamente.`);
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al exportar.';
