@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -116,7 +117,8 @@ public class FacturaRestController {
      */
     @PostMapping("/informar-arca-lote")
     public ResponseEntity<List<ResultadoAutorizacionDTO>> informarArcaLote(
-            @NotEmpty(message = "Indicá al menos una factura para informar a ARCA") @RequestBody List<Long> ids) {
+            @NotEmpty(message = "Indicá al menos una factura para informar a ARCA")
+            @RequestBody List<@NotNull(message = "Cada identificador de factura debe ser válido") Long> ids) {
         return ResponseEntity.ok(facturaService.informarArcaLote(ids));
     }
 }

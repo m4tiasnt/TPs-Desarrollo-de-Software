@@ -71,7 +71,7 @@ public class FacturaService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La fecha desde no puede ser posterior a la fecha hasta");
         }
-        if (montoMinimo != null && montoMinimo < 0) {
+        if (montoMinimo != null && (Double.isNaN(montoMinimo) || Double.isInfinite(montoMinimo) || montoMinimo < 0)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "El monto mínimo no puede ser negativo");
         }
@@ -223,19 +223,26 @@ public class FacturaService {
         return convertirAFacturaVentaDTO(guardada);
     }
 
+    private static final List<EstadoFactura> ESTADOS_INFORMABLES =
+            List.of(EstadoFactura.BORRADOR, EstadoFactura.RECHAZADA);
+
     /**
      * Informa una factura individual ante ARCA usando transacciones cortas
      * para confirmar EN_PROCESO antes de la llamada SOAP y persistir el resultado al volver.
      */
     public ResultadoAutorizacionDTO informarArca(Long id) {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        return ejecutarAutorizacionIndividual(id, false, transactionTemplate);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        FacturaVenta factura = tx.execute(status -> reservarEnProceso(id));
+        if (factura == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo preparar la factura");
+        }
+        return autorizarConArca(factura, tx);
     }
 
     /**
      * Informa un lote de facturas ante ARCA.
-     * Persiste primero el lote en estado EN_PROCESO para bloquear modificaciones concurrentes
-     * y luego autoriza cada comprobante en su propia transacción para aislar fallas.
+     * Reserva primero todas las facturas válidas en estado EN_PROCESO y luego
+     * autoriza cada comprobante en su propia transacción para aislar fallas.
      */
     public List<ResultadoAutorizacionDTO> informarArcaLote(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
@@ -247,31 +254,42 @@ public class FacturaService {
                 .distinct()
                 .toList();
         if (idsLimpios.isEmpty()) {
-            return List.of();
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Indicá al menos una factura válida para informar a ARCA");
         }
 
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        marcarLoteEnProceso(idsLimpios, transactionTemplate);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        Map<Long, FacturaVenta> reservadas = new LinkedHashMap<>();
+        Map<Long, ResultadoAutorizacionDTO> resultados = new LinkedHashMap<>();
 
-        List<ResultadoAutorizacionDTO> resultados = new ArrayList<>();
+        tx.executeWithoutResult(status -> {
+            for (Long id : idsLimpios) {
+                try {
+                    reservadas.put(id, reservarEnProceso(id));
+                } catch (ResponseStatusException rse) {
+                    log.warn("Factura ID {} no pudo reservarse en lote: {}", id, rse.getReason());
+                    resultados.put(id, ResultadoAutorizacionDTO.builder()
+                            .id(id)
+                            .estado(obtenerEstadoActual(id))
+                            .motivoRechazo(rse.getReason())
+                            .mensaje(rse.getReason())
+                            .build());
+                }
+            }
+        });
 
         for (Long id : idsLimpios) {
+            FacturaVenta factura = reservadas.get(id);
+            if (factura == null) {
+                continue;
+            }
             try {
-                resultados.add(ejecutarAutorizacionIndividual(id, true, transactionTemplate));
-            } catch (ResponseStatusException rse) {
-                log.warn("Factura ID {} no pudo ser autorizada en lote: {}", id, rse.getReason());
-                EstadoFactura estadoActual = obtenerEstadoActualSeguro(id, rse.getReason(), transactionTemplate);
-                resultados.add(ResultadoAutorizacionDTO.builder()
-                        .id(id)
-                        .estado(estadoActual)
-                        .motivoRechazo(rse.getReason())
-                        .mensaje(rse.getReason())
-                        .build());
+                resultados.put(id, autorizarConArca(factura, tx));
             } catch (Exception ex) {
                 log.error("Error al procesar factura ID {} en lote: {}", id, ex.getMessage(), ex);
                 String motivo = "No se pudo autorizar el comprobante por un error interno";
-                EstadoFactura estadoActual = obtenerEstadoActualSeguro(id, motivo, transactionTemplate);
-                resultados.add(ResultadoAutorizacionDTO.builder()
+                EstadoFactura estadoActual = revertirEnProcesoSiFalla(id, motivo, tx);
+                resultados.put(id, ResultadoAutorizacionDTO.builder()
                         .id(id)
                         .estado(estadoActual)
                         .motivoRechazo(motivo)
@@ -280,41 +298,32 @@ public class FacturaService {
             }
         }
 
-        return resultados;
+        return new ArrayList<>(resultados.values());
     }
 
-    private ResultadoAutorizacionDTO ejecutarAutorizacionIndividual(
-            Long id, boolean permitirEnProceso, TransactionTemplate transactionTemplate) {
-        FacturaVenta facturaPreparada = transactionTemplate.execute(status -> {
-            FacturaVenta factura = buscarFacturaConDetalles(id);
-            boolean estadoValido = factura.getEstado().esInformable()
-                    || (permitirEnProceso && factura.getEstado() == EstadoFactura.EN_PROCESO);
-            if (!estadoValido) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "La factura no puede informarse en su estado actual (" + factura.getEstado() + ")");
-            }
-            if (factura.getEstado() != EstadoFactura.EN_PROCESO) {
-                factura.marcarEnProceso(obtenerUsuarioParaAuditoria());
-                facturaVentaRepository.save(factura);
-            }
-            return factura;
-        });
-
-        if (facturaPreparada == null) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo preparar la factura");
+    private FacturaVenta reservarEnProceso(Long id) {
+        int actualizadas = facturaVentaRepository.marcarEnProceso(
+                id, EstadoFactura.EN_PROCESO, ESTADOS_INFORMABLES, new Date(), obtenerUsuarioParaAuditoria());
+        FacturaVenta factura = buscarFacturaConDetalles(id);
+        if (actualizadas == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La factura no puede informarse en su estado actual (" + factura.getEstado() + ")");
         }
+        return factura;
+    }
 
+    private ResultadoAutorizacionDTO autorizarConArca(FacturaVenta facturaPreparada, TransactionTemplate tx) {
+        Long id = facturaPreparada.getId();
         ResultadoAutorizacionArca resultadoArca;
         try {
             resultadoArca = arcaService.solicitarAutorizacion(facturaPreparada);
         } catch (Exception ex) {
             log.error("Error inesperado al solicitar autorización ARCA para factura {}: {}", id, ex.getMessage(), ex);
-            String motivo = "No se pudo completar la comunicación con ARCA";
-            obtenerEstadoActualSeguro(id, motivo, transactionTemplate);
+            revertirEnProcesoSiFalla(id, "No se pudo completar la comunicación con ARCA", tx);
             throw ex;
         }
 
-        FacturaVenta guardada = transactionTemplate.execute(status -> {
+        FacturaVenta guardada = tx.execute(status -> {
             FacturaVenta factura = buscarFacturaConDetalles(id);
             Usuario usuario = obtenerUsuarioParaAuditoria();
             if (resultadoArca.isAutorizado()) {
@@ -347,17 +356,24 @@ public class FacturaService {
                 .build();
     }
 
-    private EstadoFactura obtenerEstadoActualSeguro(Long id, String motivoFallo, TransactionTemplate transactionTemplate) {
+    private EstadoFactura obtenerEstadoActual(Long id) {
+        return facturaVentaRepository.findById(id)
+                .filter(f -> f.getFechaBaja() == null)
+                .map(FacturaVenta::getEstado)
+                .orElse(null);
+    }
+
+    private EstadoFactura revertirEnProcesoSiFalla(Long id, String motivoFallo, TransactionTemplate tx) {
         try {
-            return transactionTemplate.execute(status -> {
+            return tx.execute(status -> {
                 Optional<FacturaVenta> opt = facturaVentaRepository.findById(id)
                         .filter(f -> f.getFechaBaja() == null);
                 if (opt.isEmpty()) {
-                    return EstadoFactura.RECHAZADA;
+                    return null;
                 }
                 FacturaVenta f = opt.get();
                 if (f.getEstado() == EstadoFactura.EN_PROCESO) {
-                    f.rechazar(motivoFallo != null ? motivoFallo : "Error al procesar envío a ARCA", obtenerUsuarioParaAuditoria());
+                    f.rechazar(motivoFallo, obtenerUsuarioParaAuditoria());
                     facturaVentaRepository.save(f);
                 }
                 return f.getEstado();
@@ -366,23 +382,6 @@ public class FacturaService {
             log.warn("No se pudo actualizar el estado de fallback para la factura {}: {}", id, e.getMessage());
             return EstadoFactura.RECHAZADA;
         }
-    }
-
-    private void marcarLoteEnProceso(List<Long> ids, TransactionTemplate transactionTemplate) {
-        transactionTemplate.executeWithoutResult(status -> {
-            List<FacturaVenta> facturas = facturaVentaRepository.findAllById(ids);
-            Usuario usuario = obtenerUsuarioParaAuditoria();
-            List<FacturaVenta> actualizadas = new ArrayList<>();
-            for (FacturaVenta f : facturas) {
-                if (f.getFechaBaja() == null && f.getEstado().esInformable()) {
-                    f.marcarEnProceso(usuario);
-                    actualizadas.add(f);
-                }
-            }
-            if (!actualizadas.isEmpty()) {
-                facturaVentaRepository.saveAll(actualizadas);
-            }
-        });
     }
 
     public FacturaVentaDTO convertirAFacturaVentaDTO(FacturaVenta factura) {

@@ -84,7 +84,7 @@ public class CatalogoService {
             Long listaPrecioId, String codigo, String termino, int page, int size) {
         String qCodigo = SqlUtils.escaparLike(codigo);
         String qTermino = SqlUtils.escaparLike(termino);
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)));
 
         Page<ArticuloPrecioDTO> resultado = articuloRepository
                 .buscarPaginadoPorListaPrecio(qCodigo, qTermino, listaPrecioId, pageable);

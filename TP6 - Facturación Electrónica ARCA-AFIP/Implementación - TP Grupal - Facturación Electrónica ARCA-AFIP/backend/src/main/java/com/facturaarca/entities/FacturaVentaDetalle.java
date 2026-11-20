@@ -52,10 +52,11 @@ public class FacturaVentaDetalle extends EntityId {
         this.porcentajeBonificacion = bonif;
 
         double subtotal = cant * this.precioUnitario * (1.0 - (bonif / 100.0));
-        double neto = Math.round((subtotal / 1.21) * 100.0) / 100.0;
-        double iva = Math.round((subtotal - neto) * 100.0) / 100.0;
+        double subtotalRedondeado = Math.round(subtotal * 100.0) / 100.0;
+        double neto = Math.round((subtotalRedondeado / 1.21) * 100.0) / 100.0;
+        double iva = Math.round((subtotalRedondeado - neto) * 100.0) / 100.0;
 
-        this.importeSubtotal = Math.round(subtotal * 100.0) / 100.0;
+        this.importeSubtotal = subtotalRedondeado;
         this.importeNeto = neto;
         this.importeIva = iva;
     }
