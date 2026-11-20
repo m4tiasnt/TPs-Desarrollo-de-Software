@@ -5,12 +5,6 @@
 CREATE SCHEMA IF NOT EXISTS model;
 SET search_path TO model;
 
--- Compatibilidad de esquema para comprobantes de consumidor final y campos extensos
-ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN cliente_id DROP NOT NULL;
-ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN fecha_emision DROP NOT NULL;
-ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN motivo_rechazo TYPE text;
-ALTER TABLE IF EXISTS model.factura_venta ALTER COLUMN observaciones TYPE text;
-
 TRUNCATE TABLE 
     usuarios,
     contactos,
@@ -75,28 +69,26 @@ INSERT INTO domicilios (id, nombre_calle, numero_calle) VALUES
 INSERT INTO clientes (id, fecha_alta, fecha_modificacion, cuit_cuil, denominacion, usuario_carga_id, usuario_modificacion_id, contacto_id, domicilio_id) VALUES
 (1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-12345678-1', 'Empresa Demo S.A.', 1, 1, 1, 1),
 (2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-12345678-6', 'Juan Gomez', 1, 1, 2, 2),
-(3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-87654321-5', 'Demo Center SRL', 1, 1, 3, 3),
-(4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-11111111-7', 'Ferreteria El Tornillo', 1, 1, 4, 4),
-(5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-99999999-5', 'Tecnologica Mendoza', 2, 2, 5, 5),
-(6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-88888888-3', 'Libreria Estudiantil', 2, 2, 6, 6),
-(7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-55555555-1', 'Supermercado Todo', 1, 1, 7, 7),
-(8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-44444444-0', 'Ropa Deportiva SA', 2, 2, 8, 8),
-(9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-33333333-9', 'Estudio Contable Diaz', 5, 5, 9, 9),
+(3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-71234567-1', 'Demo Center S.R.L.', 1, 1, 3, 3),
+(4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-70123456-8', 'Ferretería El Tornillo S.R.L.', 1, 1, 4, 4),
+(5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-68765431-1', 'Tecnológica Mendoza S.A.', 2, 2, 5, 5),
+(6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-65432109-0', 'Librería Estudiantil S.R.L.', 2, 2, 6, 6),
+(7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-55555555-1', 'Supermercado Todo S.A.', 1, 1, 7, 7),
+(8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-64444444-5', 'Ropa Deportiva S.A.', 2, 2, 8, 8),
+(9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '27-33333333-9', 'Carolina Díaz', 5, 5, 9, 9),
 (10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '20-22222222-3', 'Juan Perez Jr', 6, 6, 10, 10),
-(11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-11111111-8', 'Electrohogar', 5, 5, 11, 11);
+(11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '30-71111111-1', 'Electrohogar S.A.', 5, 5, 11, 11);
 
--- 5. CONDICIONES IVA
+-- 5. CONDICIONES IVA (códigos oficiales ARCA / RG 5616)
 INSERT INTO condiciones_iva (id, fecha_alta, fecha_modificacion, codigo_afip, denominacion, usuario_carga_id, usuario_modificacion_id) VALUES
 (1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'Responsable Inscripto', 1, 1),
 (2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 6, 'Monotributista', 1, 1),
-(3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 4, 'Consumidor Final', 1, 1),
-(4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 5, 'Exento', 1, 1);
+(3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 5, 'Consumidor Final', 1, 1),
+(4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 4, 'Exento', 1, 1);
 
 -- 6. TIPOS MONEDA
 INSERT INTO tipos_moneda (id, fecha_alta, fecha_modificacion, codigo_afip, denominacion, simbolo, usuario_carga_id, usuario_modificacion_id) VALUES
-(1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'Peso Argentino', '$', 1, 1),
-(2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2, 'Dolar Estadounidense', 'USD', 1, 1),
-(3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 3, 'Euro', 'EUR', 1, 1);
+(1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'Peso Argentino', '$', 1, 1);
 
 -- 7. PUNTOS DE VENTA
 INSERT INTO puntos_venta (id, fecha_alta, fecha_modificacion, descripcion, domicilio_comercial, numero, tipo_emision, usuario_carga_id, usuario_modificacion_id) VALUES
@@ -268,15 +260,15 @@ INSERT INTO factura_venta (id, fecha_alta, fecha_modificacion, cae, cae_fecha_ve
 -- 14. FACTURAS VENTA DETALLE
 INSERT INTO factura_venta_detalle (id, cantidad, descripcion, importe_iva, importe_neto, importe_subtotal, porcentaje_bonificacion, precio_unitario, factura_venta_id, lista_precio_articulo_id) VALUES
 (1, 1, 'Mouse Inalambrico', 260.33, 1239.67, 1500.0, 0.0, 1500.0, 1, 1),
-(2, 1, 'Teclado Gamer', 347.11, 1652.89, 2000.0, 0.0, 2000.0, 1, 7),
+(2, 1, 'Teclado Mecanico', 347.11, 1652.89, 2000.0, 0.0, 2000.0, 1, 7),
 (3, 1, 'TV Samsung 55', 13016.53, 61983.47, 75000.0, 0.0, 75000.0, 2, 2),
 (4, 1, 'Heladera LG', 4338.84, 20661.16, 25000.0, 0.0, 25000.0, 3, 4),
 (5, 2, 'Silla de Madera', 867.77, 4132.23, 5000.0, 0.0, 2500.0, 4, 6),
 (6, 2, 'Celular Samsung A54', 10413.22, 49586.78, 60000.0, 0.0, 30000.0, 5, 3),
 (7, 1, 'Monitor LG 27', 5206.61, 24793.39, 30000.0, 0.0, 30000.0, 6, 5),
 (8, 8, 'Mouse Inalambrico', 2082.64, 9917.36, 12000.0, 0.0, 1500.0, 7, 1),
-(9, 1, 'Silla de Madera', 1388.43, 6611.57, 8000.0, 0.0, 8000.0, 8, 6),
-(10, 1, 'TV Samsung 55', 7809.92, 37190.08, 45000.0, 0.0, 45000.0, 9, 2),
+(9, 4, 'Teclado Mecanico', 1388.43, 6611.57, 8000.0, 0.0, 2000.0, 8, 7),
+(10, 1, 'Impresora HP Laser', 7809.92, 37190.08, 45000.0, 0.0, 45000.0, 9, 19),
 (11, 1, 'Mouse Inalambrico', 260.33, 1239.67, 1500.0, 0.0, 1500.0, 10, 1),
 (12, 2, 'Auriculares Bluetooth', 2950.41, 14049.59, 17000.0, 0.0, 8500.0, 11, 9),
 (13, 1, 'Martillo', 607.44, 2892.56, 3500.0, 0.0, 3500.0, 12, 11),
@@ -294,7 +286,7 @@ INSERT INTO factura_venta_detalle (id, cantidad, descripcion, importe_iva, impor
 (25, 1, 'Auriculares Bluetooth', 1475.21, 7024.79, 8500.0, 0.0, 8500.0, 20, 9),
 (26, 1, 'Monitor LG 27', 5206.61, 24793.39, 30000.0, 0.0, 30000.0, 21, 5),
 (27, 1, 'Silla de Madera', 433.88, 2066.12, 2500.0, 0.0, 2500.0, 22, 6),
-(28, 1, 'Destornillador', 208.26, 991.74, 1200.0, 0.0, 1200.0, 23, 10),
+(28, 1, 'Caja de Lapiceras', 208.26, 991.74, 1200.0, 0.0, 1200.0, 23, 10),
 (29, 1, 'TV Samsung 55', 13016.53, 61983.47, 75000.0, 0.0, 75000.0, 24, 2),
 (30, 10, 'Mouse Inalambrico', 2603.31, 12396.69, 15000.0, 0.0, 1500.0, 25, 1),
 (31, 1, 'Impresora HP Laser', 7809.92, 37190.08, 45000.0, 0.0, 45000.0, 26, 19),

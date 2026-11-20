@@ -13,11 +13,6 @@ build/
 # IDE
 .idea/
 *.iml
- 
-# Documentacion interna
-GEMINI.md
-PLAN_BACKEND.md
-ROADMAP.md
 
 ### Certificados y Claves AFIP ###
 *.key
