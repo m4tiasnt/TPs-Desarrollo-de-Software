@@ -63,7 +63,7 @@ El ciclo de vida de cada factura se rige por el enum `EstadoFactura`:
 
 | Estado | Editar | Informar ARCA | Anular | Eliminar |
 | :--- | :---: | :---: | :---: | :---: |
-| **BORRADOR** | Sí | Sí | Sí | Sí (baja lógica) |
+| **BORRADOR** | Sí | Sí | Sí | Sí (baja física) |
 | **EN_PROCESO** | No | No | No | No |
 | **AUTORIZADA** | No | No | Sí | No |
 | **RECHAZADA** | Sí | Sí | Sí | No |
@@ -201,7 +201,7 @@ Abrir `http://localhost:5173` en el navegador.
 | `GET` | `/api/facturas/{id}/pdf` | Descarga el comprobante individual en PDF (Factura C con QR fiscal). |
 | `POST` | `/api/facturas` | Crea una factura en estado `BORRADOR`. |
 | `PUT` | `/api/facturas/{id}` | Edita cabecera y detalles de una factura editable (`BORRADOR` o `RECHAZADA`). |
-| `DELETE` | `/api/facturas/{id}` | Baja lógica (solo facturas en estado `BORRADOR`). |
+| `DELETE` | `/api/facturas/{id}` | Baja física (solo facturas en estado `BORRADOR`). |
 | `POST` | `/api/facturas/{id}/anular` | Anula una factura (permitido en `BORRADOR`, `RECHAZADA` y `AUTORIZADA`). |
 | `POST` | `/api/facturas/{id}/informar-arca` | Envío de una factura a ARCA (solicita CAE ante WSFEv1 y persiste resultado). |
 | `POST` | `/api/facturas/informar-arca-lote` | Envío masivo de comprobantes a ARCA (procesamiento atómico por factura en el servidor). |

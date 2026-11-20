@@ -207,8 +207,7 @@ public class FacturaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Solo se pueden eliminar facturas en estado Borrador");
         }
-        factura.darDeBaja(obtenerUsuarioParaAuditoria());
-        facturaVentaRepository.save(factura);
+        facturaVentaRepository.delete(factura);
     }
 
     @Transactional

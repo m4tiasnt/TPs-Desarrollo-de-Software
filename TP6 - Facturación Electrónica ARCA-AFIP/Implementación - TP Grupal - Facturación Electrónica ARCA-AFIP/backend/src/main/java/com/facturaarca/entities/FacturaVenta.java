@@ -101,16 +101,6 @@ public class FacturaVenta extends AuditoriaApp {
         this.importeSaldo = 0.0;
     }
 
-    public void darDeBaja(Usuario usuarioBaja) {
-        Date ahora = new Date();
-        this.fechaBaja = ahora;
-        this.fechaModificacion = ahora;
-        if (usuarioBaja != null) {
-            this.usuarioBaja = usuarioBaja;
-            this.usuarioModificacion = usuarioBaja;
-        }
-    }
-
     public void actualizarDatos(String nuevasObservaciones, Cliente nuevoCliente,
                                 CondicionIva nuevaCondicionIva, PuntoVenta nuevoPuntoVenta,
                                 TipoMoneda nuevoTipoMoneda, Usuario usuarioModificacion) {
@@ -127,14 +117,6 @@ public class FacturaVenta extends AuditoriaApp {
         if (nuevoTipoMoneda != null) {
             this.tipoMoneda = nuevoTipoMoneda;
         }
-        this.fechaModificacion = new Date();
-        if (usuarioModificacion != null) {
-            this.usuarioModificacion = usuarioModificacion;
-        }
-    }
-
-    public void marcarEnProceso(Usuario usuarioModificacion) {
-        this.estado = EstadoFactura.EN_PROCESO;
         this.fechaModificacion = new Date();
         if (usuarioModificacion != null) {
             this.usuarioModificacion = usuarioModificacion;

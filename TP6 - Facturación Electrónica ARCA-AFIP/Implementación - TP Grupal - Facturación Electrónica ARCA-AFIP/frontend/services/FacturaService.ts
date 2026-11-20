@@ -117,7 +117,7 @@ export class FacturaService {
         return await response.json();
     }
 
-    /** DELETE /api/facturas/{id} — baja lógica de un borrador. */
+    /** DELETE /api/facturas/{id} — baja física de un borrador. */
     async eliminarFactura(id: number): Promise<void> {
         const response = await fetch(`${this.baseUrl}/${id}`, { method: 'DELETE' });
         if (!response.ok) throw await construirErrorApi(response, `Error al eliminar la factura #${id}`);
