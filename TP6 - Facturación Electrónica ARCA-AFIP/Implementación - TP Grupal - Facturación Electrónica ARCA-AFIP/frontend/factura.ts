@@ -51,7 +51,6 @@ const btnCerrarAlerta = document.getElementById('btn-cerrar-alerta') as HTMLButt
 const linkVolver = document.getElementById('link-volver') as HTMLAnchorElement;
 const btnCancelar = document.getElementById('btn-cancelar') as HTMLButtonElement;
 const btnGuardar = document.getElementById('btn-guardar') as HTMLButtonElement;
-const btnDescargarPdf = document.getElementById('btn-descargar-pdf') as HTMLButtonElement | null;
 const btnInformar = document.getElementById('btn-informar') as HTMLButtonElement;
 const btnEditar = document.getElementById('btn-editar') as HTMLButtonElement;
 const btnMasAcciones = document.getElementById('btn-mas-acciones') as HTMLButtonElement;
@@ -115,6 +114,10 @@ const tablaDetalles = new TablaDetallesFactura({
         resumenNeto.textContent = formatearMoneda(totales.neto);
         resumenIva.textContent = formatearMoneda(totales.iva);
         resumenTotal.textContent = formatearMoneda(totales.total);
+        if (totales.total > 0 && !errorDetalles.hidden) {
+            errorDetalles.hidden = true;
+            verificarYCerrarAlertaValidacion();
+        }
     },
     onAbrirMenuDetalle: (idx, anchor) => {
         abrirMenuDetalle(idx, anchor);
@@ -340,7 +343,11 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         const puedeEliminar = f.estado === 'BORRADOR';
 
         if (btnEditar) btnEditar.disabled = !puedeEditar;
-        if (btnInformar) btnInformar.disabled = !puedeInformar;
+        if (btnInformar) {
+            btnInformar.disabled = !puedeInformar;
+            btnInformar.classList.toggle('btn-primary', puedeInformar);
+            btnInformar.classList.toggle('btn-secondary', !puedeInformar);
+        }
 
         const btnAnular = menuFactura?.querySelector<HTMLButtonElement>('[data-menu="anular"]');
         const btnEliminar = menuFactura?.querySelector<HTMLButtonElement>('[data-menu="eliminar"]');
@@ -368,10 +375,16 @@ async function cargarFacturaExistente(id: number): Promise<void> {
         }
         snapshotInicial = serializarEstado();
     } catch (e) {
+        modoActual = 'ver';
+        document.body.dataset.modo = 'ver';
+        tablaDetalles.setModo('ver');
         tablaDetalles.render();
         tituloPagina.textContent = 'Comprobante no disponible';
-        if (btnDescargarPdf) btnDescargarPdf.disabled = true;
-        if (btnInformar) btnInformar.disabled = true;
+        if (btnInformar) {
+            btnInformar.disabled = true;
+            btnInformar.classList.remove('btn-primary');
+            btnInformar.classList.add('btn-secondary');
+        }
         if (btnEditar) btnEditar.disabled = true;
         if (btnMasAcciones) btnMasAcciones.disabled = true;
         if (btnGuardar) btnGuardar.disabled = true;
@@ -438,7 +451,7 @@ function validar(): boolean {
         if (errorTipoMoneda) errorTipoMoneda.hidden = true;
     }
 
-    const tieneCliente = Boolean(inputClienteId.value || clienteDisplay.value);
+    const tieneCliente = Boolean(inputClienteId.value);
     if (!tieneCliente && !esConsumidorFinal()) {
         errorCliente.hidden = false;
         clienteDisplay.classList.add('is-invalid');
@@ -534,6 +547,18 @@ function abrirConfirmacion(dlg: HTMLDialogElement, textoIdentificador: string): 
     });
 }
 
+async function descargarPdfDesdeDetalle(): Promise<void> {
+    if (facturaId == null) return;
+    const identificador = facturaActual ? obtenerIdentificadorFactura(facturaActual) : `#${facturaId}`;
+    try {
+        toast.info(`Generando PDF de ${identificador}...`);
+        await facturaService.descargarPdf(facturaId);
+        toast.exito(`PDF de ${identificador} descargado correctamente.`);
+    } catch (err) {
+        mostrarAlertaError(err instanceof Error ? err.message : 'No se pudo descargar el PDF de la factura.');
+    }
+}
+
 async function anularDesdeDetalle(): Promise<void> {
     if (facturaId == null || !facturaActual) return;
     if (!(await abrirConfirmacion(document.getElementById('dlg-anular') as HTMLDialogElement, obtenerIdentificadorFactura(facturaActual)))) return;
@@ -614,6 +639,18 @@ function configurarEventos(): void {
         }
     });
 
+    dlgConflicto?.addEventListener('close', () => {
+        if (dlgConflicto.returnValue === 'recargar') {
+            window.location.href = facturaId != null ? `factura.html?id=${facturaId}&modo=ver` : 'index.html';
+        }
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-cerrar-dialogo]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            btn.closest('dialog')?.close('cancelar');
+        });
+    });
+
     btnAbrirModalCliente?.addEventListener('click', () => modalCliente.abrir());
     clienteDisplay?.addEventListener('click', () => {
         if (!clienteDisplay.disabled) modalCliente.abrir();
@@ -645,23 +682,6 @@ function configurarEventos(): void {
         }
     });
 
-    btnDescargarPdf?.addEventListener('click', async () => {
-        if (facturaId == null || btnDescargarPdf.disabled) return;
-        const span = btnDescargarPdf.querySelector('span');
-        const textoOriginal = span?.textContent ?? 'Descargar PDF';
-        try {
-            btnDescargarPdf.disabled = true;
-            if (span) span.textContent = 'Generando...';
-            await facturaService.descargarPdf(facturaId);
-            toast.exito('PDF descargado correctamente.');
-        } catch (err) {
-            mostrarAlertaError(err instanceof Error ? err.message : 'No se pudo descargar el PDF de la factura.');
-        } finally {
-            btnDescargarPdf.disabled = false;
-            if (span) span.textContent = textoOriginal;
-        }
-    });
-
     btnMasAcciones?.addEventListener('click', (e) => {
         e.stopPropagation();
         menuFactura.hidden = !menuFactura.hidden;
@@ -671,6 +691,7 @@ function configurarEventos(): void {
         const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-menu]');
         if (!btn || btn.disabled) return;
         menuFactura.hidden = true;
+        if (btn.dataset.menu === 'pdf') void descargarPdfDesdeDetalle();
         if (btn.dataset.menu === 'anular') void anularDesdeDetalle();
         if (btn.dataset.menu === 'eliminar') void eliminarDesdeDetalle();
     });
@@ -757,6 +778,13 @@ function configurarEventos(): void {
                 dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
                     el.hidden = el.getAttribute('data-fase') !== 'resultado';
                 });
+                if (!dlgInformar.open) {
+                    if (r.estado === 'AUTORIZADA') {
+                        toast.exito('Factura informada correctamente a ARCA.');
+                    } else {
+                        toast.error(r.motivoRechazo || r.mensaje || 'La factura fue rechazada por ARCA.');
+                    }
+                }
                 await cargarFacturaExistente(facturaId);
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : 'Hubo un problema de conexión. La factura conserva su estado para que puedas volver a intentar.';
@@ -765,6 +793,9 @@ function configurarEventos(): void {
                 dlgInformar.querySelectorAll<HTMLElement>('[data-fase]').forEach((el) => {
                     el.hidden = el.getAttribute('data-fase') !== 'error';
                 });
+                if (!dlgInformar.open) {
+                    toast.error(msg);
+                }
                 await cargarFacturaExistente(facturaId);
             } finally {
                 informandoDetalleEnCurso = false;
@@ -862,7 +893,6 @@ async function init(): Promise<void> {
             modoActual = 'ver';
             document.body.dataset.modo = 'ver';
             tituloPagina.textContent = 'Comprobante no disponible';
-            if (btnDescargarPdf) btnDescargarPdf.disabled = true;
             if (btnInformar) btnInformar.disabled = true;
             if (btnEditar) btnEditar.disabled = true;
             if (btnMasAcciones) btnMasAcciones.disabled = true;

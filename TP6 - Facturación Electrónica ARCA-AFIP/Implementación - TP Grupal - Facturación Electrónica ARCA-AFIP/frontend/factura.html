@@ -154,10 +154,6 @@
                             aria-hidden="true">
                             <use href="#i-check" />
                         </svg> <span>Guardar factura</span></button>
-                    <button type="button" class="btn btn-secondary solo-ver" id="btn-descargar-pdf"><svg class="icon"
-                            aria-hidden="true">
-                            <use href="#i-download" />
-                        </svg> <span>Descargar PDF</span></button>
                     <button type="button" class="btn btn-secondary solo-ver" id="btn-informar"><svg class="icon"
                             aria-hidden="true">
                             <use href="#i-send" />
@@ -174,6 +170,10 @@
                             </svg></button>
                         <ul class="dropdown-menu" id="menu-factura" role="menu" aria-label="Acciones de la factura"
                             hidden>
+                            <li role="none"><button type="button" class="dropdown-item" role="menuitem"
+                                    data-menu="pdf"><svg class="icon" aria-hidden="true">
+                                        <use href="#i-download" />
+                                    </svg> Descargar PDF</button></li>
                             <li role="none"><button type="button" class="dropdown-item" role="menuitem"
                                     data-menu="anular"><svg class="icon" aria-hidden="true">
                                         <use href="#i-ban" />
@@ -432,7 +432,6 @@
                 <strong data-campo="articuloDenominacion"></strong>
                 <span class="line-meta" data-campo="articuloMeta"></span>
                 <span class="line-meta line-meta--desc" data-campo="articuloDescripcion" hidden></span>
-                <span class="line-meta line-warning" data-campo="advertencia" hidden></span>
                 <input type="hidden" name="articuloId" data-campo="articuloId">
                 <input type="hidden" name="listaPrecioArticuloId" data-campo="listaPrecioArticuloId">
             </td>
@@ -507,8 +506,8 @@
                     según la lista elegida.</p>
             </div>
             <div class="dialog-actions">
-                <button class="btn btn-secondary" value="cancelar">Cancelar</button>
-                <button class="btn btn-primary" value="confirmar">Guardar</button>
+                <button type="button" class="btn btn-secondary" data-cerrar-dialogo>Cancelar</button>
+                <button type="submit" class="btn btn-primary" value="confirmar">Guardar</button>
             </div>
         </form>
     </dialog>
@@ -525,8 +524,8 @@
                 <input class="form-control" type="text" id="edit-descripcion" name="descripcion" placeholder="Opcional">
             </div>
             <div class="dialog-actions">
-                <button class="btn btn-secondary" value="cancelar">Cancelar</button>
-                <button class="btn btn-primary" value="confirmar">Guardar</button>
+                <button type="button" class="btn btn-secondary" data-cerrar-dialogo>Cancelar</button>
+                <button type="submit" class="btn btn-primary" value="confirmar">Guardar</button>
             </div>
         </form>
     </dialog>
