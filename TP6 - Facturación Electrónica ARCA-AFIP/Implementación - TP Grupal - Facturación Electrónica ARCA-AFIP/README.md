@@ -17,31 +17,34 @@ Sistema integral de facturación de venta compuesto por un **backend** Spring Bo
 │   │   │   ├── ArcaWsfeClient.java           # WSFEv1: FECompUltimoAutorizado y FECAESolicitar
 │   │   │   └── ResultadoAutorizacionArca.java# DTO técnico del resultado fiscal
 │   │   ├── wsfe/                             # Clases SOAP generadas automáticamente del WSDL oficial
-│   │   ├── controllers/                      # Controladores REST (*RestController)
+│   │   ├── config/                           # Configuración MVC y CORS centralizada (WebConfig)
+│   │   ├── controllers/                      # Controladores REST (*RestController) y ManejadorErrores
 │   │   ├── dto/                              # DTOs de entrada, salida y paginación
 │   │   ├── entities/                         # Entidades JPA del modelo de dominio
 │   │   ├── enums/                            # EstadoFactura y reglas de negocio
-│   │   ├── repository/                       # Repositorios Spring Data JPA
-│   │   └── services/                         # Lógica de facturación (FacturaService), ARCA (ArcaService) y reportes
+│   │   ├── repository/                       # Repositorios Spring Data JPA y consultas dinámicas
+│   │   ├── services/                         # Lógica de negocio (FacturaService, CatalogoService, ClienteService, ArcaService, FacturaPdfService, ReporteService)
+│   │   └── util/                             # Utilidades de formato de comprobante y escape SQL
 │   ├── src/main/resources/application.properties
-│   ├── db/poblar_db.sql                      # Script de inicialización y datos demo
+│   ├── src/main/resources/poblar_db.sql      # Script de inicialización y datos demo
 │   ├── afip_private.key                      # Clave privada RSA para WSAA (ignorado en git)
 │   ├── afip_certificado.crt                  # Certificado X.509 de testing (ignorado en git)
 │   └── build.gradle
 └── frontend/                                 # Cliente Web (TypeScript + HTML5 + Vite)
+    ├── config.ts                             # URL base de la API REST (VITE_API_URL)
     ├── index.html                            # Listado de facturas, filtros y acciones
     ├── listado.ts                            # Controlador de vista de listado
     ├── factura.html                          # Formulario de alta, edición y detalle
     ├── factura.ts                            # Controlador de vista de formulario
     ├── styles.css                            # Sistema de diseño y layout responsivo
     ├── components/                           # Componentes desacoplados
-    │   ├── BuscadorArticuloCombobox.ts       # Autocompletado accesible con debounce
+    │   ├── BuscadorArticuloModal.ts          # Modal paginado de artículos
     │   ├── BuscadorClienteModal.ts           # Modal con paginación integrada
     │   ├── NotificadorToast.ts               # Feedback no intrusivo (toasts)
     │   ├── PaginadorControl.ts               # Barra de paginación numérica
     │   └── TablaDetallesFactura.ts           # Tabla reactiva de artículos y totales
+    ├── models/                               # Modelos de dominio (Factura, FacturaDetalle) y DTOs (api.dto.ts)
     ├── utils/                                # Utilidades de cálculo, formato y DOM
-    ├── models/api.dto.ts                     # DTOs sincronizados con el backend
     ├── services/                             # Clientes HTTP REST desacoplados por dominio
     │   ├── FacturaService.ts                 # Operaciones de facturas y autorización ARCA
     │   ├── ClienteService.ts                 # Búsqueda paginada de clientes
@@ -62,14 +65,16 @@ El ciclo de vida de cada factura se rige por el enum `EstadoFactura`:
 | :--- | :---: | :---: | :---: | :---: |
 | **BORRADOR** | Sí | Sí | Sí | Sí (baja lógica) |
 | **EN_PROCESO** | No | No | No | No |
-| **AUTORIZADA** | No | No | No | No |
+| **AUTORIZADA** | No | No | Sí | No |
 | **RECHAZADA** | Sí | Sí | Sí | No |
 | **ANULADA** | No | No | No | No |
 
+- El sistema emite comprobantes **Factura C (COD. 011)** en **Pesos Argentinos ($)**.
 - El número correlativo y la fecha de emisión son asignados cuando ARCA autoriza el comprobante; hasta ese momento permanecen nulos y la UI muestra el identificador provisorio `Borrador #ID`.
 - Al informar a ARCA, el estado pasa transitoriamente a `EN_PROCESO`, se consulta el último comprobante autorizado, se solicita el CAE mediante WSFEv1 y se persiste como `AUTORIZADA` o `RECHAZADA` según la respuesta del fisco.
 - Tanto en el envío individual como en el lote masivo (`/api/facturas/informar-arca-lote`), la orquestación corre íntegramente en el backend con transacciones independientes (`TransactionTemplate`): si una factura es rechazada o el usuario cierra el navegador, las demás continúan procesándose y las autorizadas conservan su CAE legal.
 - Las facturas rechazadas permiten corregir cliente, detalles o listas de precios para su posterior reintento.
+- Una factura autorizada no puede editarse ni eliminarse, pero admite anulación lógica en el sistema (`ANULADA`).
 
 ---
 
@@ -92,10 +97,10 @@ Deberán copiarse localmente dentro de la carpeta `backend/` con los siguientes 
 - `backend/afip_private.key`: Clave privada RSA generada con OpenSSL (sin passphrase o cifrado).
 - `backend/afip_certificado.crt`: Certificado digital X.509 emitido por ARCA para el ambiente de homologación (Testing).
 
-> **Aviso:** Si el servidor se inicia sin estos archivos, la aplicación funcionará normalmente para la gestión local de borradores y catálogos, pero al momento de intentar autorizar una factura mediante ARCA se informará de forma prolija que faltan las credenciales.
+> **Aviso:** Si `ARCA_CUIT` está configurado pero faltan los archivos `.key` / `.crt`, el servidor arranca normalmente para la gestión local de borradores y catálogos, e informará de forma prolija que faltan las credenciales al intentar autorizar una factura mediante ARCA.
 
 ### 2. Variable de Entorno Obligatoria (`ARCA_CUIT`)
-El backend requiere que el CUIT emisor asociado al certificado esté definido en el entorno. No posee valor por defecto para evitar arranques accidentales con identificadores no autorizados.
+El backend requiere obligatoriamente que el CUIT emisor asociado al certificado esté definido en el entorno para arrancar. No posee valor por defecto para evitar arranques accidentales con identificadores fijos o no autorizados.
 
 **Opción A: Ejecución por consola en Windows**
 - **PowerShell:**
@@ -117,7 +122,7 @@ El backend requiere que el CUIT emisor asociado al certificado esté definido en
   2. Seleccionar la aplicación Spring Boot (`FacturaArcaApplication`).
   3. En la sección **Environment variables**, hacer clic en el botón de edición y agregar:
      - Nombre: `ARCA_CUIT`
-     - Valor: `TU_CUIT_SIN_GUIONES` (ej. `20468665647`)
+     - Valor: `TU_CUIT_SIN_GUIONES` (ej. `20111111112`)
   4. Clic en `Apply` y ejecutar con el botón verde Play.
 - **VS Code:**
   Dentro de `.vscode/launch.json`, configurar el parámetro `"env"`:
@@ -193,10 +198,11 @@ Abrir `http://localhost:5173` en el navegador.
 | :--- | :--- | :--- |
 | `GET` | `/api/facturas` | Listado paginado con filtros (`fechaDesde`, `fechaHasta`, `estado`, `montoMinimo`, `clienteId`, `busqueda`, `informadaArca`, `pagina`, `tamanio`). |
 | `GET` | `/api/facturas/{id}` | Detalle completo de una factura con sus artículos y totales. |
+| `GET` | `/api/facturas/{id}/pdf` | Descarga el comprobante individual en PDF (Factura C con QR fiscal). |
 | `POST` | `/api/facturas` | Crea una factura en estado `BORRADOR`. |
 | `PUT` | `/api/facturas/{id}` | Edita cabecera y detalles de una factura editable (`BORRADOR` o `RECHAZADA`). |
 | `DELETE` | `/api/facturas/{id}` | Baja lógica (solo facturas en estado `BORRADOR`). |
-| `POST` | `/api/facturas/{id}/anular` | Anula una factura (permitido en `BORRADOR` y `RECHAZADA`). |
+| `POST` | `/api/facturas/{id}/anular` | Anula una factura (permitido en `BORRADOR`, `RECHAZADA` y `AUTORIZADA`). |
 | `POST` | `/api/facturas/{id}/informar-arca` | Envío de una factura a ARCA (solicita CAE ante WSFEv1 y persiste resultado). |
 | `POST` | `/api/facturas/informar-arca-lote` | Envío masivo de comprobantes a ARCA (procesamiento atómico por factura en el servidor). |
 
@@ -206,10 +212,12 @@ Abrir `http://localhost:5173` en el navegador.
 | :--- | :--- | :--- |
 | `GET` | `/api/clientes/buscar` | Búsqueda paginada de clientes por razón social o CUIT. |
 | `GET` | `/api/articulos` | Búsqueda de artículos filtrada por lista de precios (mínimo 3 caracteres). |
+| `GET` | `/api/articulos/buscar` | Búsqueda paginada de artículos por código, denominación o marca y lista de precios. |
 | `GET` | `/api/articulos/{id}/listas-precio` | Listas de precios disponibles para un artículo. |
+| `GET` | `/api/listas-precio` | Catálogo de listas de precios activas. |
 | `GET` | `/api/puntos-venta` | Catálogo de puntos de venta configurados. |
 | `GET` | `/api/condiciones-iva` | Catálogo de condiciones de IVA (AFIP). |
-| `GET` | `/api/tipos-moneda` | Catálogo de monedas (Pesos, Dólar, etc.). |
+| `GET` | `/api/tipos-moneda` | Catálogo de monedas (Peso Argentino). |
 
 ### Reportes Consolidados
 
