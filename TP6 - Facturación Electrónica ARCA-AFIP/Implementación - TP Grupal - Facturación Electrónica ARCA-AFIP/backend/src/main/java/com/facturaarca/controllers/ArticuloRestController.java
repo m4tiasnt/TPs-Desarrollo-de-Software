@@ -3,35 +3,24 @@ package com.facturaarca.controllers;
 import com.facturaarca.dto.ArticuloPrecioDTO;
 import com.facturaarca.dto.ListaPrecioArticuloDTO;
 import com.facturaarca.dto.RespuestaPaginadaDTO;
-import com.facturaarca.repository.ArticuloRepository;
-import com.facturaarca.repository.ListaPrecioArticuloRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
+import com.facturaarca.services.CatalogoService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/articulos")
-@CrossOrigin(origins = "*")
 public class ArticuloRestController {
 
-    private final ArticuloRepository articuloRepository;
-    private final ListaPrecioArticuloRepository listaPrecioArticuloRepository;
+    private final CatalogoService catalogoService;
 
-    public ArticuloRestController(ArticuloRepository articuloRepository,
-            ListaPrecioArticuloRepository listaPrecioArticuloRepository) {
-        this.articuloRepository = articuloRepository;
-        this.listaPrecioArticuloRepository = listaPrecioArticuloRepository;
+    public ArticuloRestController(CatalogoService catalogoService) {
+        this.catalogoService = catalogoService;
     }
 
     /**
@@ -44,34 +33,15 @@ public class ArticuloRestController {
             @RequestParam(required = false, defaultValue = "") String termino,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {
-        String qCodigo = codigo != null ? codigo.trim() : "";
-        String qTermino = termino != null ? termino.trim() : "";
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
-
-        Page<ArticuloPrecioDTO> resultado = articuloRepository
-                .buscarPaginadoPorListaPrecio(qCodigo, qTermino, listaPrecioId, pageable);
-
-        RespuestaPaginadaDTO<ArticuloPrecioDTO> respuesta = RespuestaPaginadaDTO.<ArticuloPrecioDTO>builder()
-                .contenido(resultado.getContent())
-                .paginaActual(resultado.getNumber())
-                .tamanioPagina(resultado.getSize())
-                .totalElementos(resultado.getTotalElements())
-                .totalPaginas(resultado.getTotalPages())
-                .build();
-
-        return ResponseEntity.ok(respuesta);
+        return ResponseEntity.ok(
+                catalogoService.buscarArticulosPaginados(listaPrecioId, codigo, termino, page, size));
     }
 
     /**
      * Listas de precios disponibles para un artículo.
-     * Lo usa el formulario de alta para que el usuario elija con qué lista
-     * se cotiza cada detalle.
      */
     @GetMapping("/{id}/listas-precio")
     public List<ListaPrecioArticuloDTO> listasPrecio(@PathVariable Long id) {
-        if (!articuloRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Artículo no encontrado con id: " + id);
-        }
-        return listaPrecioArticuloRepository.buscarListasPrecioPorArticulo(id);
+        return catalogoService.obtenerListasPrecioDeArticulo(id);
     }
 }
