@@ -1,3 +1,5 @@
+import { FacturaFiltrosDTO } from '../models/api.dto';
+import { API_BASE_URL } from '../config';
 import { construirErrorApi } from './api-utils';
 
 /**
@@ -6,17 +8,34 @@ import { construirErrorApi } from './api-utils';
 export class ReporteService {
     private readonly baseUrl: string;
 
-    constructor(baseUrl: string = 'http://localhost:8080/api/reportes') {
+    constructor(baseUrl: string = `${API_BASE_URL}/reportes`) {
         this.baseUrl = baseUrl.replace(/\/+$/, '');
     }
 
     /**
-     * Descarga el reporte consolidado de facturas en formato PDF o Excel.
+     * Descarga el reporte consolidado de facturas en formato PDF o Excel aplicando los filtros activos.
      * Genera un Blob desde el endpoint REST y activa la descarga automática en el navegador.
      */
-    async descargarReporte(tipo: 'pdf' | 'excel'): Promise<void> {
+    async descargarReporte(tipo: 'pdf' | 'excel', filtros?: FacturaFiltrosDTO): Promise<void> {
         const extension = tipo === 'excel' ? 'xlsx' : 'pdf';
-        const url = `${this.baseUrl}/facturas/${tipo}`;
+        const params = new URLSearchParams();
+        if (filtros) {
+            if (filtros.fechaDesde) params.append('fechaDesde', filtros.fechaDesde);
+            if (filtros.fechaHasta) params.append('fechaHasta', filtros.fechaHasta);
+            if (filtros.estado) params.append('estado', filtros.estado);
+            if (filtros.montoMinimo !== undefined && filtros.montoMinimo !== null) {
+                params.append('montoMinimo', String(filtros.montoMinimo));
+            }
+            if (filtros.clienteId !== undefined && filtros.clienteId !== null) {
+                params.append('clienteId', String(filtros.clienteId));
+            }
+            if (filtros.busqueda) params.append('busqueda', filtros.busqueda);
+            if (filtros.informadaArca !== undefined && filtros.informadaArca !== null) {
+                params.append('informadaArca', String(filtros.informadaArca));
+            }
+        }
+        const query = params.toString();
+        const url = query ? `${this.baseUrl}/facturas/${tipo}?${query}` : `${this.baseUrl}/facturas/${tipo}`;
         const response = await fetch(url);
         if (!response.ok) {
             throw await construirErrorApi(response, `Error al generar el reporte ${tipo.toUpperCase()}`);

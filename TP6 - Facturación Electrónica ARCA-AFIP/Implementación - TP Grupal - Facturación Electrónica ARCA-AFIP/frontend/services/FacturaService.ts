@@ -6,6 +6,7 @@ import {
     ResultadoAutorizacionDTO,
     RespuestaPaginadaDTO
 } from '../models/api.dto';
+import { API_BASE_URL } from '../config';
 import { ApiError, construirErrorApi } from './api-utils';
 
 export { ApiError };
@@ -17,7 +18,7 @@ export { ApiError };
 export class FacturaService {
     private readonly baseUrl: string;
 
-    constructor(baseUrl: string = 'http://localhost:8080/api/facturas') {
+    constructor(baseUrl: string = `${API_BASE_URL}/facturas`) {
         this.baseUrl = baseUrl.replace(/\/+$/, '');
     }
 
@@ -62,6 +63,30 @@ export class FacturaService {
         const response = await fetch(`${this.baseUrl}/${id}`, { headers: { Accept: 'application/json' } });
         if (!response.ok) throw await construirErrorApi(response, `Error al obtener la factura #${id}`);
         return await response.json();
+    }
+
+    /** GET /api/facturas/{id}/pdf — descarga el comprobante individual en formato PDF. */
+    async descargarPdf(id: number): Promise<void> {
+        const response = await fetch(`${this.baseUrl}/${id}/pdf`);
+        if (!response.ok) throw await construirErrorApi(response, `Error al generar el PDF de la factura #${id}`);
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = downloadUrl;
+
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `factura_${id}.pdf`;
+        if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            if (match?.[1]) filename = match[1];
+        }
+
+        enlace.download = filename;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
     }
 
     /** POST /api/facturas — guarda una factura en estado BORRADOR. */

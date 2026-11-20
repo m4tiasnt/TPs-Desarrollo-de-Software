@@ -1,4 +1,5 @@
 import { ArticuloPrecioDTO, ListaPrecioArticuloDTO, RespuestaPaginadaDTO } from '../models/api.dto';
+import { API_BASE_URL } from '../config';
 import { construirErrorApi } from './api-utils';
 
 export interface FiltrosArticulo {
@@ -13,8 +14,8 @@ export interface FiltrosArticulo {
 export class ArticuloService {
     private readonly baseUrl: string;
 
-    constructor(baseUrl: string = 'http://localhost:8080/api/articulos') {
-        this.baseUrl = baseUrl;
+    constructor(baseUrl: string = `${API_BASE_URL}/articulos`) {
+        this.baseUrl = baseUrl.replace(/\/+$/, '');
     }
 
     /** GET /api/articulos/buscar?listaPrecioId=&codigo=&termino=&page=&size= — búsqueda paginada. */

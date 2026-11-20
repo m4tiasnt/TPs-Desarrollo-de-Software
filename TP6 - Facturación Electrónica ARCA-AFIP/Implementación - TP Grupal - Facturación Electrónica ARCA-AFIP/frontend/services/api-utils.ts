@@ -10,16 +10,15 @@ export class ApiError extends Error {
     }
 }
 
-/** Construye un ApiError leyendo el `{ mensaje }` del backend si existe. */
+/** Construye un ApiError priorizando el `{ mensaje }` amigable enviado por el backend. */
 export async function construirErrorApi(response: Response, contexto: string): Promise<ApiError> {
-    let detalle = response.statusText;
     try {
         const cuerpo = await response.json();
-        if (cuerpo && typeof cuerpo.mensaje === 'string') {
-            detalle = cuerpo.mensaje;
+        if (cuerpo && typeof cuerpo.mensaje === 'string' && cuerpo.mensaje.trim()) {
+            return new ApiError(response.status, cuerpo.mensaje.trim());
         }
     } catch {
-        // La respuesta no era JSON: nos quedamos con el statusText.
+        // La respuesta no era JSON: usamos el mensaje contextual.
     }
-    return new ApiError(response.status, `${contexto} (${response.status}): ${detalle}`);
+    return new ApiError(response.status, contexto);
 }

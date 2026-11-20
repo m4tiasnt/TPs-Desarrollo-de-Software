@@ -1,4 +1,5 @@
 import { ClienteDTO, RespuestaPaginadaDTO } from '../models/api.dto';
+import { API_BASE_URL } from '../config';
 import { construirErrorApi } from './api-utils';
 
 export interface FiltrosCliente {
@@ -12,8 +13,8 @@ export interface FiltrosCliente {
 export class ClienteService {
     private readonly baseUrl: string;
 
-    constructor(baseUrl: string = 'http://localhost:8080/api/clientes') {
-        this.baseUrl = baseUrl;
+    constructor(baseUrl: string = `${API_BASE_URL}/clientes`) {
+        this.baseUrl = baseUrl.replace(/\/+$/, '');
     }
 
     /** GET /api/clientes/buscar?cuit=&razonSocial=&page=&size= — búsqueda paginada de clientes. */

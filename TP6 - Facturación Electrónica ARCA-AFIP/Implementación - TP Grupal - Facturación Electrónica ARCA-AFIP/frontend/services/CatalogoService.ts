@@ -4,6 +4,7 @@ import {
     PuntoVentaDTO,
     TipoMonedaDTO
 } from '../models/api.dto';
+import { API_BASE_URL } from '../config';
 import { construirErrorApi } from './api-utils';
 
 /**
@@ -12,7 +13,7 @@ import { construirErrorApi } from './api-utils';
 export class CatalogoService {
     private readonly apiBase: string;
 
-    constructor(apiBase: string = 'http://localhost:8080/api') {
+    constructor(apiBase: string = API_BASE_URL) {
         this.apiBase = apiBase.replace(/\/+$/, '');
     }
 
