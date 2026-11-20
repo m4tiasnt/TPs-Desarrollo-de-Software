@@ -27,6 +27,20 @@ export function formatearFecha(valor: string | null | undefined): string {
 }
 
 /**
+ * Formatea el número de punto de venta a 5 dígitos según RG 4291 (ej: 00001).
+ */
+export function formatearPuntoVenta(puntoVenta: number | null | undefined): string {
+    return String(puntoVenta || 1).padStart(5, '0');
+}
+
+/**
+ * Formatea el número de comprobante fiscal completo (ej: 00001-00000042).
+ */
+export function formatearNumeroComprobante(puntoVenta: number | null | undefined, numero: number): string {
+    return `${formatearPuntoVenta(puntoVenta)}-${String(numero).padStart(8, '0')}`;
+}
+
+/**
  * Devuelve el número formal de la factura o "Borrador #ID" si todavía no tiene número asignado.
  */
 export function obtenerIdentificadorFactura(factura: { id: number; numeroComprobante?: string | null }): string {

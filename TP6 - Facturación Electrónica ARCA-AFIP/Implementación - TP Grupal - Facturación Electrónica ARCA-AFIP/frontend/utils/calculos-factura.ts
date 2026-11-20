@@ -28,6 +28,15 @@ export function calcularSubtotalDetalle(detalle: DetalleCalculable): number {
 }
 
 /**
+ * Calcula el IVA (21% incluido en el precio) de un detalle individual.
+ */
+export function calcularIvaDetalle(detalle: DetalleCalculable): number {
+    const subtotal = calcularSubtotalDetalle(detalle);
+    const neto = redondear(subtotal / 1.21);
+    return redondear(subtotal - neto);
+}
+
+/**
  * Totales globales de una factura.
  */
 export interface TotalesFactura {

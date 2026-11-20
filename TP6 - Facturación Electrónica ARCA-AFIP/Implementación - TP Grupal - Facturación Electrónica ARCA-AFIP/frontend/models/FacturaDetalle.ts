@@ -3,7 +3,7 @@ import {
     FacturaVentaDetalleDTO,
     FacturaVentaDetalleRequestDTO
 } from './api.dto';
-import { calcularSubtotalDetalle, DetalleCalculable } from '../utils/calculos-factura';
+import { calcularIvaDetalle, calcularSubtotalDetalle, DetalleCalculable } from '../utils/calculos-factura';
 
 export interface FacturaDetalleProps {
     articuloId: number;
@@ -97,6 +97,10 @@ export class FacturaDetalle implements DetalleCalculable {
         return calcularSubtotalDetalle(this);
     }
 
+    calcularIva(): number {
+        return calcularIvaDetalle(this);
+    }
+
     toRequestDTO(): FacturaVentaDetalleRequestDTO {
         return {
             articuloId: this.articuloId,
@@ -108,7 +112,7 @@ export class FacturaDetalle implements DetalleCalculable {
     }
 
     private static normalizarCantidad(valor: number): number {
-        return Number.isFinite(valor) && valor >= 1 ? valor : 1;
+        return Number.isFinite(valor) && valor >= 1 ? Math.round(valor) : 1;
     }
 
     private static normalizarBonificacion(valor: number): number {

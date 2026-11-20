@@ -76,7 +76,7 @@ export class Factura {
      * Si ya existe un renglón con el mismo artículo y la misma lista de precios,
      * no agrega uno nuevo: incrementa su cantidad.
      */
-    agregarDetalle(detalle: FacturaDetalle): ResultadoAgregarDetalle {
+    agregarDetalle(detalle: FacturaDetalle, alInicio: boolean = true): ResultadoAgregarDetalle {
         const indice = detalle.articuloId > 0
             ? this._detalles.findIndex(
                 (d) =>
@@ -86,6 +86,15 @@ export class Factura {
             : -1;
 
         if (indice === -1) {
+            if (alInicio) {
+                this._detalles.unshift(detalle);
+                return {
+                    fusionado: false,
+                    indice: 0,
+                    cantidad: detalle.cantidad,
+                    detalle
+                };
+            }
             this._detalles.push(detalle);
             return {
                 fusionado: false,
@@ -108,7 +117,7 @@ export class Factura {
     setDetalles(detalles: FacturaDetalle[]): void {
         this._detalles = [];
         for (const detalle of detalles) {
-            this.agregarDetalle(detalle);
+            this.agregarDetalle(detalle, false);
         }
     }
 
@@ -122,9 +131,9 @@ export class Factura {
         }
     }
 
-    actualizarDetalle(indice: number, cambios: Partial<FacturaDetalleProps>): void {
+    actualizarDetalle(indice: number, cambios: Partial<FacturaDetalleProps>): ResultadoAgregarDetalle | null {
         const actual = this._detalles[indice];
-        if (!actual) return;
+        if (!actual) return null;
 
         if (cambios.listaPrecioArticuloId !== undefined) {
             actual.listaPrecioArticuloId = cambios.listaPrecioArticuloId;
@@ -144,6 +153,34 @@ export class Factura {
         if (cambios.porcentajeBonificacion !== undefined) {
             actual.setPorcentajeBonificacion(cambios.porcentajeBonificacion);
         }
+
+        if (actual.articuloId > 0) {
+            const idxDuplicado = this._detalles.findIndex(
+                (d, i) =>
+                    i !== indice &&
+                    d.articuloId === actual.articuloId &&
+                    d.listaPrecioArticuloId === actual.listaPrecioArticuloId
+            );
+            if (idxDuplicado !== -1) {
+                const existente = this._detalles[idxDuplicado];
+                const cantidadFinal = existente.incrementarCantidad(actual.cantidad);
+                this._detalles.splice(indice, 1);
+                const indiceFinal = indice < idxDuplicado ? idxDuplicado - 1 : idxDuplicado;
+                return {
+                    fusionado: true,
+                    indice: indiceFinal,
+                    cantidad: cantidadFinal,
+                    detalle: existente
+                };
+            }
+        }
+
+        return {
+            fusionado: false,
+            indice,
+            cantidad: actual.cantidad,
+            detalle: actual
+        };
     }
 
     calcularTotales(): TotalesFactura {
